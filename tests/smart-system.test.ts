@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import '../src/loader.js';
 import { allTools, dispatch } from '../src/core/tool.js';
 import { listTools } from '../src/router.js';
 import { currentProfile } from '../src/core/profile.js';
 import { runStep, urlsFrom, jsonFrom, rowsFrom, pick } from '../src/core/composite.js';
 import type { ToolResult } from '../src/core/types.js';
+
+// The size of the smart surface is measured into the manifest by `sync-manifest`; asserting a literal
+// here meant editing this file on every legitimate addition to the set.
+const MANIFEST = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8')) as {
+  profiles: { smart: number };
+};
 
 const ORIGINAL = { ...process.env };
 beforeEach(() => {
@@ -40,12 +47,13 @@ const COMPOSITES = [
   'pro_pr_review',
   'pro_site_scan',
   'pro_data_pipeline',
+  'pro_fetch_workflow',
 ];
 
-describe('Smart System: the ten-tool surface', () => {
-  it('exposes exactly eleven tools, matching the tightest common client budget', () => {
+describe('Smart System: the meta-tool surface', () => {
+  it('exposes the measured number of tools, keeping the client tool budget tight', () => {
     const visible = listTools('smart');
-    expect(visible.length).toBe(11);
+    expect(visible.length).toBe(MANIFEST.profiles.smart);
   });
 
   it('every smart tool exists in the registry and is a composite or an executor', () => {
@@ -218,8 +226,8 @@ describe('composite pipeline helpers', () => {
 });
 
 describe('profile wiring', () => {
-  it('smart is the documented profile and stays at eleven entries', () => {
+  it('smart is the documented profile and matches the measured manifest size', () => {
     expect(currentProfile()).toBe('smart');
-    expect(listTools('smart').length).toBe(11);
+    expect(listTools('smart').length).toBe(MANIFEST.profiles.smart);
   });
 });

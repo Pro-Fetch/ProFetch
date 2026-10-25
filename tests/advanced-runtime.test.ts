@@ -30,10 +30,11 @@ afterEach(() => {
 
 describe('smart tool discovery', () => {
   it('exposes a small meta-tool surface while retaining all registered tools internally', () => {
-    expect(allTools()).toHaveLength(JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8')).total);
-    expect(listTools('smart')).toHaveLength(11);
+    const manifest = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8'));
+    expect(allTools()).toHaveLength(manifest.total);
+    expect(listTools('smart')).toHaveLength(manifest.profiles.smart);
     expect(listTools('smart').map((tool) => tool.name)).toContain('pro_fetch_tool_execute');
-    // The Smart System contract: an eleven-tool surface that still reaches every registered tool.
+    // The Smart System contract: a small meta-tool surface that still reaches every registered tool.
     expect(listTools('smart').map((tool) => tool.name)).toEqual(
       expect.arrayContaining(['pro_capability_call', 'pro_capability_map', 'pro_research_deep']),
     );

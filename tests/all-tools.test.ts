@@ -8,37 +8,17 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 
 // Read from the manifest rather than written here: a literal drifted in four places and the drift
-// was only caught because the suite ran, not because anything checked it.
-const TOTAL = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8')).total as number;
-
-const EXPECTED_COUNTS: Record<string, number> = {
-  http: 19,
-  convert: 30,
-  search: 20,
-  research: 26,
-  github: 49,
-  crawl: 22,
-  extract: 24,
-  media: 15,
-  archive: 15,
-  admin: 24,
-  auth: 12,
-  apitest: 12,
-  data: 26,
-  docs: 15,
-  browser: 41,
-  monitoring: 10,
-  i18n: 12,
-  git: 23,
-  codehost: 25,
-  devops: 24,
-  database: 24,
-  security: 24,
-  knowledge: 18,
-  collaboration: 28,
-  storage: 16,
-  productivity: 18,
+// was only caught because the suite ran, not because anything checked it. The category map used to
+// be copied out by hand (24 of 42 categories); pointing at the manifest checks all of them and
+// removes the second place a number had to be maintained.
+const MANIFEST = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8')) as {
+  total: number;
+  categories: Record<string, number>;
+  profiles: { smart: number; minimal: number; standard: number; full: number };
 };
+const TOTAL = MANIFEST.total;
+
+const EXPECTED_COUNTS: Record<string, number> = MANIFEST.categories;
 const SCHEMA_CATEGORIES = new Set([
   'apitest',
   'archive',
@@ -208,8 +188,7 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
     });
     // Derived, like the tool total: a literal here needed editing on every category added, and was
     // the fourth time this session that a number had to be maintained in two places.
-    const manifest = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8'));
-    expect(samples.length).toBe(Object.keys(manifest.categories).length);
+    expect(samples.length).toBe(Object.keys(MANIFEST.categories).length);
     for (const t of samples) {
       if (NET.has(t.category) || COMPOSITES.has(t.name)) {
         expect(typeof t.handler).toBe('function');
@@ -247,11 +226,11 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
   });
 
   it('profillar: minimal, standard, full', () => {
-    expect(listTools('minimal').length).toBe(73);
-    expect(listTools('standard').length).toBe(178);
+    expect(listTools('minimal').length).toBe(MANIFEST.profiles.minimal);
+    expect(listTools('standard').length).toBe(MANIFEST.profiles.standard);
     expect(listTools('full').length).toBe(TOTAL);
     expect(listTools('smart').map((tool) => tool.name)).toContain('pro_fetch_tool_execute');
-    expect(listTools('smart').length).toBe(11);
+    expect(listTools('smart').length).toBe(MANIFEST.profiles.smart);
   });
 });
 

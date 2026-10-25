@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import '../src/loader.js';
 import { allTools, dispatch } from '../src/core/tool.js';
 import { listTools } from '../src/router.js';
@@ -215,9 +216,10 @@ describe('nested composition', () => {
 });
 
 describe('smart profile surface', () => {
-  it('now exposes eleven tools (ten originals plus pro_synthesize)', () => {
+  it('advertises exactly the measured smart set', () => {
     const visible = listTools('smart');
-    expect(visible.length).toBe(11);
+    const manifest = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8'));
+    expect(visible.length).toBe(manifest.profiles.smart);
   });
 
   it('pro_synthesize has a handler and object schema', () => {

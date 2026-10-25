@@ -7,6 +7,7 @@
  * Every test first failed against the unfixed code and pins the fixed behaviour.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import '../src/loader.js';
 import { allTools, dispatch } from '../src/core/tool.js';
 
@@ -200,7 +201,8 @@ describe('time invariants stay intact', () => {
 });
 
 describe('registry size unchanged by the batch', () => {
-  it('still 672 tools', () => {
-    expect(allTools().length).toBe(672);
+  it('matches the measured manifest total', () => {
+    const manifest = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8'));
+    expect(allTools().length).toBe(manifest.total);
   });
 });

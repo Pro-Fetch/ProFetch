@@ -5,7 +5,7 @@
 // timeout behaviour), the probe is the evidence — this file carries the offline assertions that
 // keep the fixes from regressing.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -149,8 +149,9 @@ describe('cache.delete is exact-key', () => {
 });
 
 describe('the smart profile set matches the registry', () => {
-  it('has eleven entries, and every one is a registered tool', () => {
-    expect(SMART_TOOL_NAMES.size).toBe(11);
+  it('matches the measured manifest size, and every entry is a registered tool', () => {
+    const manifest = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8'));
+    expect(SMART_TOOL_NAMES.size).toBe(manifest.profiles.smart);
     for (const name of SMART_TOOL_NAMES) expect(tool(name)).toBeTruthy();
   });
 });

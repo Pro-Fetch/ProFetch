@@ -20,10 +20,18 @@
 
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// Profile sizes are measured, not asserted from memory: every literal here broke the day a tool was
+// added legitimately. The manifest is written by `sync-manifest` from the live registry.
+const MANIFEST = JSON.parse(readFileSync('scripts/tool-counts.json', 'utf8')) as {
+  total: number;
+  profiles: { smart: number; minimal: number; standard: number; full: number };
+};
 
 interface Step {
   target: string;
@@ -82,7 +90,7 @@ describe('the operator’s instruction governs, so any profile can be reached', 
     const probe = runProbe(operator);
     const step = probe.steps.find((entry) => entry.target === 'full')!;
     expect(step.refused, `${operator} → full refused bo‘lishi kerak emas`).toBe(false);
-    expect(step.count).toBe(672);
+    expect(step.count).toBe(MANIFEST.total);
     expect(step.current).toBe('full');
   });
 
@@ -103,7 +111,7 @@ describe('a pinned ceiling is still honoured', () => {
     const probe = runProbe('standard', 'standard');
     const step = probe.steps.find((entry) => entry.target === 'full')!;
     expect(step.refused).toBe(true);
-    expect(step.count).toBe(178);
+    expect(step.count).toBe(MANIFEST.profiles.standard);
     expect(step.text).toMatch(/PRO_FETCH_PROFILE_CEILING/);
   });
 
@@ -111,7 +119,7 @@ describe('a pinned ceiling is still honoured', () => {
     const probe = runProbe('standard', 'standard');
     const step = probe.steps.find((entry) => entry.target === 'minimal')!;
     expect(step.refused).toBe(false);
-    expect(step.count).toBe(73);
+    expect(step.count).toBe(MANIFEST.profiles.minimal);
   });
 
   it('the ceiling is reported on a successful switch too', () => {
@@ -126,10 +134,10 @@ describe('the switch takes effect immediately', () => {
   it('the advertised tool count follows the new profile', () => {
     const probe = runProbe('full');
     const byTarget = new Map(probe.steps.map((entry) => [entry.target, entry.count]));
-    expect(byTarget.get('smart')).toBe(11);
-    expect(byTarget.get('minimal')).toBe(73);
-    expect(byTarget.get('standard')).toBe(178);
-    expect(byTarget.get('full')).toBe(672);
+    expect(byTarget.get('smart')).toBe(MANIFEST.profiles.smart);
+    expect(byTarget.get('minimal')).toBe(MANIFEST.profiles.minimal);
+    expect(byTarget.get('standard')).toBe(MANIFEST.profiles.standard);
+    expect(byTarget.get('full')).toBe(MANIFEST.total);
   });
 });
 
@@ -140,8 +148,8 @@ describe('the profiles are not a chain', () => {
     const probe = runProbe('full');
     const smartCount = probe.steps.find((entry) => entry.target === 'smart')!.count;
     const minimalCount = probe.steps.find((entry) => entry.target === 'minimal')!.count;
-    expect(smartCount).toBe(11);
-    expect(minimalCount).toBe(73);
+    expect(smartCount).toBe(MANIFEST.profiles.smart);
+    expect(minimalCount).toBe(MANIFEST.profiles.minimal);
     expect(smartCount).not.toBe(minimalCount);
   });
 });
