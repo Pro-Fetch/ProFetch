@@ -26,6 +26,9 @@ export function allowedTransitions(from: WorkflowPhase): readonly WorkflowPhase[
   return TRANSITIONS[from] ?? [];
 }
 
+/** The phases that actually exist, read off the transition table so no list of them can drift. */
+export const PHASES = Object.keys(TRANSITIONS) as WorkflowPhase[];
+
 export function canTransition(from: WorkflowPhase, to: WorkflowPhase): boolean {
   return allowedTransitions(from).includes(to);
 }

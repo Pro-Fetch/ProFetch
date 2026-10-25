@@ -66,6 +66,11 @@ export interface Finding {
   confidence: number;
   blocking: boolean;
   status: 'open' | 'resolved' | 'rejected' | 'false_positive';
+  /**
+   * How a closing was justified. Set by `resolve_finding`, never by the host editing the file: a
+   * blocking finding cannot silently disappear, it has to carry the evidence that closed it.
+   */
+  resolution?: { status: 'resolved' | 'rejected'; note: string; at: number };
 }
 
 export interface GoalSpec {

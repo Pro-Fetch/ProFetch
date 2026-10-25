@@ -15,7 +15,13 @@ import { allTools } from '../../core/tool.js';
 import { jsonBlock, fail } from '../../core/format.js';
 import { strOrEmpty, view } from '../../core/input.js';
 import { detailMode } from '../../core/composite-budget.js';
-import { createWorkflow, transition, completionEligible, canTransition } from '../../core/workflow/state-machine.js';
+import {
+  createWorkflow,
+  transition,
+  completionEligible,
+  canTransition,
+  PHASES,
+} from '../../core/workflow/state-machine.js';
 import { saveWorkflow, loadWorkflow } from '../../core/workflow/store.js';
 import { validateGoalSpec, validatePlan, validateFinding } from '../../core/workflow/validate.js';
 import type { Finding, GoalSpec, Task, WorkflowMode, WorkflowState } from '../../core/workflow/types.js';
@@ -51,15 +57,18 @@ export default defineTool({
   name: 'pro_fetch_workflow',
   description:
     'Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | submit_review | ' +
-    'get_next_task | report_task_result | verify | finish | status. MexaPlan→SmartToDo→MaxEffort hayot siklini ' +
-    'boshqaradi; holat diskda saqlanadi; noqonuniy o‘tish va dalilsiz "tayyor" rad etiladi.',
+    'revise_plan | resolve_finding | replan | block | unblock | get_next_task | report_task_result | verify | ' +
+    'finish | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; holat diskda saqlanadi; ' +
+    'noqonuniy o‘tish va dalilsiz "tayyor" rad etiladi.',
   category: 'admin',
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        description: 'introduce|start|submit_plan|submit_review|get_next_task|report_task_result|verify|finish|status',
+        description:
+          'introduce|start|submit_plan|submit_review|revise_plan|resolve_finding|replan|block|unblock|' +
+          'get_next_task|report_task_result|verify|finish|status',
       },
       workflow_id: {
         type: 'string',
@@ -72,6 +81,17 @@ export default defineTool({
       task_id: { type: 'string', description: 'report_task_result: task id' },
       task_status: { type: 'string', description: 'report_task_result: verified|needs_verification|failed|blocked' },
       evidence: { type: 'string', description: 'report_task_result: dalil matni (tokenlar avtomatik yashiriladi)' },
+      finding_id: { type: 'string', description: 'resolve_finding: topilma id si' },
+      resolution: {
+        type: 'string',
+        description: 'resolve_finding: topilma qanday tugatilgani haqidagi dalil (resolved uchun majburiy)',
+      },
+      verdict: { type: 'string', description: 'resolve_finding: resolved (standart) | rejected (asossiz deb topildi)' },
+      reason: {
+        type: 'string',
+        description: 'revise_plan | replan | block: nima uchun qayta rejalanyotgani / to‘xtab qolgani sababi',
+      },
+      target: { type: 'string', description: 'unblock: qaytiladigan faza — PLANNING yoki EXECUTING' },
       detail: {
         type: 'string',
         enum: ['summary', 'full'],
@@ -91,9 +111,7 @@ export default defineTool({
       return jsonBlock('Pro-Fetch workflow — tanishuv', {
         intro: INTRO,
         next_action: 'start',
-        ...(detail === 'full'
-          ? { phases: ['NEW', 'PLANNING', 'AUDIT_REQUIRED', 'PLAN_READY', 'EXECUTING', 'VERIFYING', 'COMPLETED'] }
-          : {}),
+        ...(detail === 'full' ? { phases: PHASES } : {}),
       });
     }
 
@@ -204,6 +222,101 @@ export default defineTool({
                 })),
               }
             : {}),
+        });
+      }
+
+      case 'revise_plan': {
+        if (state.phase !== 'REVISION_REQUIRED')
+          return fail(`revise_plan faqat REVISION_REQUIRED fazasida (hozir: ${state.phase}).`);
+        if (!strOrEmpty(p, 'reason').trim())
+          return fail(
+            'revise_plan uchun reason kerak: rejada nima o‘zgargani yozilsin (yangi fakt yo‘qmi, takror reja ham yo‘q).',
+          );
+        state = transition(state, 'PLANNING', `revise: ${strOrEmpty(p, 'reason').trim()}`);
+        await saveWorkflow(state);
+        return jsonBlock('Reja ko‘rib chiqishga qaytdi', {
+          workflow_id: id,
+          phase: state.phase,
+          next_action: 'submit_plan',
+          instruction: 'Yangi plan submit_plan orqali keladi va ALBATTA qayta audit‘dan o‘tadi.',
+        });
+      }
+
+      case 'resolve_finding': {
+        const fid = strOrEmpty(p, 'finding_id');
+        const f = state.findings.find((entry) => entry.id === fid);
+        if (!f) return fail(`finding topilmadi: ${fid || '(bo‘sh)'}`);
+        if (f.status !== 'open') return fail(`finding ${fid} allaqachon ${f.status}.`);
+        const verdict = strOrEmpty(p, 'verdict') || 'resolved';
+        if (!['resolved', 'rejected'].includes(verdict))
+          return fail('verdict resolved yoki rejected bo‘lishi kerak (false_positive — reject deb yoziladi).');
+        const note = strOrEmpty(p, 'resolution').trim();
+        // A finding cannot be closed on words: `rejected` needs the reason it was baseless.
+        if (!note) return fail(`${verdict} uchun resolution dalili kerak (topilmani yopish ham dalil talab qiladi).`);
+        f.status = verdict as Finding['status'];
+        f.resolution = { status: verdict as 'resolved' | 'rejected', note, at: Date.now() };
+        const stillBlocking =
+          state.phase === 'REVISION_REQUIRED' &&
+          state.findings.some((entry) => entry.blocking && entry.status === 'open');
+        if (state.phase === 'REVISION_REQUIRED' && !stillBlocking) {
+          // Nothing blocks the plan any more, but the revised plan is not trusted: it is audited again.
+          state = transition(state, 'AUDIT_REQUIRED', `findings yopildi: ${fid}`);
+        }
+        await saveWorkflow(state);
+        return jsonBlock('Topilma yopildi', {
+          workflow_id: id,
+          finding_id: fid,
+          status: f.status,
+          phase: state.phase,
+          open_blocking: state.findings.filter((entry) => entry.blocking && entry.status === 'open').length,
+          next_action: stillBlocking
+            ? 'resolve_finding'
+            : state.phase === 'AUDIT_REQUIRED'
+              ? 'submit_review'
+              : 'status',
+        });
+      }
+
+      case 'replan': {
+        if (state.phase !== 'EXECUTING' && state.phase !== 'VERIFYING')
+          return fail(`replan EXECUTING yoki VERIFYING fazasida kerak (hozir: ${state.phase}).`);
+        if (!strOrEmpty(p, 'reason').trim()) return fail('replan uchun reason kerak (nima yangi fakt chiqdi?).');
+        state = transition(state, 'REPLANNING', `replan: ${strOrEmpty(p, 'reason').trim()}`);
+        state = transition(state, 'PLANNING', 'new plan expected');
+        await saveWorkflow(state);
+        return jsonBlock('Qayta rejalash', {
+          workflow_id: id,
+          phase: state.phase,
+          next_action: 'submit_plan',
+          note: 'verified tasklar saqlanib qoladi; yangi plan qayta audit‘dan o‘tadi.',
+        });
+      }
+
+      case 'block': {
+        if (state.phase === 'BLOCKED' || state.phase === 'COMPLETED' || state.phase === 'NEW')
+          return fail(`block ${state.phase} fazasida ma'no bermaydi.`);
+        if (!strOrEmpty(p, 'reason').trim()) return fail('block uchun reason kerak.');
+        state = transition(state, 'BLOCKED', `block: ${strOrEmpty(p, 'reason').trim()}`);
+        await saveWorkflow(state);
+        return jsonBlock('Ish to‘xtatildi', {
+          workflow_id: id,
+          phase: state.phase,
+          next_action: 'unblock',
+          open_findings: state.findings.filter((entry) => entry.status === 'open').length,
+        });
+      }
+
+      case 'unblock': {
+        if (state.phase !== 'BLOCKED') return fail(`unblock faqat BLOCKED fazasida (hozir: ${state.phase}).`);
+        const target = strOrEmpty(p, 'target').toUpperCase();
+        if (target !== 'PLANNING' && target !== 'EXECUTING')
+          return fail('unblock uchun target PLANNING yoki EXECUTING bo‘lishi kerak.');
+        state = transition(state, target, `unblock → ${target}`);
+        await saveWorkflow(state);
+        return jsonBlock('Davom etilmoqda', {
+          workflow_id: id,
+          phase: state.phase,
+          next_action: target === 'PLANNING' ? 'submit_plan' : 'get_next_task',
         });
       }
 

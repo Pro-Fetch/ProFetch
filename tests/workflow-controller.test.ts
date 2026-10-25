@@ -10,6 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import '../src/loader.js';
@@ -430,5 +431,208 @@ describe('pro_fetch_workflow — fixture sanity', () => {
     const names = new Set(allTools().map((tool) => tool.name));
     expect(names.has(REAL_TOOL), REAL_TOOL).toBe(true);
     expect(names.has(OTHER_REAL_TOOL), OTHER_REAL_TOOL).toBe(true);
+  });
+
+  it('never promises a next_action the switch cannot handle', () => {
+    // `submit_review` used to answer a blocking finding with next_action "revise_plan", which no
+    // case implemented: the run could not proceed, retry, or close the finding. That is a class of
+    // bug, not one bug, so it is checked against the source rather than by walking every path.
+    const source = readFileSync('src/tools/workflow/workflow.ts', 'utf8');
+    const handled = new Set([
+      ...[...source.matchAll(/case '([a-z_]+)':/g)].map((m) => m[1]),
+      ...[...source.matchAll(/action === '([a-z_]+)'/g)].map((m) => m[1]),
+    ]);
+    const promised = [...source.matchAll(/next_action:\s*([^,\n}]+)/g)]
+      // In `cond ? 'a' : 'b'` the condition may itself compare quoted phase names; only the branches
+      // are promises.
+      .map((m) => (m[1].includes('?') ? m[1].slice(m[1].indexOf('?') + 1) : m[1]))
+      .flatMap((expr) => [...expr.matchAll(/'([a-z_]+)'/g)].map((q) => q[1]));
+    expect(promised.length, 'next_action literals found').toBeGreaterThan(5);
+    const unhandled = promised.filter((name) => !handled.has(name));
+    expect(unhandled, `unhandled next_action: ${unhandled.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('pro_fetch_workflow — the replanning loop is not a dead end', () => {
+  async function blockedByReview(): Promise<string> {
+    const id = await startedWorkflow();
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
+    });
+    const reviewed = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'submit_review',
+        workflow_id: id,
+        findings: JSON.stringify([finding('F001', { blocking: true })]),
+      }),
+    );
+    expect(reviewed.next_action).toBe('revise_plan');
+    return id;
+  }
+
+  it('revise_plan needs a reason and takes the plan back through PLANNING', async () => {
+    const id = await blockedByReview();
+    expect(refused(await dispatch('pro_fetch_workflow', { action: 'revise_plan', workflow_id: id }))).toBe(true);
+
+    const revised = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'revise_plan',
+        workflow_id: id,
+        reason: 'audit noted the missing acceptance criterion; added it',
+      }),
+    );
+    expect(revised.phase).toBe('PLANNING');
+    expect(revised.next_action).toBe('submit_plan');
+
+    // The revised plan is not trusted: it goes into AUDIT_REQUIRED again, not straight to execution.
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
+    });
+    const again = await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
+    expect(refused(again)).toBe(true);
+    expect(body(again)).toContain('AUDIT_REQUIRED');
+  });
+
+  it('resolve_finding closes a blocking review with evidence and re-opens the audit', async () => {
+    const id = await blockedByReview();
+
+    // Without a note there is nothing to audit, so the closing is refused.
+    expect(
+      refused(await dispatch('pro_fetch_workflow', { action: 'resolve_finding', workflow_id: id, finding_id: 'F001' })),
+    ).toBe(true);
+    expect(
+      refused(
+        await dispatch('pro_fetch_workflow', {
+          action: 'resolve_finding',
+          workflow_id: id,
+          finding_id: 'nope',
+          resolution: 'x',
+        }),
+      ),
+    ).toBe(true);
+
+    const closed = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'resolve_finding',
+        workflow_id: id,
+        finding_id: 'F001',
+        resolution: 'criterion added in revision 2, checked against the goal spec',
+      }),
+    );
+    expect(closed.status).toBe('resolved');
+    expect(closed.phase).toBe('AUDIT_REQUIRED');
+    expect(closed.open_blocking).toBe(0);
+    expect(closed.next_action).toBe('submit_review');
+
+    // A closed finding cannot be re-closed.
+    expect(
+      refused(
+        await dispatch('pro_fetch_workflow', {
+          action: 'resolve_finding',
+          workflow_id: id,
+          finding_id: 'F001',
+          resolution: 'again',
+        }),
+      ),
+    ).toBe(true);
+
+    // Clean re-audit, then the run finishes normally.
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F002')]),
+    });
+    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
+    await dispatch('pro_fetch_workflow', {
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'verified',
+      evidence: 're-ran the planned tool and diffed the output',
+    });
+    await dispatch('pro_fetch_workflow', { action: 'verify', workflow_id: id });
+    const done = payload(await dispatch('pro_fetch_workflow', { action: 'finish', workflow_id: id }));
+    expect(done.phase).toBe('COMPLETED');
+  });
+
+  it('a rejected finding needs its reason too', async () => {
+    const id = await blockedByReview();
+    const rejected = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'resolve_finding',
+        workflow_id: id,
+        finding_id: 'F001',
+        verdict: 'rejected',
+        resolution: 'the criterion it asks for is already satisfied by task T001 acceptance list',
+      }),
+    );
+    expect(rejected.status).toBe('rejected');
+    expect(rejected.phase).toBe('AUDIT_REQUIRED');
+  });
+
+  it('replan from EXECUTING keeps verified work and demands a new plan', async () => {
+    const id = await startedWorkflow();
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001'), plannedTask('T002', OTHER_REAL_TOOL)] }),
+    });
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
+    await dispatch('pro_fetch_workflow', {
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'verified',
+      evidence: 'verified by hand against the tool output',
+    });
+
+    expect(refused(await dispatch('pro_fetch_workflow', { action: 'replan', workflow_id: id }))).toBe(true);
+    const replanned = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'replan',
+        workflow_id: id,
+        reason: 'the API turns out to paginate; a second task is needed',
+      }),
+    );
+    expect(replanned.phase).toBe('PLANNING');
+    expect(replanned.next_action).toBe('submit_plan');
+
+    const history = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
+    expect(history.revision).toBeGreaterThanOrEqual(2);
+  });
+
+  it('block then unblock resumes the run, and a bogus target is refused', async () => {
+    const id = await startedWorkflow();
+    const blocked = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'block',
+        workflow_id: id,
+        reason: 'goal depends on a credential the operator has not provided',
+      }),
+    );
+    expect(blocked.phase).toBe('BLOCKED');
+    expect(blocked.next_action).toBe('unblock');
+
+    expect(
+      refused(await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'COMPLETED' })),
+    ).toBe(true);
+    const resumed = payload(
+      await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'PLANNING' }),
+    );
+    expect(resumed.phase).toBe('PLANNING');
+    expect(resumed.next_action).toBe('submit_plan');
+    // and only once, from BLOCKED
+    expect(
+      refused(await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'PLANNING' })),
+    ).toBe(true);
   });
 });
