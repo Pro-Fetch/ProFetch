@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 672 ta tool · 42 ta kategoriya · smart=11, minimal=73, standard=178, full=672
+**Jami:** 673 ta tool · 42 ta kategoriya · smart=12, minimal=74, standard=179, full=673
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -19,8 +19,8 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
 | `data` | 26 | Load, profile, query, join, transform datasets (tables) |
 | `research` | 26 | Deep research pipeline: search → read → facts → verify → report |
+| `admin` | 25 | Smart System meta-tools, registry/config, diagnostics, batching |
 | `codehost` | 25 | GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases |
-| `admin` | 24 | Smart System meta-tools, registry/config, diagnostics, batching |
 | `database` | 24 | SQLite / Postgres / MySQL / Redis query & inspect (read-only gated) |
 | `devops` | 24 | Docker / Kubernetes / Terraform / CI operations (COMMAND_NOT_FOUND safe) |
 | `extract` | 24 | DOM/selector/regex/table/metadata extraction from HTML |
@@ -110,7 +110,7 @@ _GitHub API: repos, code, issues, PRs, releases, actions, advisories_
 - `pro_gh_tags_list` `  ▸` — List the tags of a repository
 - `pro_gh_user_profile` `  ▸` — Get a GitHub user profile and stats
 - `pro_pr_review` `S ▸` — Review one pull request end to end: description, diff, changed files, checks, reviews, inline comments and issue timeline in a single call.
-- `pro_repo_audit` `S ▸` — Full GitHub repository audit in one call: metadata, README, directory structure, languages, license, contributors, commit activity, open issues and pull requests, releases, topics and optionally CI status. Use this instead of calling a dozen GitHub tools by hand.
+- `pro_repo_audit` `S ▸` — Full GitHub repository audit in one call: metadata, README, directory structure, languages, license, contributors, commit activity, open issues and pull requests, releases, topics, CI status and security advisories. Use this instead of calling a dozen GitHub tools by hand.
 
 ## browser (41)
 
@@ -288,6 +288,36 @@ _Deep research pipeline: search → read → facts → verify → report_
 - `pro_research_timeline_build` `  ·` — Build a chronological timeline from dated facts
 - `pro_research_verify_claim` `  ·` — Verify a single claim against given sources
 
+## admin (25)
+
+_Smart System meta-tools, registry/config, diagnostics, batching_
+
+- `pro_capability_call` `S ▸` — Execute a batch of Pro-Fetch tools in a single call. Send a list of { tool, arguments } and receive every result together, instead of one round trip per tool. Failures are reported per entry and do not stop the rest of the batch. This is the way to use the full tool set when your client limits how many tools you can see. Simple rejim (standart): 5000 tagacha bir chaqiruvda.
+- `pro_capability_map` `S ▸` — Map a task in plain language to the exact Pro-Fetch tools that can do it, with full input schemas. Understands synonyms and word forms, so "papers about retrieval" finds the academic search tool and "look at this site" finds the crawler. Use this first when you know the goal but not the tool name.
+- `pro_fetch_batch_schedule` `  ▸` — Schedule a batch fetch for later
+- `pro_fetch_cache_tune` `  ▸` — Adjust cache TTL and size limits
+- `pro_fetch_category_stats` `  ▸` — Report tool counts per category and per profile
+- `pro_fetch_config_get` `  ▸` — Read the current server configuration
+- `pro_fetch_config_set` `  ▸` — Update a configuration key at runtime
+- `pro_fetch_diagnostics` `  ▸` — Run a full diagnostic report
+- `pro_fetch_env_check` `  ▸` — Check required environment variables and API keys
+- `pro_fetch_health_check` `  ▸` — Run server self diagnostics
+- `pro_fetch_log_tail` `  ▸` — Tail the recent server logs
+- `pro_fetch_memory_stats` `  ▸` — Report process memory usage and runtime uptime
+- `pro_fetch_profile_switch` `  ▸` — Switch the active tool profile between smart, minimal, standard and full. The operator’s instruction governs: asking for `full` switches to `full`. Set PRO_FETCH_PROFILE_CEILING to pin a maximum the switch may not pass.
+- `pro_fetch_proxy_status` `  ▸` — Show proxy configuration and health
+- `pro_fetch_rate_limit_status` `  ▸` — Show the rate-limit state per domain
+- `pro_fetch_registry_summary` `  ▸` — Summarize the tool registry: totals, categories and profile sizes
+- `pro_fetch_result_preview` `  ▸` — Preview a stored result with token counting
+- `pro_fetch_token_count` `  ▸` — Count the tokens of provided text
+- `pro_fetch_tool_execute` `S ▸` — Execute a discovered Pro-Fetch tool by exact name and JSON arguments; suitable for smart profile tool routing
+- `pro_fetch_tool_list_details` `  ▸` — List all tools grouped by category with profile status
+- `pro_fetch_tool_schema` `  ▸` — Return the full input schema of a named tool
+- `pro_fetch_tool_search` `  ▸` — Search the tool registry by name or description keyword
+- `pro_fetch_usage_stats` `  ▸` — Show tool usage statistics
+- `pro_fetch_workflow` `S ▸` — Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | submit_review | get_next_task | report_task_result | verify | finish | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; holat diskda saqlanadi; noqonuniy o‘tish va dalilsiz "tayyor" rad etiladi.
+- `pro_synthesize` `S ▸` — Turn many tool results into one coherent answer. Takes a list of { tool, output } (or a batch result from pro_capability_call) and produces findings ranked by source agreement, contradictions, and gaps. Use this after a batch when you need the answer, not the raw results.
+
 ## codehost (25)
 
 _GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases_
@@ -317,35 +347,6 @@ _GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases_
 - `pro_fetch_codehost_gitlab_repository` `  ·` — gitlab: Repository metadata. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 - `pro_fetch_codehost_gitlab_tags` `  ·` — gitlab: List version tags. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 - `pro_service_ops` `  ·` — Run hosted-provider operations in one call across code hosts (GitLab/Gitea/Forgejo/Bitbucket), collaboration (Slack/Linear/Jira/Notion), cloud storage and productivity (Gmail/Calendar/Todoist). Give a list of operations and get every result together. Credentials must already be configured; an operation without one reports a configuration error rather than failing silently.
-
-## admin (24)
-
-_Smart System meta-tools, registry/config, diagnostics, batching_
-
-- `pro_capability_call` `S ▸` — Execute a batch of Pro-Fetch tools in a single call. Send a list of { tool, arguments } and receive every result together, instead of one round trip per tool. Failures are reported per entry and do not stop the rest of the batch. This is the way to use the full tool set when your client limits how many tools you can see. Simple rejim (standart): 5000 tagacha bir chaqiruvda.
-- `pro_capability_map` `S ▸` — Map a task in plain language to the exact Pro-Fetch tools that can do it, with full input schemas. Understands synonyms and word forms, so "papers about retrieval" finds the academic search tool and "look at this site" finds the crawler. Use this first when you know the goal but not the tool name.
-- `pro_fetch_batch_schedule` `  ▸` — Schedule a batch fetch for later
-- `pro_fetch_cache_tune` `  ▸` — Adjust cache TTL and size limits
-- `pro_fetch_category_stats` `  ▸` — Report tool counts per category and per profile
-- `pro_fetch_config_get` `  ▸` — Read the current server configuration
-- `pro_fetch_config_set` `  ▸` — Update a configuration key at runtime
-- `pro_fetch_diagnostics` `  ▸` — Run a full diagnostic report
-- `pro_fetch_env_check` `  ▸` — Check required environment variables and API keys
-- `pro_fetch_health_check` `  ▸` — Run server self diagnostics
-- `pro_fetch_log_tail` `  ▸` — Tail the recent server logs
-- `pro_fetch_memory_stats` `  ▸` — Report process memory usage and runtime uptime
-- `pro_fetch_profile_switch` `  ▸` — Switch the active tool profile between smart, minimal, standard and full
-- `pro_fetch_proxy_status` `  ▸` — Show proxy configuration and health
-- `pro_fetch_rate_limit_status` `  ▸` — Show the rate-limit state per domain
-- `pro_fetch_registry_summary` `  ▸` — Summarize the tool registry: totals, categories and profile sizes
-- `pro_fetch_result_preview` `  ▸` — Preview a stored result with token counting
-- `pro_fetch_token_count` `  ▸` — Count the tokens of provided text
-- `pro_fetch_tool_execute` `S ▸` — Execute a discovered Pro-Fetch tool by exact name and JSON arguments; suitable for smart profile tool routing
-- `pro_fetch_tool_list_details` `  ▸` — List all tools grouped by category with profile status
-- `pro_fetch_tool_schema` `  ▸` — Return the full input schema of a named tool
-- `pro_fetch_tool_search` `  ▸` — Search the tool registry by name or description keyword
-- `pro_fetch_usage_stats` `  ▸` — Show tool usage statistics
-- `pro_synthesize` `S ▸` — Turn many tool results into one coherent answer. Takes a list of { tool, output } (or a batch result from pro_capability_call) and produces findings ranked by source agreement, contradictions, and gaps. Use this after a batch when you need the answer, not the raw results.
 
 ## database (24)
 
@@ -557,7 +558,7 @@ _HTTP client verbs, headers, retries, multipart, SSE/websocket_
 - `pro_fetch_fetch_retry` `  ▸` — Fetch URL with a custom retry policy and backoff
 - `pro_fetch_fetch_soap` `  ▸` — Send a SOAP XML request to a web service
 - `pro_fetch_fetch_url` `  ▸` — Fetch any URL and return clean readable content as markdown
-- `pro_fetch_fetch_with_proxy` `  ▸` — Fetch URL through the configured HTTP proxy
+- `pro_fetch_fetch_with_proxy` `  ▸` — Fetch URL through an explicit or env-configured HTTP proxy
 - `pro_fetch_http_status` `  ▸` — Check HTTP status code and response headers of a URL
 - `pro_fetch_ingest` `S ▸` — Fetch any URL and return clean structured data in one call: pages become readable text with metadata and headings, PDFs and Office files become text, CSV/JSON become summarised tables, feeds become markdown, and everything is optionally archived for later citation. Handles format detection so you do not have to choose a converter.
 - `pro_fetch_post_form` `  ▸` — Send POST request with form-urlencoded body
