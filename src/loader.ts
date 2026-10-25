@@ -61,6 +61,7 @@ import './tools/chess/index.js';
 import './tools/imageproc/index.js';
 import './tools/i18n/index.js';
 import './tools/max-platform/index.js';
+import './tools/workflow/index.js';
 
 import { narrowCategorySchemas, setSourceResolver } from './core/schema-narrowing.js';
 import { resolveToolSource } from './core/source-resolver.js';
