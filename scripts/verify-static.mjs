@@ -113,6 +113,22 @@ try {
   if (!String(packageJson.description ?? '').includes(`${expectedTotal} MCP tool`))
     failures.push(`package.json description does not report ${expectedTotal} tools`);
   if (!readme.includes(`${expectedTotal} MCP tool`)) failures.push(`README does not report ${expectedTotal} tools`);
+  // ARCHITECTURE.md states the same numbers in present tense and drifted unnoticed (it still said 672
+  // tools / smart 11), because only package.json and the READMEs were guarded. Expected values come
+  // from the manifest here too, and a missing pattern fails: the guard must not be satisfiable by
+  // deleting the sentence it checks.
+  const architecture = await read('docs/ARCHITECTURE.md').catch(() => '');
+  for (const [what, pattern, expected] of [
+    ['total tools', /barcha (\d+) tool/, countManifest.total],
+    ['minimal profile', /`minimal` \((\d+)\)/, countManifest.profiles?.minimal],
+    ['standard profile', /`standard` \((\d+)\)/, countManifest.profiles?.standard],
+    ['smart profile', /`smart` \((\d+) meta\)/, countManifest.profiles?.smart],
+  ]) {
+    const found = pattern.exec(architecture);
+    if (!found) failures.push(`docs/ARCHITECTURE.md no longer states the ${what} (${pattern.source})`);
+    else if (found[1] !== String(expected))
+      failures.push(`docs/ARCHITECTURE.md ${what}: states ${found[1]}, manifest says ${expected}`);
+  }
   // The smart-profile tool list now lives in `src/core/profile.ts`; `loader.ts` re-exports it.
   // The Smart System contract: the profile must expose the batch executor, the intent mapper and
   // the single-tool escape hatch, so a client that caps its tool budget still reaches everything.

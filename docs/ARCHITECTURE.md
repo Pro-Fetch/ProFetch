@@ -15,11 +15,11 @@
 
 ## 2. Reestr va profil
 
-- **`src/core/tool.ts`** — `defineTool()` va `allTools()`: barcha 672 tool shu yerdagi registrga tushadi. Har tool: `name`, `category`, `description`, `inputSchema`, `handler`.
+- **`src/core/tool.ts`** — `defineTool()` va `allTools()`: barcha 673 tool shu yerdagi registrga tushadi. Har tool: `name`, `category`, `description`, `inputSchema`, `handler`.
 - **`src/router.ts`** — `listTools(profile)` va markaziy `dispatch()`.
-- **`src/core/profile.ts`** — nechta schema modelga ko'rinadi: `minimal` (73) · `standard` (178) · `smart` (11 meta) · `full` (672). **Profil — ko'rinish, xavfsizlik chegarasi EMAS.**
+- **`src/core/profile.ts`** — nechta schema modelga ko'rinadi: `minimal` (74) · `standard` (179) · `smart` (12 meta) · `full` (673). **Profil — ko'rinish, xavfsizlik chegarasi EMAS.**
 
-`smart` rejimida modelga faqat 11 meta-tool ko'rinadi, ammo ular orqali barcha 672 tanga yetib boriladi.
+`smart` rejimida modelga faqat 12 meta-tool ko'rinadi, ammo ular orqali barcha 673 tanga yetib boriladi.
 
 ## 3. Markaziy darvoza: `dispatch()`
 
