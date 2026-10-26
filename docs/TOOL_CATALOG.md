@@ -315,7 +315,7 @@ _Smart System meta-tools, registry/config, diagnostics, batching_
 - `pro_fetch_tool_schema` `  ▸` — Return the full input schema of a named tool
 - `pro_fetch_tool_search` `  ▸` — Search the tool registry by name or description keyword
 - `pro_fetch_usage_stats` `  ▸` — Show tool usage statistics
-- `pro_fetch_workflow` `S ▸` — Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | begin_audit | submit_review | revise_plan | resolve_finding | report_finding | approve_plan | get_next_task | report_task_result | log_call | resolve_unknown | verify | repair | final_audit | replan | finish | block | unblock | pause | resume | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; xavf registrydan o‘lchanadi, talablar qoplamasi tekshiriladi, dalilsiz va kuchsiz dalilli "tayyor" rad etiladi.
+- `pro_fetch_workflow` `S ▸` — Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | begin_audit | submit_review | revise_plan | resolve_finding | report_finding | approve_plan | get_next_task | report_task_result | log_call | record_source | resolve_unknown | verify | repair | final_audit | replan | finish | block | unblock | pause | resume | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; xavf registrydan o‘lchanadi, talablar qoplamasi tekshiriladi, xulosalar manbaga bog‘lanadi, dalilsiz va kuchsiz dalilli "tayyor" rad etiladi.
 - `pro_synthesize` `S ▸` — Turn many tool results into one coherent answer. Takes a list of { tool, output } (or a batch result from pro_capability_call) and produces findings ranked by source agreement, contradictions, and gaps. Use this after a batch when you need the answer, not the raw results.
 
 ## codehost (25)
