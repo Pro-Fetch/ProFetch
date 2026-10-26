@@ -3,28 +3,37 @@
  * through `dispatch`, against the real registry and a real on-disk store.
  *
  * The foundation tests cover the pure state machine and store. What is only visible at this level is
- * the wiring: whether an illegal move is refused *by the tool*, whether a fake PASS is blocked before
- * it is persisted, whether a blocking finding can be worked through at all, whether the plan's own
- * risk labels are checked against the registry (they are), whether `detail` changes the payload
- * instead of being a declared-but-dead property, and whether evidence is redacted on the way to disk.
+ * the wiring, and the spec's promises are all wiring promises:
+ *
+ * - a plan that ignores a requirement is refused (§5.2), and an invented requirement id is refused too;
+ * - a mutating step labelled `read_only` is refused, because the label is a claim and the registry is
+ *   the evidence (§14.2);
+ * - execution stops for an explicit, justified approval (§14.5);
+ * - `verified` needs evidence at least as strong as the task demanded, plus a self-challenge note on
+ *   high-stakes work (§12.2, §6.4);
+ * - completion needs the independent final audit, every unknown closed and every blocker resolved, and
+ *   each refusal is counted rather than forgotten (§12.3, §20.5).
+ *
+ * Where a rule is enforced *before* this tool (operator read-only policy), the test asserts the
+ * measured behaviour, not the intention.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import '../src/loader.js';
 import { allTools, dispatch } from '../src/core/tool.js';
 import { isMutationTool } from '../src/core/tool-classification.js';
-import type { Task } from '../src/core/workflow/types.js';
+import type { Finding, GoalSpec, Task, WorkflowState } from '../src/core/workflow/types.js';
 
 const ORIGINAL = { ...process.env };
 let dir = '';
 
 beforeEach(async () => {
   process.env.PRO_FETCH_PROFILE = 'full';
-  dir = await mkdtemp(path.join(tmpdir(), `pf-wf-${Date.now()}-`));
+  dir = await mkdtemp(path.join(tmpdir(), `pf-wfc-${Date.now()}-`));
   process.env.PRO_FETCH_WORKFLOW_DIR = dir;
 });
 
@@ -33,13 +42,14 @@ afterEach(async () => {
   if (dir) await rm(dir, { recursive: true, force: true });
 });
 
-const body = (result: { content?: Array<{ type: string; text?: string }> }) =>
+/* ------------------------------------------------------------------ helpers */
+
+const body = (result: { content?: Array<{ type: string; text?: string }> }): string =>
   (result.content ?? [])
     .filter((item) => item.type === 'text')
     .map((item) => item.text ?? '')
     .join('\n');
 
-/** The JSON payload the controller wraps its answers in. */
 function payload(result: { content?: Array<{ type: string; text?: string }> }): Record<string, unknown> {
   const raw = body(result)
     .replace(/^```json\s*/gm, '')
@@ -47,27 +57,45 @@ function payload(result: { content?: Array<{ type: string; text?: string }> }): 
   return JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as Record<string, unknown>;
 }
 
-const refused = (result: { isError?: boolean }) => result.isError === true;
+const refused = (result: { isError?: boolean }): boolean => result.isError === true;
 
-/** Two names that must exist in the registry; the plan validator refuses anything else. */
+const call = (args: Record<string, unknown>) => dispatch('pro_fetch_workflow', args);
+
+/** Names the registry must still contain for these fixtures to mean anything. */
 const REAL_TOOL = 'pro_fetch_fetch_url';
 const OTHER_REAL_TOOL = 'pro_fetch_web_search';
-/** A tool the registry itself classifies as state-changing, so the approval gate really engages. */
 const MUTATING_TOOL = 'pro_fetch_cache_put';
 const categoryOf = (name: string) => allTools().find((tool) => tool.name === name)?.category ?? 'http';
 
-/** A task that satisfies the validator; `objective` doubles as the id suffix. */
+/**
+ * A goal with two requirement families, so coverage has something to check:
+ * E1, C1, D1, A1, A2 are requirements; U1 is an unknown (tracked separately, not by coverage).
+ */
+const GOAL: GoalSpec = {
+  goal: 'publish a measured dashboard',
+  explicitRequirements: ['render the collected numbers'],
+  implicitRequirements: [],
+  constraints: ['no new runtime dependency'],
+  deliverables: ['dashboard.html'],
+  qualityTarget: 'high',
+  acceptanceCriteria: ['opens in a browser', 'numbers match the source'],
+  unknowns: [],
+};
+
+/** The same goal with one open question, for the §6.6 unknown gate. */
+const GOAL_WITH_UNKNOWN: GoalSpec = { ...GOAL, unknowns: ['is the upstream API paginated?'] };
+
 function plannedTask(
   id: string,
-  toolName = REAL_TOOL,
-  sensitivity: Task['toolPlan'][number]['sensitivity'] = 'read_only',
+  over: Partial<Task> & { toolName?: string; sensitivity?: Task['toolPlan'][number]['sensitivity'] } = {},
 ): Task {
+  const { toolName = REAL_TOOL, sensitivity = 'read_only', ...rest } = over;
   return {
     id,
     objective: `measure ${id}`,
-    priority: 'high',
+    priority: 'medium',
     dependsOn: [],
-    deliverables: [`${id}-report`],
+    deliverables: [],
     toolPlan: [
       {
         toolName,
@@ -80,741 +108,960 @@ function plannedTask(
     ],
     acceptanceCriteria: [`${id} produced a measurable result`],
     verification: { method: 're-run and compare', evidenceRequired: true },
+    covers: [],
     status: 'pending',
     attempts: 0,
     evidenceRefs: [],
     blockers: [],
+    ...rest,
   };
 }
 
-function finding(id: string, over: Partial<{ blocking: boolean; status: string }> = {}) {
+/** Two tasks that between them carry every requirement id of GOAL. */
+const COVERED_PLAN = (): Task[] => [
+  plannedTask('T001', { covers: ['E1', 'C1', 'D1'] }),
+  plannedTask('T002', { toolName: OTHER_REAL_TOOL, covers: ['A1', 'A2'] }),
+];
+
+function finding(id: string, over: Partial<Finding> = {}): Finding {
   return {
     id,
     severity: 'medium',
-    relatedRequirementIds: ['r1'],
+    relatedRequirementIds: ['E1'],
     description: `finding ${id}`,
-    evidence: 'measured in the running registry',
+    evidence: 'measured against the running registry',
     whyItMatters: 'an unmeasured plan cannot be verified',
     requiredAction: 'add an acceptance criterion',
     acceptanceCriteria: ['criterion present'],
     confidence: 0.9,
-    blocking: over.blocking ?? false,
-    status: over.status ?? 'open',
-  } as Record<string, unknown>;
+    classification: 'should_fix',
+    blocking: false,
+    status: 'open',
+    ...over,
+  } as Finding;
 }
 
-async function startedWorkflow(): Promise<string> {
-  const started = await dispatch('pro_fetch_workflow', {
-    action: 'start',
-    goal: 'measure the controller end to end',
-    mode: 'full',
-  });
-  expect(refused(started)).toBe(false);
-  return String(payload(started).workflow_id);
+async function phaseOf(id: string): Promise<string> {
+  return String(payload(await call({ action: 'status', workflow_id: id })).phase);
 }
+
+async function started(goal: GoalSpec = GOAL): Promise<string> {
+  const res = await call({ action: 'start', goal: JSON.stringify(goal), mode: 'full' });
+  expect(refused(res), body(res)).toBe(false);
+  return String(payload(res).workflow_id);
+}
+
+async function plannedWith(tasks: Task[], goal: GoalSpec = GOAL): Promise<string> {
+  const id = await started(goal);
+  const res = await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks }) });
+  expect(refused(res), body(res)).toBe(false);
+  return id;
+}
+
+/** begin_audit(full) + a clean submit_review → PLAN_READY. Only valid from AUDIT_REQUIRED. */
+async function audited(id: string, findings: Finding[] = [finding('F001')]): Promise<Record<string, unknown>> {
+  expect(await phaseOf(id)).toBe('AUDIT_REQUIRED');
+  const opened = await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
+  expect(refused(opened), body(opened)).toBe(false);
+  const review = await call({ action: 'submit_review', workflow_id: id, findings: JSON.stringify(findings) });
+  expect(refused(review), body(review)).toBe(false);
+  return payload(review);
+}
+
+/**
+ * Advance the run to EXECUTING from whatever phase it is in, so a test states the rule it checks
+ * instead of re-running the whole lifecycle. Approves whatever the registry says writes.
+ */
+async function executing(
+  id: string,
+  findings: Finding[] = [finding('F001')],
+  tasks: Task[] = COVERED_PLAN(),
+): Promise<Record<string, unknown>> {
+  if ((await phaseOf(id)) === 'PLANNING') {
+    const res = await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks }) });
+    expect(refused(res), body(res)).toBe(false);
+  }
+  if ((await phaseOf(id)) === 'AUDIT_REQUIRED') await audited(id, findings);
+  expect(await phaseOf(id), 'test premise: the run should reach PLAN_READY').toBe('PLAN_READY');
+  const status = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+  if ((status.pending_approvals as number) > 0) {
+    const approved = await call({ action: 'approve_plan', workflow_id: id, note: 'operator confirmed the write' });
+    expect(refused(approved), body(approved)).toBe(false);
+  }
+  const next = await call({ action: 'get_next_task', workflow_id: id });
+  expect(refused(next), body(next)).toBe(false);
+  return payload(next);
+}
+
+async function closeTask(id: string, taskId: string, over: Record<string, unknown> = {}) {
+  const res = await call({
+    action: 'report_task_result',
+    workflow_id: id,
+    task_id: taskId,
+    task_status: 'verified',
+    verification_type: 'integration',
+    evidence: 'ran the planned tool and diffed the output against the source',
+    ...over,
+  });
+  expect(refused(res), body(res)).toBe(false);
+  return payload(res);
+}
+
+async function fullMetrics(id: string): Promise<Record<string, Record<string, number>>> {
+  const status = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+  return status.metrics as Record<string, Record<string, number>>;
+}
+
+/* ------------------------------------------------------------------ onboarding */
 
 describe('pro_fetch_workflow — onboarding', () => {
-  it('introduces itself and only lists the phase names when the caller asks for full', async () => {
-    const summary = payload(await dispatch('pro_fetch_workflow', { action: 'introduce' }));
+  it('introduces itself and only lists phases under full', async () => {
+    const summary = payload(await call({ action: 'introduce' }));
     expect(summary.next_action).toBe('start');
     expect(summary.phases).toBeUndefined();
-
-    const full = payload(await dispatch('pro_fetch_workflow', { action: 'introduce', detail: 'full' }));
-    expect(Array.isArray(full.phases)).toBe(true);
-    expect((full.phases as string[]).length).toBeGreaterThan(5);
+    const full = payload(await call({ action: 'introduce', detail: 'full' }));
+    expect((full.phases as string[]).length).toBeGreaterThanOrEqual(11);
   });
 
-  it('refuses start without a goal, and a goal with no acceptance criteria', async () => {
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'start' }))).toBe(true);
-    const noCriteria = await dispatch('pro_fetch_workflow', {
+  it('refuses start with no goal and a goal nobody can test', async () => {
+    expect(refused(await call({ action: 'start' }))).toBe(true);
+    const noCriteria = await call({
       action: 'start',
-      goal: JSON.stringify({
-        goal: 'x',
-        explicitRequirements: [],
-        implicitRequirements: [],
-        constraints: [],
-        deliverables: [],
-        qualityTarget: 'high',
-        acceptanceCriteria: [],
-        unknowns: [],
-      }),
+      goal: JSON.stringify({ ...GOAL, acceptanceCriteria: [] }),
     });
     expect(refused(noCriteria)).toBe(true);
     expect(body(noCriteria)).toContain('acceptance');
   });
+
+  it('reports the derived requirement ids a plan has to carry', async () => {
+    const res = payload(await call({ action: 'start', goal: JSON.stringify(GOAL), detail: 'full' }));
+    expect(res.requirements).toBe(5);
+    const list = res.requirement_list as Array<{ id: string; kind: string }>;
+    expect(list.map((entry) => entry.id)).toEqual(['E1', 'C1', 'D1', 'A1', 'A2']);
+  });
+
+  it('normalises arrays the host left out, but not an untestable goal', async () => {
+    const sparse = await call({ action: 'start', goal: JSON.stringify({ goal: 'x', acceptanceCriteria: ['runs'] }) });
+    expect(refused(sparse), body(sparse)).toBe(false);
+    expect(payload(sparse).requirements).toBe(1);
+    const noCriteria = await call({ action: 'start', goal: JSON.stringify({ goal: 'just a line' }) });
+    expect(refused(noCriteria)).toBe(true);
+  });
 });
 
-describe('pro_fetch_workflow — the honest path', () => {
-  it('walks start → plan → review → execute → verify → finish and lands on COMPLETED', async () => {
-    const id = await startedWorkflow();
+/* ------------------------------------------------------------------ §5.2 coverage */
 
-    const planned = await dispatch('pro_fetch_workflow', {
+describe('pro_fetch_workflow — requirement coverage (§5.2)', () => {
+  it('refuses a plan that leaves a requirement unmapped and names it', async () => {
+    const id = await started();
+    const res = await call({
       action: 'submit_plan',
       workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001'), plannedTask('T002', OTHER_REAL_TOOL)] }),
+      // A2 is carried by nobody.
+      plan: JSON.stringify({ tasks: [plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1'] })] }),
     });
-    expect(refused(planned)).toBe(false);
-    expect(payload(planned).phase).toBe('AUDIT_REQUIRED');
-    expect(payload(planned).tasks).toBe(2);
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('A2');
+    const metrics = await fullMetrics(id);
+    expect(metrics.refused.unmapped_requirement).toBe(1);
+  });
 
-    const reviewed = payload(
-      await dispatch('pro_fetch_workflow', {
+  it('accepts the plan once every requirement is carried, and records coverage', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const review = await audited(id);
+    expect(review.phase).toBe('PLAN_READY');
+    expect(review.coverage).toEqual({ total: 5, mapped: 5, unmapped: [] });
+  });
+
+  it('refuses a task that invents a requirement id', async () => {
+    const id = await started();
+    const res = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001', { covers: ['E99'] })] }),
+    });
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('task_covers_unknown');
+  });
+
+  it('refuses a finding that points at a requirement the goal never declared', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const res = await call({
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001', { relatedRequirementIds: ['Z7'] })]),
+    });
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('finding_requirement_unknown');
+  });
+
+  it('re-checks coverage at completion for a run that bypassed the plan gate', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    await audited(id);
+    await executing(id, []);
+    for (const task of ['T001', 'T002']) await closeTask(id, task);
+    await call({ action: 'verify', workflow_id: id });
+    await call({ action: 'final_audit', workflow_id: id, note: 'checked each criterion against the ledger' });
+
+    // Drop T002's mapping on disk: exactly what a hand-edited or pre-rule stored run could look like.
+    const file = path.join(dir, 'workflows', `${id}.json`);
+    const stored = JSON.parse(await readFile(file, 'utf8')) as WorkflowState;
+    stored.plan!.tasks[1].covers = [];
+    await writeFile(file, JSON.stringify(stored), 'utf8');
+
+    const refusedFinish = await call({ action: 'finish', workflow_id: id });
+    expect(refused(refusedFinish)).toBe(true);
+    expect(body(refusedFinish)).toContain('A1');
+    expect(body(refusedFinish)).toContain('qoplanmagan');
+  });
+});
+
+/* ------------------------------------------------------------------ §5.4 duplication */
+
+describe('pro_fetch_workflow — duplicate work (§5.4)', () => {
+  it('refuses two tasks with the same objective', async () => {
+    const id = await started();
+    const res = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({
+        tasks: [
+          plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+          plannedTask('T002', { objective: 'measure T001' }),
+        ],
+      }),
+    });
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('task_duplicate_objective');
+  });
+
+  it('refuses two tasks with the same tool plan and the same requirements', async () => {
+    const id = await started();
+    const res = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({
+        tasks: [
+          plannedTask('T001', { objective: 'first', covers: ['E1', 'C1', 'D1'] }),
+          plannedTask('T002', { objective: 'second', covers: ['E1', 'C1', 'D1'] }),
+        ],
+      }),
+    });
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('task_duplicate_toolplan');
+  });
+
+  it('allows the same tool planned for different requirements', async () => {
+    // The rule above must not become "one task per tool": measuring two different requirements with
+    // the same endpoint is ordinary work. Measured the other way first — the blunt version of this
+    // check refused a two-task plan that shared only a tool name.
+    const id = await started();
+    const res = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({
+        tasks: [
+          plannedTask('T001', { objective: 'first', covers: ['E1', 'C1', 'D1'] }),
+          plannedTask('T002', { objective: 'second', covers: ['A1', 'A2'] }),
+        ],
+      }),
+    });
+    expect(refused(res), body(res)).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ §5.1 independence */
+
+describe('pro_fetch_workflow — audit independence (§5.1)', () => {
+  it('hands out a goal-only packet before the plan is visible', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const blind = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'blind' }));
+    expect(blind.plan_visible).toBe(false);
+    expect(Array.isArray(blind.requirements)).toBe(true);
+    expect(blind.next_action).toBe('submit_review');
+    // The packet never contains the plan itself.
+    expect(JSON.stringify(blind)).not.toContain('pro_fetch_fetch_url');
+  });
+
+  it('records blind findings, then compares them against the opened plan', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'blind' });
+    const blindRound = payload(
+      await call({
         action: 'submit_review',
         workflow_id: id,
-        findings: JSON.stringify([finding('F001')]),
+        findings: JSON.stringify([finding('B001', { classification: 'must_fix', blocking: true })]),
       }),
     );
-    expect(reviewed.phase).toBe('PLAN_READY');
-    expect(reviewed.next_action).toBe('get_next_task');
+    expect(blindRound.phase).toBe('AUDIT_REQUIRED');
+    expect(blindRound.next_action).toBe('begin_audit');
 
-    const next = payload(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }));
-    expect(next.phase).toBe('EXECUTING');
-    expect((next.task as { id: string }).id).toBe('T001');
-
-    for (const task of ['T001', 'T002']) {
-      const reported = await dispatch('pro_fetch_workflow', {
-        action: 'report_task_result',
-        workflow_id: id,
-        task_id: task,
-        task_status: 'verified',
-        evidence: `${task}: ran the planned tool, 3 results, checked by hand`,
-      });
-      expect(refused(reported)).toBe(false);
-    }
-
-    const verified = payload(await dispatch('pro_fetch_workflow', { action: 'verify', workflow_id: id }));
-    expect(verified.eligible_to_finish).toBe(true);
-    expect(verified.next_action).toBe('finish');
-
-    const done = payload(await dispatch('pro_fetch_workflow', { action: 'finish', workflow_id: id }));
-    expect(done.phase).toBe('COMPLETED');
-    expect(done.completed).toBe(true);
-    expect(done.evidence).toBe(2);
-
-    const status = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(status.verified).toBe(2);
-    expect(status.total_tasks).toBe(2);
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
+    const review = payload(await call({ action: 'submit_review', workflow_id: id, findings: '[]' }));
+    expect(review.independence).toBe('blind');
+    // The blind objection still stands: the plan cannot be declared ready under it.
+    expect(review.phase).toBe('REVISION_REQUIRED');
+    const full = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    const findings = full.findings as Array<{ id: string; blind: boolean }>;
+    expect(findings.find((entry) => entry.id === 'B001')?.blind).toBe(true);
   });
 
-  it('persists the run so a later call in a fresh read sees the same phase', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
+  it('refuses an out-of-order round in both directions', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const tooEarly = await call({
+      action: 'submit_review',
       workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
+      stage: 'blind',
+      findings: JSON.stringify([finding('B001')]),
     });
-    const stored = JSON.parse(await readFile(path.join(dir, 'workflows', `${id}.json`), 'utf8')) as {
-      phase: string;
-      plan: { tasks: unknown[] };
-    };
-    expect(stored.phase).toBe('AUDIT_REQUIRED');
-    expect(stored.plan.tasks).toHaveLength(1);
+    // No blind session started, so a blind round means nothing yet — it is refused, not accepted.
+    expect(refused(tooEarly)).toBe(true);
 
-    const status = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(status.phase).toBe('AUDIT_REQUIRED');
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'blind' });
+    const skipAhead = await call({
+      action: 'submit_review',
+      workflow_id: id,
+      stage: 'full',
+      findings: JSON.stringify([finding('B002')]),
+    });
+    expect(refused(skipAhead)).toBe(true);
+    expect(body(skipAhead)).toContain('§5.1');
+
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
+    const tooLate = await call({ action: 'begin_audit', workflow_id: id, stage: 'blind' });
+    expect(refused(tooLate)).toBe(true);
+  });
+
+  it('says so when the review was not independent', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const review = payload(
+      await call({ action: 'submit_review', workflow_id: id, findings: JSON.stringify([finding('F001')]) }),
+    );
+    expect(review.independence).toBe('reduced');
+    await executing(id, []);
   });
 });
 
-describe('pro_fetch_workflow — refusals', () => {
-  it('rejects a plan whose tool plan names a tool the registry does not have', async () => {
-    const id = await startedWorkflow();
-    const res = await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
+/* ------------------------------------------------------------------ §5.7 finding lifecycle */
+
+describe('pro_fetch_workflow — findings (§5.6, §5.7)', () => {
+  it('requires a classification, an evidence line and an action per objection', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const noClass = await call({
+      action: 'submit_review',
       workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001', 'pro_fetch_totally_made_up')] }),
+      findings: JSON.stringify([{ ...finding('F001'), classification: undefined }]),
     });
-    expect(refused(res)).toBe(true);
-    expect(body(res)).toContain('registry');
+    expect(refused(noClass)).toBe(true);
+    expect(body(noClass)).toContain('finding_classification_missing');
+    const badConfidence = await call({
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F002', { confidence: 4 })]),
+    });
+    expect(refused(badConfidence)).toBe(true);
   });
 
-  it('rejects a plan with no acceptance criteria or no verification method', async () => {
-    const id = await startedWorkflow();
-    const bad = plannedTask('T001');
-    bad.acceptanceCriteria = [];
-    const res = await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [bad] }),
-    });
-    expect(refused(res)).toBe(true);
-    expect(body(res)).toContain('acceptance');
-  });
-
-  it('refuses a "verified" result that carries no evidence', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-    await dispatch('pro_fetch_workflow', {
+  it('refuses the same finding twice, and reopening it without a new fact', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const payload1 = await call({
       action: 'submit_review',
       workflow_id: id,
       findings: JSON.stringify([finding('F001')]),
     });
-    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
+    expect(refused(payload1)).toBe(false);
+    const again = await call({
+      action: 'report_finding',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+    expect(refused(again)).toBe(true);
+    expect(body(again)).toContain('allaqachon ochiq');
 
-    const fakePass = await dispatch('pro_fetch_workflow', {
+    // Close it, then try to reopen with identical evidence (§5.7).
+    await call({ action: 'resolve_finding', workflow_id: id, finding_id: 'F001', resolution: 'criterion added' });
+    const reopened = await call({
+      action: 'report_finding',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+    expect(refused(reopened)).toBe(true);
+    expect(body(reopened)).toContain('§5.7');
+
+    // The same objection with genuinely new evidence does reopen.
+    const withNewFact = await call({
+      action: 'report_finding',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001', { evidence: 're-measured on the staging build' })]),
+    });
+    expect(refused(withNewFact), body(withNewFact)).toBe(false);
+    const status = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    expect((status.findings as Array<{ id: string; status: string }>)[0].status).toBe('open');
+  });
+
+  it('a closing needs evidence and cannot be undone', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    await call({ action: 'submit_review', workflow_id: id, findings: JSON.stringify([finding('F001')]) });
+    expect(refused(await call({ action: 'resolve_finding', workflow_id: id, finding_id: 'F001' }))).toBe(true);
+    const closed = payload(
+      await call({
+        action: 'resolve_finding',
+        workflow_id: id,
+        finding_id: 'F001',
+        resolution: 'acceptance criterion A2 now covers it, checked line by line',
+      }),
+    );
+    expect(closed.status).toBe('resolved');
+    expect(
+      refused(await call({ action: 'resolve_finding', workflow_id: id, finding_id: 'F001', resolution: 'again' })),
+    ).toBe(true);
+  });
+
+  it('needs_user_approval blocks completion even when the host forgot to flag it', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    await call({
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001', { classification: 'needs_user_approval', blocking: false })]),
+    });
+    const status = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    const entry = (status.findings as Array<{ id: string; blocking: boolean }>)[0];
+    expect(entry.blocking).toBe(true);
+    expect(status.phase).toBe('REVISION_REQUIRED');
+  });
+});
+
+/* ------------------------------------------------------------------ §14 risk + approval */
+
+describe('pro_fetch_workflow — risk and approval gate (spec §14)', () => {
+  it('grades steps with the registry, not with the label the host wrote', () => {
+    expect(isMutationTool(MUTATING_TOOL), MUTATING_TOOL).toBe(true);
+    expect(isMutationTool(REAL_TOOL), REAL_TOOL).toBe(false);
+  });
+
+  it('refuses a mutating step labelled read_only', async () => {
+    const id = await started();
+    const under = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify([plannedTask('T001', { toolName: MUTATING_TOOL, covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]),
+    });
+    expect(refused(under)).toBe(true);
+    expect(body(under)).toContain('risk_understated');
+    expect((await fullMetrics(id)).refused.understated_risk).toBe(1);
+  });
+
+  it('will not enter EXECUTING without an approval, nor accept an approval without a reason', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', { toolName: MUTATING_TOOL, sensitivity: 'mutating', covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+    ]);
+    await audited(id);
+    const blocked = await call({ action: 'get_next_task', workflow_id: id });
+    expect(refused(blocked)).toBe(true);
+    expect(body(blocked)).toContain('approve_plan');
+    expect((await fullMetrics(id)).refused.unapproved_execution).toBe(1);
+
+    expect(refused(await call({ action: 'approve_plan', workflow_id: id }))).toBe(true);
+    const approved = payload(
+      await call({ action: 'approve_plan', workflow_id: id, note: 'write scoped to the test cache namespace' }),
+    );
+    expect(approved.approved).toEqual(['T001']);
+    expect(approved.next_action).toBe('get_next_task');
+    const next = payload(await call({ action: 'get_next_task', workflow_id: id }));
+    expect(next.phase).toBe('EXECUTING');
+    expect((next.task as { approved: boolean }).approved).toBe(true);
+  });
+
+  it('approves only an audited plan and nothing that needs no approval', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    expect(refused(await call({ action: 'approve_plan', workflow_id: id, note: 'too early' }))).toBe(true);
+    await audited(id);
+    const pointless = await call({ action: 'approve_plan', workflow_id: id, task_id: 'T001', note: 'no writes here' });
+    expect(refused(pointless)).toBe(true);
+    expect(body(pointless)).toContain('shart emas');
+  });
+
+  it('operator read-only policy stops the controller and points only at the operator (§14.1)', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', { toolName: MUTATING_TOOL, sensitivity: 'mutating', covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+    ]);
+    await audited(id);
+    process.env.PRO_FETCH_READ_ONLY = 'true';
+    let approval;
+    let readOnly;
+    let allowed;
+    try {
+      approval = await call({ action: 'approve_plan', workflow_id: id, note: 'past the operator setting' });
+      readOnly = await call({ action: 'status', workflow_id: id });
+      process.env.PRO_FETCH_MUTATION_ALLOWLIST = 'pro_fetch_workflow';
+      allowed = await call({ action: 'status', workflow_id: id });
+    } finally {
+      delete process.env.PRO_FETCH_READ_ONLY;
+      delete process.env.PRO_FETCH_MUTATION_ALLOWLIST;
+    }
+    expect(refused(approval)).toBe(true);
+    expect(body(approval)).toContain('PRO_FETCH_READ_ONLY');
+    expect(body(approval)).toContain('PRO_FETCH_MUTATION_ALLOWLIST');
+    expect(refused(readOnly)).toBe(true);
+    expect(refused(allowed)).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ §12.2 honest evidence */
+
+describe('pro_fetch_workflow — honest evidence (§12.2, §6.4)', () => {
+  it('refuses a verified result with no evidence and counts it', async () => {
+    const id = await started();
+    await executing(id);
+    const fake = await call({
       action: 'report_task_result',
       workflow_id: id,
       task_id: 'T001',
       task_status: 'verified',
       evidence: '   ',
     });
-    expect(refused(fakePass)).toBe(true);
-    expect(body(fakePass)).toContain('evidence');
-
-    // The refusal must not have written the status either.
-    const status = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(status.verified).toBe(0);
+    expect(refused(fake)).toBe(true);
+    expect(body(fake)).toContain('evidence');
+    expect((await fullMetrics(id)).refused.fake_completion).toBe(1);
   });
 
-  it('keeps finish out of reach while a blocking finding is open', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-    const reviewed = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'submit_review',
-        workflow_id: id,
-        findings: JSON.stringify([finding('F001', { blocking: true })]),
-      }),
-    );
-    expect(reviewed.phase).toBe('REVISION_REQUIRED');
-
-    // Execution cannot start from REVISION_REQUIRED, and finish cannot be reached at all.
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }))).toBe(true);
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'verify', workflow_id: id }))).toBe(true);
-    const finished = await dispatch('pro_fetch_workflow', { action: 'finish', workflow_id: id });
-    expect(refused(finished)).toBe(true);
-    expect(body(finished)).toContain('blocking');
-  });
-
-  it('refuses an out-of-order phase move in both directions', async () => {
-    const id = await startedWorkflow();
-    // submit_plan twice: the second one arrives in AUDIT_REQUIRED.
-    const plan = JSON.stringify({ tasks: [plannedTask('T001')] });
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'submit_plan', workflow_id: id, plan }))).toBe(false);
-    const again = await dispatch('pro_fetch_workflow', { action: 'submit_plan', workflow_id: id, plan });
-    expect(refused(again)).toBe(true);
-    expect(body(again)).toContain('PLANNING');
-
-    // finish before verify.
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    await dispatch('pro_fetch_workflow', {
+  it('refuses a closing report that names no verification kind', async () => {
+    const id = await started();
+    await executing(id);
+    const res = await call({
       action: 'report_task_result',
       workflow_id: id,
       task_id: 'T001',
       task_status: 'verified',
-      evidence: 'checked the output line by line',
+      evidence: 'it worked',
     });
-    const early = await dispatch('pro_fetch_workflow', { action: 'finish', workflow_id: id });
-    expect(refused(early)).toBe(true);
-    expect(body(early)).toContain('VERIFYING');
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('verification_type');
   });
 
-  it('refuses an unknown workflow id, an unknown action and an unknown task id', async () => {
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: 'wf-nope' }))).toBe(true);
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'do_everything' }))).toBe(true);
+  it('refuses evidence weaker than the task demanded — a typecheck is not an integration test', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', {
+        covers: ['E1', 'C1', 'D1', 'A1', 'A2'],
+        verification: { method: 'end-to-end run', evidenceRequired: true, type: 'integration' },
+      }),
+    ]);
+    await executing(id);
+    const weak = await call({
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'verified',
+      verification_type: 'typecheck',
+      evidence: 'tsc passed',
+    });
+    expect(refused(weak)).toBe(true);
+    expect(body(weak)).toContain('verification_weaker_than_required');
+    expect((await fullMetrics(id)).refused.weak_evidence).toBe(1);
 
-    const id = await startedWorkflow();
+    const strong = await call({
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'verified',
+      verification_type: 'real-api',
+      evidence: 'ran against the live endpoint, compared payloads',
+    });
+    expect(refused(strong), body(strong)).toBe(false);
+  });
+
+  it('does not let mock_verified stand in for a real check', async () => {
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    const mocked = payload(
+      await call({
+        action: 'report_task_result',
+        workflow_id: id,
+        task_id: 'T001',
+        task_status: 'mock_verified',
+        verification_type: 'unit',
+        evidence: 'mock server returned the fixture payload',
+      }),
+    );
+    expect(mocked.counts_toward_completion).toBe(false);
+    await call({ action: 'verify', workflow_id: id });
+    const audit = payload(await call({ action: 'final_audit', workflow_id: id, note: 'checked the ledger' }));
+    expect((audit.blockers as string[]).some((line) => line.includes('mock_verified'))).toBe(true);
+    const finished = await call({ action: 'finish', workflow_id: id });
+    expect(refused(finished)).toBe(true);
+    expect(body(finished)).toContain('mock_verified');
+  });
+
+  it('asks what was tried to break it before closing high-stakes work (§6.4)', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', { priority: 'critical', covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+    ]);
+    await executing(id);
+    const noChallenge = await call({
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'verified',
+      verification_type: 'integration',
+      evidence: 'ran it',
+    });
+    expect(refused(noChallenge)).toBe(true);
+    expect(body(noChallenge)).toContain('challenge');
+    const withChallenge = await call({
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'verified',
+      verification_type: 'integration',
+      evidence: 'ran it twice with different inputs',
+      challenge: 'tried an empty source and a 10x larger one; both behave the same',
+    });
+    expect(refused(withChallenge), body(withChallenge)).toBe(false);
+  });
+
+  it('keeps not_run and skipped visible instead of folding them into done', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', { covers: ['E1', 'C1', 'D1'] }),
+      plannedTask('T002', { toolName: OTHER_REAL_TOOL, covers: ['A1', 'A2'] }),
+    ]);
+    await executing(id);
+    await closeTask(id, 'T001');
+    await call({ action: 'report_task_result', workflow_id: id, task_id: 'T002', task_status: 'not_run' });
+    await call({ action: 'verify', workflow_id: id });
+    const audit = payload(await call({ action: 'final_audit', workflow_id: id, note: 'reviewed the ledger' }));
+    expect((audit.blockers as string[]).some((line) => line.includes('not_run'))).toBe(true);
+    const finished = await call({ action: 'finish', workflow_id: id });
+    expect(refused(finished)).toBe(true);
+    expect(body(finished)).toContain('not_run');
+  });
+});
+
+/* ------------------------------------------------------------------ §6.5 / §6.6 execution */
+
+describe('pro_fetch_workflow — execution bookkeeping (§6.5, §6.6)', () => {
+  it('counts a repeated call that produced nothing, without blocking the run', async () => {
+    const id = await started();
+    await executing(id);
+    const first = payload(
+      await call({ action: 'log_call', workflow_id: id, tool_name: REAL_TOOL, purpose: 'read page', produced: 'true' }),
+    );
+    expect(first.duplicate).toBe(false);
+    const again = payload(
+      await call({
+        action: 'log_call',
+        workflow_id: id,
+        tool_name: REAL_TOOL,
+        purpose: 'read page',
+        produced: 'false',
+      }),
+    );
+    expect(again.duplicate).toBe(true);
+    expect(again.next_action).toBe('report_finding');
+    const metrics = await fullMetrics(id);
+    expect(metrics.calls.logged).toBe(2);
+    expect(metrics.calls.duplicated).toBe(1);
+  });
+
+  it('refuses to log a tool that is not in the registry or a call with no purpose', async () => {
+    const id = await started();
+    await executing(id);
+    expect(
+      refused(await call({ action: 'log_call', workflow_id: id, tool_name: 'pro_fetch_nope', purpose: 'x' })),
+    ).toBe(true);
+    expect(refused(await call({ action: 'log_call', workflow_id: id, tool_name: REAL_TOOL }))).toBe(true);
+  });
+
+  it('keeps finish out of reach while an unknown is unclosed, then lets it through', async () => {
+    const id = await plannedWith(COVERED_PLAN(), GOAL_WITH_UNKNOWN);
+    await executing(id);
+    for (const task of ['T001', 'T002']) await closeTask(id, task);
+    await call({ action: 'verify', workflow_id: id });
+    const audit = payload(await call({ action: 'final_audit', workflow_id: id, note: 'everything maps and runs' }));
+    expect((audit.blockers as string[]).some((line) => line.includes('U1'))).toBe(true);
+    const blocked = await call({ action: 'finish', workflow_id: id });
+    expect(refused(blocked)).toBe(true);
+    expect(body(blocked)).toContain('U1');
+
+    expect(refused(await call({ action: 'resolve_unknown', workflow_id: id, unknown_id: 'U1' }))).toBe(true);
     expect(
       refused(
-        await dispatch('pro_fetch_workflow', {
-          action: 'report_task_result',
+        await call({
+          action: 'resolve_unknown',
           workflow_id: id,
-          task_id: 'T999',
-          task_status: 'failed',
+          unknown_id: 'U1',
+          verdict: 'maybe',
+          note: 'x',
         }),
       ),
     ).toBe(true);
+    const closed = payload(
+      await call({
+        action: 'resolve_unknown',
+        workflow_id: id,
+        unknown_id: 'U1',
+        verdict: 'resolved',
+        note: 'checked the docs: the API is not paginated below 1000 rows',
+      }),
+    );
+    expect(closed.open_unknowns).toBe(0);
+
+    const done = payload(await call({ action: 'finish', workflow_id: id }));
+    expect(done.phase).toBe('COMPLETED');
+  });
+
+  it('routes a material discovery made during execution back through the plan', async () => {
+    const id = await started();
+    await executing(id);
+    const reported = payload(
+      await call({
+        action: 'report_finding',
+        workflow_id: id,
+        findings: JSON.stringify([finding('F010', { classification: 'must_fix', blocking: true })]),
+      }),
+    );
+    expect(reported.material).toBe(true);
+    expect(reported.phase).toBe('PLANNING');
+    expect(reported.next_action).toBe('submit_plan');
+  });
+
+  it('leaves a report_only discovery where it is', async () => {
+    const id = await started();
+    await executing(id);
+    const reported = payload(
+      await call({
+        action: 'report_finding',
+        workflow_id: id,
+        findings: JSON.stringify([finding('F011', { classification: 'report_only' })]),
+      }),
+    );
+    expect(reported.material).toBe(false);
+    expect(reported.phase).toBe('EXECUTING');
+    expect(reported.next_action).toBe('get_next_task');
+  });
+});
+
+/* ------------------------------------------------------------------ §12.3 + §17 */
+
+describe('pro_fetch_workflow — verification, repair, final audit', () => {
+  it('will not finish from VERIFYING in full mode: the audit is a step (§12.3)', async () => {
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    await closeTask(id, 'T001');
+    const verify = payload(await call({ action: 'verify', workflow_id: id }));
+    expect(verify.next_action).toBe('final_audit');
+    const early = await call({ action: 'finish', workflow_id: id });
+    expect(refused(early)).toBe(true);
+    expect(body(early)).toContain('FINAL_AUDIT');
+    expect((await fullMetrics(id)).refused.fake_completion).toBe(1);
+  });
+
+  it('sends a task back through REPAIR without pretending the plan changed', async () => {
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    await closeTask(id, 'T001');
+    await call({ action: 'verify', workflow_id: id });
+    const repair = payload(await call({ action: 'repair', workflow_id: id, reason: 'A2 not actually compared' }));
+    expect(repair.phase).toBe('EXECUTING');
+    const history = (payload(await call({ action: 'status', workflow_id: id, detail: 'full' })).phase as string)!;
+    expect(history).toBe('EXECUTING');
+    const reverified = payload(await call({ action: 'verify', workflow_id: id }));
+    expect(reverified.phase).toBe('VERIFYING');
+  });
+
+  it('a final audit that finds a gap reopens the plan instead of completing', async () => {
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    await closeTask(id, 'T001');
+    await call({ action: 'verify', workflow_id: id });
+    const audit = payload(
+      await call({
+        action: 'final_audit',
+        workflow_id: id,
+        note: 're-read the acceptance criteria against the evidence',
+        findings: JSON.stringify([finding('F020', { classification: 'must_fix', blocking: true })]),
+      }),
+    );
+    expect(audit.gaps).toBe(1);
+    expect(audit.phase).toBe('PLANNING');
+    expect(audit.next_action).toBe('submit_plan');
+  });
+
+  it('refuses an audit note that says nothing', async () => {
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    await closeTask(id, 'T001');
+    await call({ action: 'verify', workflow_id: id });
+    expect(refused(await call({ action: 'final_audit', workflow_id: id }))).toBe(true);
+  });
+
+  it('lite mode finishes from VERIFYING without the extra audit step', async () => {
+    const lite = payload(await call({ action: 'start', goal: JSON.stringify(GOAL), mode: 'lite' }));
+    const liteId = String(lite.workflow_id);
+    expect(liteId).not.toBe('undefined');
+    await call({ action: 'submit_plan', workflow_id: liteId, plan: JSON.stringify({ tasks: COVERED_PLAN() }) });
+    await audited(liteId);
+    await executing(liteId, []);
+    for (const task of ['T001', 'T002']) await closeTask(liteId, task);
+    const verify = payload(await call({ action: 'verify', workflow_id: liteId }));
+    expect(verify.next_action).toBe('finish');
+    expect(verify.eligible_to_finish).toBe(true);
+    const done = payload(await call({ action: 'finish', workflow_id: liteId }));
+    expect(done.phase).toBe('COMPLETED');
+  });
+});
+
+/* ------------------------------------------------------------------ §13.3 + §17 pause */
+
+describe('pro_fetch_workflow — stagnation and interruption', () => {
+  it('refuses a second revision that brought neither new evidence nor a new finding (§13.3)', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    // Round one: the plan is rejected for a real objection, and the revision changes the finding count.
+    await call({
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001', { classification: 'must_fix', blocking: true })]),
+    });
+    await call({ action: 'revise_plan', workflow_id: id, reason: 'mapping for A2 added' });
+    const second = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: COVERED_PLAN() }),
+    });
+    expect(refused(second), body(second)).toBe(false);
+
+    // Round two: nothing new was measured and no new objection exists, so the same loop is refused.
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
+    await call({ action: 'submit_review', workflow_id: id, findings: '[]' });
+    await call({ action: 'revise_plan', workflow_id: id, reason: 'same plan again' });
+    const third = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: COVERED_PLAN() }),
+    });
+    expect(refused(third)).toBe(true);
+    expect(body(third)).toContain('stagnation');
+    expect((await fullMetrics(id)).refused.stagnation).toBe(1);
+  });
+
+  it('pause records what it interrupted and resume restores exactly that', async () => {
+    const id = await started();
+    await executing(id);
+    const paused = payload(await call({ action: 'pause', workflow_id: id, reason: 'operator stepped away' }));
+    expect(paused.phase).toBe('PAUSED');
+    expect(paused.paused_from).toBe('EXECUTING');
+    expect(refused(await call({ action: 'pause', workflow_id: id, reason: 'again' }))).toBe(true);
+
+    const resumed = payload(await call({ action: 'resume', workflow_id: id }));
+    expect(resumed.phase).toBe('EXECUTING');
+    expect(resumed.next_action).toBe('get_next_task');
+    expect(refused(await call({ action: 'resume', workflow_id: id }))).toBe(true);
+  });
+
+  it('resume into EXECUTING still passes the approval gate', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', { toolName: MUTATING_TOOL, sensitivity: 'mutating', covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+    ]);
+    await audited(id);
+    // Paused from PLAN_READY, then aimed at EXECUTING by hand is not possible; block+unblock is the door.
+    await call({ action: 'block', workflow_id: id, reason: 'waiting for the operator' });
+    const unblocked = await call({ action: 'unblock', workflow_id: id, target: 'EXECUTING' });
+    expect(refused(unblocked)).toBe(true);
+    expect(body(unblocked)).toContain('approve_plan');
+  });
+});
+
+/* ------------------------------------------------------------------ §14 store + honesty of payload */
+
+describe('pro_fetch_workflow — refusals, refusals of shape, and secrets', () => {
+  it('refuses an unknown workflow id, an unknown action, an unknown task id', async () => {
+    expect(refused(await call({ action: 'status', workflow_id: 'wf-nope' }))).toBe(true);
+    expect(refused(await call({ action: 'do_everything' }))).toBe(true);
+    const id = await started();
+    expect(
+      refused(await call({ action: 'report_task_result', workflow_id: id, task_id: 'T999', task_status: 'failed' })),
+    ).toBe(true);
+  });
+
+  it('refuses an out-of-order phase move in both directions', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const again = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: COVERED_PLAN() }),
+    });
+    expect(refused(again)).toBe(true);
+    expect(body(again)).toContain('PLANNING');
+    await audited(id);
+    expect(refused(await call({ action: 'verify', workflow_id: id }))).toBe(true);
   });
 
   it('refuses properties the schema never declared', async () => {
-    const res = await dispatch('pro_fetch_workflow', {
-      action: 'introduce',
-      definitely_not_a_field: true,
-    } as unknown as Record<string, unknown>);
-    expect(refused(res)).toBe(true);
-  });
-});
-
-describe('pro_fetch_workflow — the detail knob is implemented', () => {
-  it('summary projects the next task, full returns the whole record', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-
-    const summary = payload(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }));
-    const brief = summary.task as Record<string, unknown>;
-    expect(brief.id).toBe('T001');
-    expect(brief.acceptanceCriteria).toBeUndefined();
-    expect(Array.isArray(brief.tools)).toBe(true);
-    expect((brief.tools as string[])[0]).toBe(REAL_TOOL);
-
-    const full = payload(
-      await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id, detail: 'full' }),
-    );
-    const whole = full.task as Record<string, unknown>;
-    expect(Array.isArray(whole.acceptanceCriteria)).toBe(true);
-    expect(whole.verification).toBeDefined();
-    expect(JSON.stringify(full).length).toBeGreaterThan(JSON.stringify(summary).length);
+    expect(refused(await call({ action: 'introduce', nope: true } as unknown as Record<string, unknown>))).toBe(true);
   });
 
-  it('status and finish stay small by default and only expand on request', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-
-    const summaryStatus = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(summaryStatus.tasks).toBeUndefined();
-    expect(summaryStatus.total_tasks).toBe(1);
-
-    const fullStatus = payload(
-      await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id, detail: 'full' }),
-    );
-    expect((fullStatus.tasks as Array<Record<string, unknown>>)[0].id).toBe('T001');
-  });
-
-  it('every smart-profile tool still declares the detail enum', () => {
-    for (const name of ['pro_fetch_workflow']) {
-      const tool = allTools().find((entry) => entry.name === name);
-      const detail = (tool?.inputSchema.properties as Record<string, { enum?: string[] }> | undefined)?.detail;
-      expect(detail?.enum).toEqual(['summary', 'full']);
-    }
-  });
-});
-
-describe('pro_fetch_workflow — secrets do not reach disk', () => {
   it('redacts credential-shaped evidence before the workflow file is written', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    await dispatch('pro_fetch_workflow', {
-      action: 'report_task_result',
-      workflow_id: id,
-      task_id: 'T001',
-      task_status: 'verified',
-      evidence: 'called the endpoint with token: hunter2-hunter2 and it returned 200',
-    });
-
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    await closeTask(id, 'T001', { evidence: 'called the endpoint with token: hunter2-hunter2 and it returned 200' });
     const raw = await readFile(path.join(dir, 'workflows', `${id}.json`), 'utf8');
     expect(raw).toContain('[REDACTED]');
     expect(raw).not.toContain('hunter2-hunter2');
   });
+
+  it('persists the run so a later read sees the same phase', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const stored = JSON.parse(await readFile(path.join(dir, 'workflows', `${id}.json`), 'utf8')) as WorkflowState;
+    expect(stored.phase).toBe('AUDIT_REQUIRED');
+    expect(stored.plan?.tasks).toHaveLength(2);
+    expect(stored.stats?.fakeCompletionRefused).toBe(0);
+  });
+
+  it('keeps the summary payload small and expands only on request', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const summary = payload(await call({ action: 'status', workflow_id: id }));
+    expect(summary.tasks).toBeUndefined();
+    expect(summary.total_tasks).toBe(2);
+    const full = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    expect((full.tasks as unknown[]).length).toBe(2);
+    expect(JSON.stringify(full).length).toBeGreaterThan(JSON.stringify(summary).length);
+  });
 });
 
-describe('pro_fetch_workflow — fixture sanity', () => {
+/* ------------------------------------------------------------------ guards over the tool itself */
+
+describe('pro_fetch_workflow — fixture and contract sanity', () => {
   it('plans tools that exist in the live registry', () => {
-    // When a fixture name goes stale, validatePlan refuses the plan and every downstream assertion
-    // fails for a reason that has nothing to do with the controller.
     const names = new Set(allTools().map((tool) => tool.name));
-    expect(names.has(REAL_TOOL), REAL_TOOL).toBe(true);
-    expect(names.has(OTHER_REAL_TOOL), OTHER_REAL_TOOL).toBe(true);
+    for (const name of [REAL_TOOL, OTHER_REAL_TOOL, MUTATING_TOOL]) expect(names.has(name), name).toBe(true);
   });
 
   it('never promises a next_action the switch cannot handle', () => {
-    // `submit_review` used to answer a blocking finding with next_action "revise_plan", which no
-    // case implemented: the run could not proceed, retry, or close the finding. That is a class of
-    // bug, not one bug, so it is checked against the source rather than by walking every path.
+    // `submit_review` once answered a blocking finding with next_action "revise_plan", which no case
+    // implemented: the run could not proceed, retry, or close the finding. That is a class of bug, so
+    // it is checked against the source rather than by walking every path.
     const source = readFileSync('src/tools/workflow/workflow.ts', 'utf8');
     const handled = new Set([
-      ...[...source.matchAll(/case '([a-z_]+)':/g)].map((m) => m[1]),
-      ...[...source.matchAll(/action === '([a-z_]+)'/g)].map((m) => m[1]),
+      ...[...source.matchAll(/case '([a-z_]+)':/g)].map((match) => match[1]),
+      ...[...source.matchAll(/action === '([a-z_]+)'/g)].map((match) => match[1]),
     ]);
     const promised = [...source.matchAll(/next_action:\s*([^,\n}]+)/g)]
-      // In `cond ? 'a' : 'b'` the condition may itself compare quoted phase names; only the branches
-      // are promises.
-      .map((m) => (m[1].includes('?') ? m[1].slice(m[1].indexOf('?') + 1) : m[1]))
-      .flatMap((expr) => [...expr.matchAll(/'([a-z_]+)'/g)].map((q) => q[1]));
-    expect(promised.length, 'next_action literals found').toBeGreaterThan(5);
+      // In `cond ? 'a' : 'b'` the condition may compare quoted phase names; only branches are promises.
+      .map((match) => (match[1].includes('?') ? match[1].slice(match[1].indexOf('?') + 1) : match[1]))
+      .flatMap((expr) => [...expr.matchAll(/'([a-z_]+)'/g)].map((quoted) => quoted[1]));
+    expect(promised.length, 'next_action literals found').toBeGreaterThan(8);
     const unhandled = promised.filter((name) => !handled.has(name));
     expect(unhandled, `unhandled next_action: ${unhandled.join(', ')}`).toEqual([]);
   });
-});
 
-describe('pro_fetch_workflow — the replanning loop is not a dead end', () => {
-  async function blockedByReview(): Promise<string> {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-    const reviewed = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'submit_review',
-        workflow_id: id,
-        findings: JSON.stringify([finding('F001', { blocking: true })]),
-      }),
-    );
-    expect(reviewed.next_action).toBe('revise_plan');
-    return id;
-  }
-
-  it('revise_plan needs a reason and takes the plan back through PLANNING', async () => {
-    const id = await blockedByReview();
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'revise_plan', workflow_id: id }))).toBe(true);
-
-    const revised = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'revise_plan',
-        workflow_id: id,
-        reason: 'audit noted the missing acceptance criterion; added it',
-      }),
-    );
-    expect(revised.phase).toBe('PLANNING');
-    expect(revised.next_action).toBe('submit_plan');
-
-    // The revised plan is not trusted: it goes into AUDIT_REQUIRED again, not straight to execution.
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-    });
-    const again = await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    expect(refused(again)).toBe(true);
-    expect(body(again)).toContain('AUDIT_REQUIRED');
-  });
-
-  it('resolve_finding closes a blocking review with evidence and re-opens the audit', async () => {
-    const id = await blockedByReview();
-
-    // Without a note there is nothing to audit, so the closing is refused.
-    expect(
-      refused(await dispatch('pro_fetch_workflow', { action: 'resolve_finding', workflow_id: id, finding_id: 'F001' })),
-    ).toBe(true);
-    expect(
-      refused(
-        await dispatch('pro_fetch_workflow', {
-          action: 'resolve_finding',
-          workflow_id: id,
-          finding_id: 'nope',
-          resolution: 'x',
-        }),
-      ),
-    ).toBe(true);
-
-    const closed = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'resolve_finding',
-        workflow_id: id,
-        finding_id: 'F001',
-        resolution: 'criterion added in revision 2, checked against the goal spec',
-      }),
-    );
-    expect(closed.status).toBe('resolved');
-    expect(closed.phase).toBe('AUDIT_REQUIRED');
-    expect(closed.open_blocking).toBe(0);
-    expect(closed.next_action).toBe('submit_review');
-
-    // A closed finding cannot be re-closed.
-    expect(
-      refused(
-        await dispatch('pro_fetch_workflow', {
-          action: 'resolve_finding',
-          workflow_id: id,
-          finding_id: 'F001',
-          resolution: 'again',
-        }),
-      ),
-    ).toBe(true);
-
-    // Clean re-audit, then the run finishes normally.
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F002')]),
-    });
-    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    await dispatch('pro_fetch_workflow', {
-      action: 'report_task_result',
-      workflow_id: id,
-      task_id: 'T001',
-      task_status: 'verified',
-      evidence: 're-ran the planned tool and diffed the output',
-    });
-    await dispatch('pro_fetch_workflow', { action: 'verify', workflow_id: id });
-    const done = payload(await dispatch('pro_fetch_workflow', { action: 'finish', workflow_id: id }));
-    expect(done.phase).toBe('COMPLETED');
-  });
-
-  it('a rejected finding needs its reason too', async () => {
-    const id = await blockedByReview();
-    const rejected = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'resolve_finding',
-        workflow_id: id,
-        finding_id: 'F001',
-        verdict: 'rejected',
-        resolution: 'the criterion it asks for is already satisfied by task T001 acceptance list',
-      }),
-    );
-    expect(rejected.status).toBe('rejected');
-    expect(rejected.phase).toBe('AUDIT_REQUIRED');
-  });
-
-  it('replan from EXECUTING keeps verified work and demands a new plan', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001'), plannedTask('T002', OTHER_REAL_TOOL)] }),
-    });
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    await dispatch('pro_fetch_workflow', {
-      action: 'report_task_result',
-      workflow_id: id,
-      task_id: 'T001',
-      task_status: 'verified',
-      evidence: 'verified by hand against the tool output',
-    });
-
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'replan', workflow_id: id }))).toBe(true);
-    const replanned = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'replan',
-        workflow_id: id,
-        reason: 'the API turns out to paginate; a second task is needed',
-      }),
-    );
-    expect(replanned.phase).toBe('PLANNING');
-    expect(replanned.next_action).toBe('submit_plan');
-
-    const history = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(history.revision).toBeGreaterThanOrEqual(2);
-  });
-
-  it('block then unblock resumes the run, and a bogus target is refused', async () => {
-    const id = await startedWorkflow();
-    const blocked = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'block',
-        workflow_id: id,
-        reason: 'goal depends on a credential the operator has not provided',
-      }),
-    );
-    expect(blocked.phase).toBe('BLOCKED');
-    expect(blocked.next_action).toBe('unblock');
-
-    expect(
-      refused(await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'COMPLETED' })),
-    ).toBe(true);
-    const resumed = payload(
-      await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'PLANNING' }),
-    );
-    expect(resumed.phase).toBe('PLANNING');
-    expect(resumed.next_action).toBe('submit_plan');
-    // and only once, from BLOCKED
-    expect(
-      refused(await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'PLANNING' })),
-    ).toBe(true);
-  });
-});
-
-describe('pro_fetch_workflow — risk gate (spec §14)', () => {
-  it('grades steps with the registry, not with the label the host wrote', () => {
-    // If `pro_fetch_cache_put` ever stops being a mutation, the tests below would pass vacuously.
-    expect(isMutationTool(MUTATING_TOOL), MUTATING_TOOL).toBe(true);
-    expect(isMutationTool(REAL_TOOL), REAL_TOOL).toBe(false);
-  });
-
-  it('refuses a mutating step labelled read_only', async () => {
-    const id = await startedWorkflow();
-    const under = await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'read_only')] }),
-    });
-    expect(refused(under)).toBe(true);
-    expect(body(under)).toContain('risk_understated');
-
-    // The same step, honestly labelled, is accepted — and marked as needing an approval.
-    const honest = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'submit_plan',
-        workflow_id: id,
-        plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] }),
-      }),
-    );
-    expect(honest.mutating_steps).toBe(1);
-    expect(honest.approval_required).toBe(1);
-  });
-
-  it('will not enter EXECUTING without an approval, and will not accept an approval without a reason', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] }),
-    });
-    // Approval is only meaningful on an audited plan.
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'approve_plan', workflow_id: id, note: 'ok' }))).toBe(
-      true,
-    );
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-
-    // PLAN_READY now, but the gate is closed.
-    const blocked = await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    expect(refused(blocked)).toBe(true);
-    expect(body(blocked)).toContain('approve_plan');
-
-    // An approval without a justification is not an audit trail.
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'approve_plan', workflow_id: id }))).toBe(true);
-
-    const approved = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'approve_plan',
-        workflow_id: id,
-        note: 'operator confirmed the cache write is scoped to this test namespace',
-      }),
-    );
-    expect(approved.approved).toEqual(['T001']);
-    expect(approved.pending_approvals).toBe(0);
-    expect(approved.next_action).toBe('get_next_task');
-
-    const next = payload(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }));
-    expect(next.phase).toBe('EXECUTING');
-    expect((next.task as { approved: boolean }).approved).toBe(true);
-  });
-
-  it('leaves a read-only plan alone: nothing to approve, and asking is refused', async () => {
-    const id = await startedWorkflow();
-    const planned = payload(
-      await dispatch('pro_fetch_workflow', {
-        action: 'submit_plan',
-        workflow_id: id,
-        plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
-      }),
-    );
-    expect(planned.approval_required).toBe(0);
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    const pointless = await dispatch('pro_fetch_workflow', {
-      action: 'approve_plan',
-      workflow_id: id,
-      task_id: 'T001',
-      note: 'nothing here writes',
-    });
-    expect(refused(pointless)).toBe(true);
-    expect(body(pointless)).toContain('shart emas');
-    // and execution proceeds without any approval step
-    expect(payload(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id })).phase).toBe(
-      'EXECUTING',
-    );
-  });
-
-  it('operator read-only policy stops the controller and points only at the operator (§14.1)', async () => {
-    const id = await startedWorkflow();
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_plan',
-      workflow_id: id,
-      plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] }),
-    });
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    const before = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-
-    process.env.PRO_FETCH_READ_ONLY = 'true';
-    let approval;
-    let readOnly;
-    let allowed;
-    try {
-      approval = await dispatch('pro_fetch_workflow', {
-        action: 'approve_plan',
-        workflow_id: id,
-        note: 'trying to approve past the operator setting',
-      });
-      // The controller writes state files, so read-only mode refuses it wholesale — even `status`.
-      // Measured here so a future change to that boundary is a decision, not a surprise.
-      readOnly = await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id });
-      // The exception is the operator's lever, and only the operator's.
-      process.env.PRO_FETCH_MUTATION_ALLOWLIST = 'pro_fetch_workflow';
-      allowed = await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id });
-    } finally {
-      delete process.env.PRO_FETCH_READ_ONLY;
-      delete process.env.PRO_FETCH_MUTATION_ALLOWLIST;
-    }
-
-    expect(refused(approval)).toBe(true);
-    expect(body(approval)).toContain('PRO_FETCH_READ_ONLY');
-    expect(body(approval)).toContain('PRO_FETCH_MUTATION_ALLOWLIST');
-    expect(refused(readOnly)).toBe(true);
-    expect(refused(allowed)).toBe(false);
-
-    // The refused approval granted nothing.
-    const after = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(after.phase).toBe(before.phase);
-    expect(after.pending_approvals).toBe(1);
-  });
-
-  it('a re-planned plan inherits no approval', async () => {
-    const id = await startedWorkflow();
-    const plan = JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] });
-    await dispatch('pro_fetch_workflow', { action: 'submit_plan', workflow_id: id, plan });
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    await dispatch('pro_fetch_workflow', {
-      action: 'approve_plan',
-      workflow_id: id,
-      note: 'approved for the first revision',
-    });
-    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
-    await dispatch('pro_fetch_workflow', { action: 'replan', workflow_id: id, reason: 'new fact: scope grew' });
-    await dispatch('pro_fetch_workflow', { action: 'submit_plan', workflow_id: id, plan });
-    await dispatch('pro_fetch_workflow', {
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F002')]),
-    });
-    const status = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
-    expect(status.pending_approvals).toBe(1);
-    expect(refused(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }))).toBe(true);
+  it('lists every handled action in the published description and schema', () => {
+    const tool = allTools().find((entry) => entry.name === 'pro_fetch_workflow');
+    const source = readFileSync('src/tools/workflow/workflow.ts', 'utf8');
+    const handled = new Set([
+      ...[...source.matchAll(/case '([a-z_]+)':/g)].map((match) => match[1]),
+      ...[...source.matchAll(/action === '([a-z_]+)'/g)].map((match) => match[1]),
+    ]);
+    const actionEnum = (tool?.inputSchema.properties as { action: { description: string } }).action.description;
+    for (const name of handled) expect(actionEnum, name).toContain(name);
+    expect(tool?.description).toContain('begin_audit');
   });
 });

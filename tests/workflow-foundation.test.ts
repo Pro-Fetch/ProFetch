@@ -35,6 +35,8 @@ function task(id: string, status: Task['status'], dependsOn: string[] = []): Tas
     deliverables: [],
     toolPlan: [],
     acceptanceCriteria: ['x'],
+    // The fixture goal declares E1 + A1; the completion gate re-checks coverage (§5.2).
+    covers: ['E1', 'A1'],
     verification: { method: 'test', evidenceRequired: true },
     status,
     attempts: 0,
@@ -63,11 +65,19 @@ describe('state machine', () => {
 
   it('allows the legal happy path and records each move', () => {
     let w = createWorkflow('wf2', goal);
-    for (const to of ['PLANNING', 'AUDIT_REQUIRED', 'PLAN_READY', 'EXECUTING', 'VERIFYING', 'COMPLETED'] as const) {
+    for (const to of [
+      'PLANNING',
+      'AUDIT_REQUIRED',
+      'PLAN_READY',
+      'EXECUTING',
+      'VERIFYING',
+      'FINAL_AUDIT',
+      'COMPLETED',
+    ] as const) {
       w = transition(w, to, `→${to}`);
     }
     expect(w.phase).toBe('COMPLETED');
-    expect(w.revision).toBe(6);
+    expect(w.revision).toBe(7);
     expect(w.history.at(-1)?.to).toBe('COMPLETED');
   });
 
@@ -93,6 +103,9 @@ describe('state machine', () => {
     expect(completionEligible(w).ok).toBe(false); // plan empty
 
     w.plan = { tasks: [task('T1', 'verified')], risks: [], verificationStrategy: 'test' };
+    // A full-mode run is only eligible once the independent completion audit has been passed (§12.3).
+    w = transition(w, 'VERIFYING', 'v');
+    w = transition(w, 'FINAL_AUDIT', 'fa');
     expect(completionEligible(w).ok).toBe(true);
 
     w.findings = [
