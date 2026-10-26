@@ -201,6 +201,7 @@ async function closeTask(id: string, taskId: string, over: Record<string, unknow
     task_status: 'verified',
     verification_type: 'integration',
     evidence: 'ran the planned tool and diffed the output against the source',
+    artifact: 'report.md',
     ...over,
   });
   expect(refused(res), body(res)).toBe(false);
@@ -794,6 +795,60 @@ describe('pro_fetch_workflow — execution bookkeeping (§6.5, §6.6)', () => {
         }),
       ),
     ).toBe(true);
+    // A "resolved" verdict claims something was learned, so it needs a recorded source behind it.
+    expect(
+      refused(
+        await call({ action: 'resolve_unknown', workflow_id: id, unknown_id: 'U1', verdict: 'resolved', note: 'x' }),
+      ),
+    ).toBe(true);
+    expect((await fullMetrics(id)).refused.unsourced_resolution).toBe(1);
+
+    const unrelated = payload(
+      await call({
+        action: 'record_source',
+        workflow_id: id,
+        reference: 'https://example.com/other',
+        reliability: 'confirmed',
+        observation: 'says nothing about pagination',
+        relates_to: 'E1',
+      }),
+    );
+    expect(
+      refused(
+        await call({
+          action: 'resolve_unknown',
+          workflow_id: id,
+          unknown_id: 'U1',
+          verdict: 'resolved',
+          note: 'x',
+          source_ids: String(unrelated.source_id),
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      refused(
+        await call({
+          action: 'resolve_unknown',
+          workflow_id: id,
+          unknown_id: 'U1',
+          verdict: 'resolved',
+          note: 'x',
+          source_ids: 'src-99',
+        }),
+      ),
+    ).toBe(true);
+
+    const sourced = payload(
+      await call({
+        action: 'record_source',
+        workflow_id: id,
+        reference: 'https://docs.example.com/api',
+        reliability: 'confirmed',
+        observation: 'the endpoint is not paginated below 1000 rows',
+        relates_to: 'U1,E1',
+      }),
+    );
+    expect(sourced.reliability).toBe('confirmed');
     const closed = payload(
       await call({
         action: 'resolve_unknown',
@@ -801,6 +856,7 @@ describe('pro_fetch_workflow — execution bookkeeping (§6.5, §6.6)', () => {
         unknown_id: 'U1',
         verdict: 'resolved',
         note: 'checked the docs: the API is not paginated below 1000 rows',
+        source_ids: String(sourced.source_id),
       }),
     );
     expect(closed.open_unknowns).toBe(0);
@@ -837,6 +893,115 @@ describe('pro_fetch_workflow — execution bookkeeping (§6.5, §6.6)', () => {
     expect(reported.material).toBe(false);
     expect(reported.phase).toBe('EXECUTING');
     expect(reported.next_action).toBe('get_next_task');
+  });
+});
+
+/* ------------------------------------------------------------------ §5.5 + §10 research/scheduling */
+
+describe('pro_fetch_workflow — resource conflicts and research (§5.5, §10)', () => {
+  /** Two writing tasks that both produce dashboard.html, but for different requirements. */
+  const conflictingPlan = (): Task[] => [
+    plannedTask('T001', {
+      toolName: MUTATING_TOOL,
+      sensitivity: 'mutating',
+      deliverables: ['dashboard.html'],
+      covers: ['E1', 'C1', 'D1'],
+    }),
+    plannedTask('T002', {
+      toolName: MUTATING_TOOL,
+      sensitivity: 'mutating',
+      objective: 'measure render path',
+      deliverables: ['dashboard.html'],
+      covers: ['A1', 'A2'],
+    }),
+  ];
+
+  it('reports the conflicting pair when the plan is disclosed to the auditor', async () => {
+    const id = await plannedWith(conflictingPlan());
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full', detail: 'full' }));
+    expect(opened.conflicts).toEqual([{ deliverable: 'dashboard.html', tasks: ['T001', 'T002'], bothWrite: true }]);
+  });
+
+  it('serialises the second writer instead of handing it out over the first', async () => {
+    const id = await plannedWith(conflictingPlan());
+    const first = await executing(id);
+    expect((first.task as { id: string }).id).toBe('T001');
+
+    const second = payload(await call({ action: 'get_next_task', workflow_id: id }));
+    expect(second.task).toBeNull();
+    expect(second.waiting_on).toBe('T001');
+    expect((await fullMetrics(id)).conflicts.serialised).toBeGreaterThan(0);
+
+    await closeTask(id, 'T001');
+    const after = payload(await call({ action: 'get_next_task', workflow_id: id }));
+    expect((after.task as { id: string }).id).toBe('T002');
+  });
+
+  it('does not serialise when only one side writes the shared deliverable', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        deliverables: ['dashboard.html'],
+        covers: ['E1', 'C1', 'D1'],
+      }),
+      plannedTask('T002', {
+        objective: 'read back',
+        deliverables: ['dashboard.html'],
+        covers: ['A1', 'A2'],
+      }),
+    ]);
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full', detail: 'full' }));
+    expect(opened.conflicts).toEqual([{ deliverable: 'dashboard.html', tasks: ['T001', 'T002'], bothWrite: false }]);
+    await executing(id);
+    const second = payload(await call({ action: 'get_next_task', workflow_id: id }));
+    // A reader of the same file is not a writer racing it — that would serialise half of every plan.
+    expect((second.task as { id: string }).id).toBe('T002');
+  });
+
+  it('accepts a reliability vocabulary it can defend', async () => {
+    const id = await started();
+    await executing(id);
+    expect(
+      refused(
+        await call({
+          action: 'record_source',
+          workflow_id: id,
+          reference: 'https://x',
+          reliability: 'definitely',
+          observation: 'o',
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      refused(await call({ action: 'record_source', workflow_id: id, reliability: 'confirmed', observation: 'o' })),
+    ).toBe(true);
+    expect(
+      refused(
+        await call({
+          action: 'record_source',
+          workflow_id: id,
+          reference: 'https://x',
+          reliability: 'supported',
+          observation: 'o',
+          relates_to: 'Z9',
+        }),
+      ),
+    ).toBe(true);
+    const ok = payload(
+      await call({
+        action: 'record_source',
+        workflow_id: id,
+        reference: 'https://x',
+        reliability: 'uncertain',
+        observation: 'partial answer only',
+        relates_to: 'E1',
+      }),
+    );
+    expect(ok.next_action).toBe('resolve_unknown');
+    const metrics = await fullMetrics(id);
+    expect(metrics.sources.total).toBe(1);
+    expect(metrics.sources.by_reliability.uncertain).toBe(1);
   });
 });
 

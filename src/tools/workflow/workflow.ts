@@ -39,13 +39,16 @@ import {
 import { saveWorkflow, loadWorkflow } from '../../core/workflow/store.js';
 import { validateFinding, validateGoalSpec, validatePlan, verificationWeakness } from '../../core/workflow/validate.js';
 import { assessPlan, pendingApprovals, riskIssues } from '../../core/workflow/risk.js';
+import { nextRunnable, planConflicts } from '../../core/workflow/schedule.js';
 import {
   emptyStats,
   requirements,
+  SOURCE_RELIABILITY,
   VERIFICATION_TYPES,
   type Finding,
   type FindingClassification,
   type GoalSpec,
+  type Source,
   type Task,
   type TaskStatus,
   type VerificationType,
@@ -130,8 +133,17 @@ function metrics(state: WorkflowState): Record<string, unknown> {
       duplicate_submission: stats.duplicatePlanRefused,
       stagnation: stats.stagnationRefused,
       weak_evidence: stats.unverifiableEvidenceRefused,
+      unsourced_resolution: stats.unsourcedResolutionRefused,
     },
     calls: { logged: stats.callsLogged, duplicated: stats.duplicateCalls },
+    conflicts: { serialised: stats.conflictsSerialised, pairs: planConflicts(tasks) },
+    sources: {
+      total: (state.sources ?? []).length,
+      by_reliability: SOURCE_RELIABILITY.reduce<Record<string, number>>((acc, kind) => {
+        acc[kind] = (state.sources ?? []).filter((entry) => entry.reliability === kind).length;
+        return acc;
+      }, {}),
+    },
     independence: state.audit?.independence ?? 'not-audited',
     elapsed_ms: state.updatedAt - state.createdAt,
   };
@@ -167,9 +179,10 @@ export default defineTool({
   description:
     'Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | begin_audit | ' +
     'submit_review | revise_plan | resolve_finding | report_finding | approve_plan | get_next_task | ' +
-    'report_task_result | log_call | resolve_unknown | verify | repair | final_audit | replan | finish | ' +
-    'block | unblock | pause | resume | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; ' +
-    'xavf registrydan o‘lchanadi, talablar qoplamasi tekshiriladi, dalilsiz va kuchsiz dalilli "tayyor" rad etiladi.',
+    'report_task_result | log_call | record_source | resolve_unknown | verify | repair | final_audit | ' +
+    'replan | finish | block | unblock | pause | resume | status. MexaPlan→SmartToDo→MaxEffort hayot siklini ' +
+    'boshqaradi; xavf registrydan o‘lchanadi, talablar qoplamasi tekshiriladi, xulosalar manbaga bog‘lanadi, ' +
+    'dalilsiz va kuchsiz dalilli "tayyor" rad etiladi.',
   category: 'admin',
   inputSchema: {
     type: 'object',
@@ -178,8 +191,8 @@ export default defineTool({
         type: 'string',
         description:
           'introduce|start|submit_plan|begin_audit|submit_review|revise_plan|resolve_finding|report_finding|' +
-          'approve_plan|get_next_task|report_task_result|log_call|resolve_unknown|verify|repair|final_audit|' +
-          'replan|finish|block|unblock|pause|resume|status',
+          'approve_plan|get_next_task|report_task_result|log_call|record_source|resolve_unknown|verify|repair|' +
+          'final_audit|replan|finish|block|unblock|pause|resume|status',
       },
       workflow_id: {
         type: 'string',
@@ -211,6 +224,17 @@ export default defineTool({
         description: 'log_call: chaqiruv yangi dalil berdimi (true|false, "true"/"false" matni ham qabul qilinadi)',
       },
       unknown_id: { type: 'string', description: 'resolve_unknown: noaniqlik id si (U1, U2, ...)' },
+      source_ids: {
+        type: 'string',
+        description: 'resolve_unknown: xulosa suyangan manba idlari (verdict=resolved uchun majburiy)',
+      },
+      reference: { type: 'string', description: 'record_source: tekshirilgan manba (URL, fayl, tool natijasi)' },
+      reliability: {
+        type: 'string',
+        description: `record_source: ${SOURCE_RELIABILITY.join('|')}`,
+      },
+      observation: { type: 'string', description: 'record_source: bu manbadan nima ma’lum bo‘ldi' },
+      relates_to: { type: 'string', description: 'record_source: aloqador talab idlari (E1,A2,U1...)' },
       finding_id: { type: 'string', description: 'resolve_finding: topilma id si' },
       resolution: {
         type: 'string',
@@ -245,6 +269,12 @@ export default defineTool({
     const action = strOrEmpty(p, 'action').toLowerCase();
     const detail = detailMode(strOrEmpty(p, 'detail'));
 
+    /** Count one measured event against the run's ledger. */
+    const bump = (target: WorkflowState, counter: keyof WorkflowStats, by = 1): void => {
+      target.stats = target.stats ?? emptyStats();
+      target.stats[counter] += by;
+    };
+
     /** Count the refusal, persist it, then refuse. A refusal that is not recorded is a metric lost. */
     const refuse = async (
       state: WorkflowState,
@@ -252,8 +282,7 @@ export default defineTool({
       message: string,
     ): Promise<ReturnType<typeof fail>> => {
       if (counter) {
-        state.stats = state.stats ?? emptyStats();
-        state.stats[counter] += 1;
+        bump(state, counter);
         await saveWorkflow(state);
       }
       return fail(message);
@@ -438,7 +467,9 @@ export default defineTool({
           phase: state.phase,
           independence: state.audit.independence,
           next_action: 'submit_review',
-          ...(detail === 'full' ? { plan: state.plan?.tasks ?? [] } : {}),
+          ...(detail === 'full'
+            ? { plan: state.plan?.tasks ?? [], conflicts: planConflicts(state.plan?.tasks ?? []) }
+            : {}),
         });
       }
 
@@ -608,6 +639,7 @@ export default defineTool({
         if (wanted && !pending.includes(wanted))
           return fail(`${wanted} uchun tasdiq shart emas (registry read-only deydi).`);
         const targets = wanted ? [wanted] : pending;
+        if (!targets.length) return fail('bu rejda tasdiq shart emas (registry hammasini read-only deydi).');
         const grantedAt = Date.now();
         for (const task of tasks) if (targets.includes(task.id)) task.approval = { grantedAt, note };
         await saveWorkflow(state);
@@ -636,19 +668,19 @@ export default defineTool({
           await saveWorkflow(state);
         }
         if (state.phase !== 'EXECUTING') return fail(`get_next_task faqat EXECUTING fazasida (hozir: ${state.phase}).`);
-        const done = new Set(
-          (state.plan?.tasks ?? []).filter((task) => task.status === 'verified').map((task) => task.id),
-        );
-        const next = (state.plan?.tasks ?? []).find(
-          (task) => task.status !== 'verified' && task.dependsOn.every((dep) => done.has(dep)),
-        );
+        const tasks = state.plan?.tasks ?? [];
+        const picked = nextRunnable(tasks);
+        if (picked.serialised) bump(state, 'conflictsSerialised', picked.serialised);
+        if (picked.task) picked.task.status = 'in_progress';
+        if (picked.task || picked.serialised) await saveWorkflow(state);
         const recent = state.calls?.slice(-6) ?? [];
         const repeated = recent.filter((entry) => !entry.produced).length >= 4;
         return jsonBlock('Keyingi vazifa', {
           workflow_id: id,
           phase: state.phase,
-          task: next ? (detail === 'full' ? next : briefTask(next)) : null,
-          remaining: (state.plan?.tasks ?? []).filter((task) => task.status !== 'verified').length,
+          task: picked.task ? (detail === 'full' ? picked.task : briefTask(picked.task)) : null,
+          ...(picked.waitingOn ? { waiting_on: picked.waitingOn, serialised: picked.serialised } : {}),
+          remaining: tasks.filter((task) => task.status !== 'verified').length,
           ...(repeated
             ? { warning: 'oxirgi chaqiruvlarning aksari yangi dalil bermagan — usulni o‘zgartiring (§6.5)' }
             : {}),
@@ -684,10 +716,17 @@ export default defineTool({
             return fail(
               `Task ${task.id} (${task.priority}) yopilishida challenge kerak: o‘z xulosingizni qanday sinadingiz (§6.4)?`,
             );
+          if (status === 'verified' && (task.deliverables ?? []).length > 0 && !strOrEmpty(p, 'artifact').trim())
+            return refuse(
+              state,
+              'unverifiableEvidenceRefused',
+              `Task ${task.id} deliverable va’da qiladi (${task.deliverables.join(', ')}) — artifact (fayl yo‘li yoki ` +
+                `hojja) ko‘rsating, §6.6.`,
+            );
         }
         task.status = status;
         task.attempts += 1;
-        state.stats.attempts += 1;
+        bump(state, 'attempts');
         if (closing) task.verifiedWith = given as VerificationType;
         if (evidence) {
           const exitCode = Number.parseInt(strOrEmpty(p, 'exit_code'), 10);
@@ -729,10 +768,10 @@ export default defineTool({
         if (!purpose) return fail('log_call uchun purpose kerak (chaqiruvning vazifasi nima edi?).');
         const produced = bool(p, 'produced', false);
         state.calls = state.calls ?? [];
-        state.stats.callsLogged += 1;
+        bump(state, 'callsLogged');
         const fingerprint = hash(`${tool}|${purpose}`);
         const duplicate = state.calls.some((entry) => entry.fingerprint === fingerprint);
-        if (duplicate) state.stats.duplicateCalls += 1;
+        if (duplicate) bump(state, 'duplicateCalls');
         state.calls.push({ fingerprint, at: Date.now(), task: strOrEmpty(p, 'task_id') || undefined, produced });
         await saveWorkflow(state);
         return jsonBlock('Chaqiruv yozildi', {
@@ -744,6 +783,42 @@ export default defineTool({
           ...(duplicate && !produced
             ? { warning: 'bu chaqiruv avval ham bo‘lgan va dalil bermagan — usulni o‘zgartiring (§6.5).' }
             : {}),
+        });
+      }
+
+      case 'record_source': {
+        if (state.phase === 'COMPLETED' || state.phase === 'NEW')
+          return fail(`record_source ${state.phase} fazasida qabul qilinmaydi.`);
+        const reference = strOrEmpty(p, 'reference').trim();
+        if (!reference) return fail('record_source uchun reference kerak (URL, fayl yoki tool natijasi).');
+        const reliability = strOrEmpty(p, 'reliability') as (typeof SOURCE_RELIABILITY)[number];
+        if (!SOURCE_RELIABILITY.includes(reliability))
+          return fail(`reliability ${SOURCE_RELIABILITY.join('|')} dan biri bo‘lishi kerak.`);
+        const observation = strOrEmpty(p, 'observation').trim();
+        if (!observation) return fail('record_source uchun observation kerak: manbadan nima ma’lum bo‘ldi?');
+        const known = requirementIdSet(state.goal);
+        const relatesTo = strOrEmpty(p, 'relates_to')
+          .split(',')
+          .map((entry) => entry.trim().toUpperCase())
+          .filter(Boolean);
+        for (const ref of relatesTo) if (!known.has(ref)) return fail(`relates_to: noma'lum talab id: ${ref}`);
+        state.sources = state.sources ?? [];
+        const source: Source = {
+          id: `src-${state.sources.length + 1}`,
+          reference,
+          reliability,
+          finding: observation,
+          relatesTo,
+          at: Date.now(),
+        };
+        state.sources.push(source);
+        await saveWorkflow(state);
+        return jsonBlock('Manba yozildi', {
+          workflow_id: id,
+          source_id: source.id,
+          reliability,
+          relates_to: relatesTo,
+          next_action: 'resolve_unknown',
         });
       }
 
@@ -759,8 +834,31 @@ export default defineTool({
           return fail('verdict resolved|accepted_risk|out_of_scope bo‘lishi kerak.');
         const note = strOrEmpty(p, 'note').trim();
         if (!note) return fail(`${verdict} uchun note kerak: nima bilan yopildi yoki nega qabul qilindi.`);
+        const cited = strOrEmpty(p, 'source_ids')
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean);
+        if (verdict === 'resolved') {
+          if (!cited.length)
+            return refuse(
+              state,
+              'unsourcedResolutionRefused',
+              `${uid} “resolved” deyish uchun manba kerak: record_source orqali tekshirilgan manbani yozing va ` +
+                `source_ids bilan ko‘rsating (§10.1). Boshqa holatda verdict=accepted_risk yoki out_of_scope ishlating.`,
+            );
+          for (const ref of cited) {
+            const source = (state.sources ?? []).find((entry) => entry.id === ref);
+            if (!source) return fail(`source_ids: yozilmagan manba: ${ref}`);
+            if (!source.relatesTo.includes(uid))
+              return fail(
+                `${ref} bu noaniqlikka (${uid}) aloqador deb yozilmagan — record_source relates_to ni to‘ldiring.`,
+              );
+            if (source.reliability === 'contradicted' || source.reliability === 'not_checked')
+              return fail(`${ref} ${source.reliability} — xulosa yasash uchun uning ustida ishlash kerak (§10.3).`);
+          }
+        }
         state.unknowns = (state.unknowns ?? []).filter((entry) => entry.id !== uid);
-        state.unknowns.push({ id: uid, verdict, note, at: Date.now() });
+        state.unknowns.push({ id: uid, verdict, note, at: Date.now(), sources: cited });
         await saveWorkflow(state);
         return jsonBlock('Noaniqlik yopildi', {
           workflow_id: id,

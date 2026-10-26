@@ -219,6 +219,26 @@ export function requirementIds(goal: GoalSpec): string[] {
     .map((requirement) => requirement.id);
 }
 
+/**
+ * How far a claim is backed (§10.3). `not_checked` is a real value on purpose: an unexamined source
+ * must not quietly read as a supported one.
+ */
+export const SOURCE_RELIABILITY = ['confirmed', 'supported', 'uncertain', 'contradicted', 'not_checked'] as const;
+
+export type SourceReliability = (typeof SOURCE_RELIABILITY)[number];
+
+/** One piece of research: what was looked at and what came of it (§10.1). */
+export interface Source {
+  id: string;
+  /** URL, file, tool output or document reference — whatever the claim can be traced back to. */
+  reference: string;
+  reliability: SourceReliability;
+  finding: string;
+  /** Requirement or unknown ids this source bears on (E1…, U1…). */
+  relatesTo: string[];
+  at: number;
+}
+
 export interface EvidenceRecord {
   id: string;
   taskId: string;
@@ -263,6 +283,8 @@ export interface WorkflowStats {
   duplicatePlanRefused: number;
   stagnationRefused: number;
   unverifiableEvidenceRefused: number;
+  unsourcedResolutionRefused: number;
+  conflictsSerialised: number;
   duplicateCalls: number;
   callsLogged: number;
   attempts: number;
@@ -286,11 +308,13 @@ export interface WorkflowState {
   /** Call fingerprints, used to detect a host repeating a call that produced nothing new (§6.5). */
   calls?: { fingerprint: string; at: number; task?: string; produced: boolean }[];
   /** Unknowns the host closed with a reason; ids reference `U1..Un` (spec §6.6). */
-  unknowns?: { id: string; verdict: string; note: string; at: number }[];
+  unknowns?: { id: string; verdict: string; note: string; at: number; sources?: string[] }[];
   /** Evidence/finding counts at each revision, used to detect a plan loop with no new facts (§13.3). */
   progress?: { at: number; evidence: number; findings: number }[];
   /** Phase a `pause` interrupted, so `resume` can restore it. */
   pausedFrom?: WorkflowPhase;
+  /** Recorded research, referenced when an unknown is closed (§10.1, §10.3). */
+  sources?: Source[];
 }
 
 /** Zeroed counters, so `state.stats` never needs a null check at every call site. */
@@ -304,6 +328,8 @@ export function emptyStats(): WorkflowStats {
     duplicatePlanRefused: 0,
     stagnationRefused: 0,
     unverifiableEvidenceRefused: 0,
+    unsourcedResolutionRefused: 0,
+    conflictsSerialised: 0,
     duplicateCalls: 0,
     callsLogged: 0,
     attempts: 0,

@@ -135,11 +135,14 @@ export function completionEligible(state: WorkflowState): { ok: boolean; blocker
     const label = task.status === 'mock_verified' ? ' (mock real test o‘rnini bosmaydi)' : '';
     blockers.push(`task ${task.id} verified emas (holat: ${task.status})${label}`);
   }
-  // A deliverable with no evidence behind it is a claim, not a delivery (§6.6).
+  // §6.6: a deliverable has to be pointable at, not merely claimed. Evidence alone does not satisfy
+  // it — the record has to name the artifact, otherwise the report says "done" about something nobody
+  // can go and look at.
   for (const task of tasks) {
-    if ((task.deliverables ?? []).length > 0 && (task.evidenceRefs ?? []).length === 0) {
-      blockers.push(`task ${task.id}: deliverable bor lekin dalil yo‘q (${task.deliverables.join(', ')})`);
-    }
+    if ((task.deliverables ?? []).length === 0) continue;
+    const pointed = state.evidence.some((record) => record.taskId === task.id && record.artifact);
+    if (!pointed)
+      blockers.push(`task ${task.id}: deliverable bor, ammo artifact ko‘rsatilmagan (${task.deliverables.join(', ')})`);
   }
   for (const finding of state.findings) {
     if (findingBlocks(finding)) blockers.push(`blocking finding ${finding.id} hali ${finding.status}`);
