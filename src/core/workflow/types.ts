@@ -51,6 +51,11 @@ export interface Task {
   attempts: number;
   evidenceRefs: string[];
   blockers: string[];
+  /**
+   * Set by `approve_plan` for a task whose steps the registry says can change state. A new plan
+   * replaces the task objects, so an approval never carries over from a revision.
+   */
+  approval?: { grantedAt: number; note: string } | null;
 }
 
 /** A SmartToDo finding. `blocking: true` findings prevent COMPLETED until resolved. */

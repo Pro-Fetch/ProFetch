@@ -4,8 +4,9 @@
  *
  * The foundation tests cover the pure state machine and store. What is only visible at this level is
  * the wiring: whether an illegal move is refused *by the tool*, whether a fake PASS is blocked before
- * it is persisted, whether `detail` changes the payload instead of being a declared-but-dead property,
- * and whether evidence is redacted on the way to disk.
+ * it is persisted, whether a blocking finding can be worked through at all, whether the plan's own
+ * risk labels are checked against the registry (they are), whether `detail` changes the payload
+ * instead of being a declared-but-dead property, and whether evidence is redacted on the way to disk.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -15,6 +16,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import '../src/loader.js';
 import { allTools, dispatch } from '../src/core/tool.js';
+import { isMutationTool } from '../src/core/tool-classification.js';
 import type { Task } from '../src/core/workflow/types.js';
 
 const ORIGINAL = { ...process.env };
@@ -50,10 +52,16 @@ const refused = (result: { isError?: boolean }) => result.isError === true;
 /** Two names that must exist in the registry; the plan validator refuses anything else. */
 const REAL_TOOL = 'pro_fetch_fetch_url';
 const OTHER_REAL_TOOL = 'pro_fetch_web_search';
-const categoryOf = (name: string) => (name === OTHER_REAL_TOOL ? 'search' : 'http');
+/** A tool the registry itself classifies as state-changing, so the approval gate really engages. */
+const MUTATING_TOOL = 'pro_fetch_cache_put';
+const categoryOf = (name: string) => allTools().find((tool) => tool.name === name)?.category ?? 'http';
 
 /** A task that satisfies the validator; `objective` doubles as the id suffix. */
-function plannedTask(id: string, toolName = REAL_TOOL): Task {
+function plannedTask(
+  id: string,
+  toolName = REAL_TOOL,
+  sensitivity: Task['toolPlan'][number]['sensitivity'] = 'read_only',
+): Task {
   return {
     id,
     objective: `measure ${id}`,
@@ -66,8 +74,8 @@ function plannedTask(id: string, toolName = REAL_TOOL): Task {
         category: categoryOf(toolName),
         purpose: `do ${id}`,
         expectedEvidence: 'a tool result with content',
-        sensitivity: 'read_only',
-        requiresApproval: false,
+        sensitivity,
+        requiresApproval: sensitivity !== 'read_only',
       },
     ],
     acceptanceCriteria: [`${id} produced a measurable result`],
@@ -634,5 +642,179 @@ describe('pro_fetch_workflow — the replanning loop is not a dead end', () => {
     expect(
       refused(await dispatch('pro_fetch_workflow', { action: 'unblock', workflow_id: id, target: 'PLANNING' })),
     ).toBe(true);
+  });
+});
+
+describe('pro_fetch_workflow — risk gate (spec §14)', () => {
+  it('grades steps with the registry, not with the label the host wrote', () => {
+    // If `pro_fetch_cache_put` ever stops being a mutation, the tests below would pass vacuously.
+    expect(isMutationTool(MUTATING_TOOL), MUTATING_TOOL).toBe(true);
+    expect(isMutationTool(REAL_TOOL), REAL_TOOL).toBe(false);
+  });
+
+  it('refuses a mutating step labelled read_only', async () => {
+    const id = await startedWorkflow();
+    const under = await dispatch('pro_fetch_workflow', {
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'read_only')] }),
+    });
+    expect(refused(under)).toBe(true);
+    expect(body(under)).toContain('risk_understated');
+
+    // The same step, honestly labelled, is accepted — and marked as needing an approval.
+    const honest = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'submit_plan',
+        workflow_id: id,
+        plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] }),
+      }),
+    );
+    expect(honest.mutating_steps).toBe(1);
+    expect(honest.approval_required).toBe(1);
+  });
+
+  it('will not enter EXECUTING without an approval, and will not accept an approval without a reason', async () => {
+    const id = await startedWorkflow();
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] }),
+    });
+    // Approval is only meaningful on an audited plan.
+    expect(refused(await dispatch('pro_fetch_workflow', { action: 'approve_plan', workflow_id: id, note: 'ok' }))).toBe(
+      true,
+    );
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+
+    // PLAN_READY now, but the gate is closed.
+    const blocked = await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
+    expect(refused(blocked)).toBe(true);
+    expect(body(blocked)).toContain('approve_plan');
+
+    // An approval without a justification is not an audit trail.
+    expect(refused(await dispatch('pro_fetch_workflow', { action: 'approve_plan', workflow_id: id }))).toBe(true);
+
+    const approved = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'approve_plan',
+        workflow_id: id,
+        note: 'operator confirmed the cache write is scoped to this test namespace',
+      }),
+    );
+    expect(approved.approved).toEqual(['T001']);
+    expect(approved.pending_approvals).toBe(0);
+    expect(approved.next_action).toBe('get_next_task');
+
+    const next = payload(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }));
+    expect(next.phase).toBe('EXECUTING');
+    expect((next.task as { approved: boolean }).approved).toBe(true);
+  });
+
+  it('leaves a read-only plan alone: nothing to approve, and asking is refused', async () => {
+    const id = await startedWorkflow();
+    const planned = payload(
+      await dispatch('pro_fetch_workflow', {
+        action: 'submit_plan',
+        workflow_id: id,
+        plan: JSON.stringify({ tasks: [plannedTask('T001')] }),
+      }),
+    );
+    expect(planned.approval_required).toBe(0);
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+    const pointless = await dispatch('pro_fetch_workflow', {
+      action: 'approve_plan',
+      workflow_id: id,
+      task_id: 'T001',
+      note: 'nothing here writes',
+    });
+    expect(refused(pointless)).toBe(true);
+    expect(body(pointless)).toContain('shart emas');
+    // and execution proceeds without any approval step
+    expect(payload(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id })).phase).toBe(
+      'EXECUTING',
+    );
+  });
+
+  it('operator read-only policy stops the controller and points only at the operator (§14.1)', async () => {
+    const id = await startedWorkflow();
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] }),
+    });
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+    const before = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
+
+    process.env.PRO_FETCH_READ_ONLY = 'true';
+    let approval;
+    let readOnly;
+    let allowed;
+    try {
+      approval = await dispatch('pro_fetch_workflow', {
+        action: 'approve_plan',
+        workflow_id: id,
+        note: 'trying to approve past the operator setting',
+      });
+      // The controller writes state files, so read-only mode refuses it wholesale — even `status`.
+      // Measured here so a future change to that boundary is a decision, not a surprise.
+      readOnly = await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id });
+      // The exception is the operator's lever, and only the operator's.
+      process.env.PRO_FETCH_MUTATION_ALLOWLIST = 'pro_fetch_workflow';
+      allowed = await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id });
+    } finally {
+      delete process.env.PRO_FETCH_READ_ONLY;
+      delete process.env.PRO_FETCH_MUTATION_ALLOWLIST;
+    }
+
+    expect(refused(approval)).toBe(true);
+    expect(body(approval)).toContain('PRO_FETCH_READ_ONLY');
+    expect(body(approval)).toContain('PRO_FETCH_MUTATION_ALLOWLIST');
+    expect(refused(readOnly)).toBe(true);
+    expect(refused(allowed)).toBe(false);
+
+    // The refused approval granted nothing.
+    const after = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
+    expect(after.phase).toBe(before.phase);
+    expect(after.pending_approvals).toBe(1);
+  });
+
+  it('a re-planned plan inherits no approval', async () => {
+    const id = await startedWorkflow();
+    const plan = JSON.stringify({ tasks: [plannedTask('T001', MUTATING_TOOL, 'mutating')] });
+    await dispatch('pro_fetch_workflow', { action: 'submit_plan', workflow_id: id, plan });
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F001')]),
+    });
+    await dispatch('pro_fetch_workflow', {
+      action: 'approve_plan',
+      workflow_id: id,
+      note: 'approved for the first revision',
+    });
+    await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id });
+    await dispatch('pro_fetch_workflow', { action: 'replan', workflow_id: id, reason: 'new fact: scope grew' });
+    await dispatch('pro_fetch_workflow', { action: 'submit_plan', workflow_id: id, plan });
+    await dispatch('pro_fetch_workflow', {
+      action: 'submit_review',
+      workflow_id: id,
+      findings: JSON.stringify([finding('F002')]),
+    });
+    const status = payload(await dispatch('pro_fetch_workflow', { action: 'status', workflow_id: id }));
+    expect(status.pending_approvals).toBe(1);
+    expect(refused(await dispatch('pro_fetch_workflow', { action: 'get_next_task', workflow_id: id }))).toBe(true);
   });
 });

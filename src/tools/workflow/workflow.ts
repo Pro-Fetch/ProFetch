@@ -24,9 +24,16 @@ import {
 } from '../../core/workflow/state-machine.js';
 import { saveWorkflow, loadWorkflow } from '../../core/workflow/store.js';
 import { validateGoalSpec, validatePlan, validateFinding } from '../../core/workflow/validate.js';
+import { assessPlan, pendingApprovals, riskIssues } from '../../core/workflow/risk.js';
 import type { Finding, GoalSpec, Task, WorkflowMode, WorkflowState } from '../../core/workflow/types.js';
 
 const knownToolNames = (): ReadonlySet<string> => new Set(allTools().map((t) => t.name));
+
+/** Task ids whose steps the registry says can change state and that carry no approval yet. */
+const awaitingApproval = (state: WorkflowState): string[] => {
+  const tasks = state.plan?.tasks ?? [];
+  return tasks.length ? pendingApprovals(tasks, assessPlan(tasks)) : [];
+};
 
 /** Task projection used under `detail: "summary"` — enough to act on, without the full criteria text. */
 const briefTask = (t: Task) => ({
@@ -34,6 +41,7 @@ const briefTask = (t: Task) => ({
   objective: t.objective,
   priority: t.priority,
   status: t.status,
+  approved: Boolean(t.approval),
   tools: t.toolPlan.map((plan) => plan.toolName),
   depends_on: t.dependsOn,
 });
@@ -57,9 +65,9 @@ export default defineTool({
   name: 'pro_fetch_workflow',
   description:
     'Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | submit_review | ' +
-    'revise_plan | resolve_finding | replan | block | unblock | get_next_task | report_task_result | verify | ' +
-    'finish | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; holat diskda saqlanadi; ' +
-    'noqonuniy o‘tish va dalilsiz "tayyor" rad etiladi.',
+    'revise_plan | resolve_finding | approve_plan | replan | block | unblock | get_next_task | ' +
+    'report_task_result | verify | finish | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; ' +
+    'holat diskda saqlanadi; noqonuniy o‘tish, operator siyosatiga zid qadam va dalilsiz "tayyor" rad etiladi.',
   category: 'admin',
   inputSchema: {
     type: 'object',
@@ -67,8 +75,8 @@ export default defineTool({
       action: {
         type: 'string',
         description:
-          'introduce|start|submit_plan|submit_review|revise_plan|resolve_finding|replan|block|unblock|' +
-          'get_next_task|report_task_result|verify|finish|status',
+          'introduce|start|submit_plan|submit_review|revise_plan|resolve_finding|approve_plan|replan|block|' +
+          'unblock|get_next_task|report_task_result|verify|finish|status',
       },
       workflow_id: {
         type: 'string',
@@ -92,6 +100,10 @@ export default defineTool({
         description: 'revise_plan | replan | block: nima uchun qayta rejalanyotgani / to‘xtab qolgani sababi',
       },
       target: { type: 'string', description: 'unblock: qaytiladigan faza — PLANNING yoki EXECUTING' },
+      note: {
+        type: 'string',
+        description: 'approve_plan: nima uchun ruxsat berilgani (majburiy — sababsiz tasdiq audit izi emas)',
+      },
       detail: {
         type: 'string',
         enum: ['summary', 'full'],
@@ -173,15 +185,31 @@ export default defineTool({
         }
         const { ok, issues } = validatePlan(tasks, knownToolNames());
         if (!ok) return fail(`Plan rad etildi — ${err(issues)}`);
-        state.plan = { tasks, risks: [], verificationStrategy: 'per-task verification' };
+        // The host's `sensitivity` label is a claim; the registry is the evidence. A plan that calls a
+        // mutating tool `read_only` is refused here rather than waved through with an approval gate
+        // that could be switched off by mislabelling.
+        const risks = assessPlan(tasks);
+        const riskProblems = riskIssues(risks);
+        if (riskProblems.length) return fail(`Plan xavf bahosi bo‘yicha rad etildi — ${err(riskProblems)}`);
+        const mutating = risks.filter((risk) => risk.mutating);
+        const pending = pendingApprovals(tasks, risks);
+        state.plan = {
+          tasks,
+          risks: mutating.map(
+            (risk) => `${risk.taskId}: ${risk.toolName} — registry: mutating${risk.remote ? ' (tashqi tizim)' : ''}`,
+          ),
+          verificationStrategy: 'per-task verification',
+        };
         state = transition(state, 'AUDIT_REQUIRED', 'plan submitted');
         await saveWorkflow(state);
         return jsonBlock('Plan qabul qilindi', {
           workflow_id: id,
           phase: state.phase,
           tasks: tasks.length,
+          mutating_steps: mutating.length,
+          approval_required: pending.length,
           next_action: 'submit_review',
-          ...(detail === 'full' ? { plan: tasks } : {}),
+          ...(detail === 'full' ? { plan: tasks, risky_steps: mutating } : {}),
         });
       }
 
@@ -277,6 +305,36 @@ export default defineTool({
         });
       }
 
+      case 'approve_plan': {
+        const tasks = state.plan?.tasks ?? [];
+        if (tasks.length === 0) return fail('approve_plan uchun avval submit_plan kerak (reja bo‘sh).');
+        // Only an audited plan can be approved: approving before SmartToDo has looked at it would make
+        // the gate a rubber stamp on an unreviewed plan.
+        if (state.phase !== 'PLAN_READY')
+          return fail(`approve_plan faqat PLAN_READY fazasida (hozir: ${state.phase}) — avval submit_review.`);
+        const note = strOrEmpty(p, 'note').trim();
+        if (!note) return fail('approve_plan uchun note kerak: sababsiz tasdiq audit izi emas.');
+        const risks = assessPlan(tasks);
+        const pending = pendingApprovals(tasks, risks);
+        const wanted = strOrEmpty(p, 'task_id');
+        if (wanted && !tasks.some((task) => task.id === wanted)) return fail(`task topilmadi: ${wanted}`);
+        if (wanted && !pending.includes(wanted))
+          return fail(`${wanted} uchun tasdiq shart emas (registry bu qadamni read-only deydi).`);
+        const targets = wanted ? [wanted] : pending;
+        const grantedAt = Date.now();
+        for (const task of tasks) {
+          if (targets.includes(task.id)) task.approval = { grantedAt, note };
+        }
+        await saveWorkflow(state);
+        return jsonBlock('Reja tasdiqlandi', {
+          workflow_id: id,
+          phase: state.phase,
+          approved: targets,
+          pending_approvals: pendingApprovals(tasks, risks).length,
+          next_action: pendingApprovals(tasks, risks).length ? 'approve_plan' : 'get_next_task',
+        });
+      }
+
       case 'replan': {
         if (state.phase !== 'EXECUTING' && state.phase !== 'VERIFYING')
           return fail(`replan EXECUTING yoki VERIFYING fazasida kerak (hozir: ${state.phase}).`);
@@ -311,6 +369,13 @@ export default defineTool({
         const target = strOrEmpty(p, 'target').toUpperCase();
         if (target !== 'PLANNING' && target !== 'EXECUTING')
           return fail('unblock uchun target PLANNING yoki EXECUTING bo‘lishi kerak.');
+        if (target === 'EXECUTING') {
+          const waiting = awaitingApproval(state);
+          if (waiting.length)
+            return fail(
+              `unblock → EXECUTING oldidan tasdiq kerak: ${waiting.join(', ')} — avval approve_plan (note bilan).`,
+            );
+        }
         state = transition(state, target, `unblock → ${target}`);
         await saveWorkflow(state);
         return jsonBlock('Davom etilmoqda', {
@@ -322,6 +387,12 @@ export default defineTool({
 
       case 'get_next_task': {
         if (state.phase === 'PLAN_READY' && canTransition('PLAN_READY', 'EXECUTING')) {
+          const waiting = awaitingApproval(state);
+          if (waiting.length)
+            return fail(
+              `EXECUTING oldidan tasdiq kerak: ${waiting.join(', ')} yozish qadamlarini o‘z ichiga oladi — ` +
+                `approve_plan (note bilan) chaqiring.`,
+            );
           state = transition(state, 'EXECUTING', 'execution started');
           await saveWorkflow(state);
         }
@@ -376,8 +447,11 @@ export default defineTool({
           phase: state.phase,
           eligible_to_finish: elig.ok,
           blockers: elig.blockers,
+          pending_approvals: awaitingApproval(state).length,
           next_action: elig.ok ? 'finish' : 'report_task_result',
-          ...(detail === 'full' ? { tasks: (state.plan?.tasks ?? []).map(briefTask) } : {}),
+          ...(detail === 'full'
+            ? { tasks: (state.plan?.tasks ?? []).map(briefTask), risks: state.plan?.risks ?? [] }
+            : {}),
         });
       }
 
@@ -409,8 +483,11 @@ export default defineTool({
           verified: tasks.filter((t) => t.status === 'verified').length,
           total_tasks: tasks.length,
           open_findings: state.findings.filter((f) => f.status === 'open').length,
+          pending_approvals: awaitingApproval(state).length,
           ...(detail === 'full'
             ? {
+                risks: state.plan?.risks ?? [],
+                awaiting_approval: awaitingApproval(state),
                 tasks: tasks.map(briefTask),
                 findings: state.findings.map((f) => ({
                   id: f.id,
