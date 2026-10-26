@@ -7,7 +7,7 @@ Modelga kerak bo'lgan tool beriladi: standart `smart` profil **12 ta meta-tool**
 ![npm version](https://img.shields.io/npm/v/pro-fetch-mcp?label=npm)
 ![node](https://img.shields.io/badge/node-%3E%3D22.13-blue)
 ![license](https://img.shields.io/npm/l/pro-fetch-mcp)
-![tests](https://img.shields.io/badge/tests-1141%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-1166%20passing-brightgreen)
 
 ## Nima uchun
 
@@ -65,7 +65,7 @@ Ko'p MCP mijoz yuzlab tool schema'iga chidamaydi. `smart` (standart) modelga **1
 | `pro_pr_review` | PR → to'liq review (diff, checks, reviews, izohlar) |
 | `pro_site_scan` | Saytni crawl qilib tushuntirish |
 | `pro_data_pipeline` | Datasetni yuklash, profillash va qayta ishlash |
-| `pro_fetch_workflow` | Katta ishni bitta holatli siklda yuritadi: reja → audit → ijro → tekshiruv → yakun; asossiz «tayyor» rad etiladi |
+| `pro_fetch_workflow` | Bitta holatli sikl: reja → (blind) audit → yozishlarga tasdiq → ijro → tekshiruv → yakuniy audit → yakun. Qoplanmagan talab, kuchsiz dalil va asossiz «tayyor» rad etiladi, har bir rad hisobga olinadi |
 
 3 ta round trip 1 taga aylanadi:
 
@@ -199,7 +199,7 @@ npm ci
 npm run check   # verify:static → verify:registry → build → test → verify:package → format:check
 ```
 
-- **1141 ta test** (Vitest): SSRF, redirectlar, permission siyosati, output sandboxi, timeout'lar, har bir tool'ing kiritma shartnomasi va jonli provider-failure xatti-harakati.
+- **1166 ta test** (Vitest): SSRF, redirectlar, permission siyosati, output sandboxi, timeout'lar, har bir tool'ing kiritma shartnomasi va jonli provider-failure xatti-harakati.
 - `verify:registry` haqiqiy registry'ni yuklab **673 tool / 42 kategoriya / barcha 4 profil sonini** tekshiradi.
 - `npm run audit:schema` har bir sxemani uning orqasidagi kod bilan solishtiradi: handler'ining hech qachon o'qimaydigan property, hech nima o'qimaydigan `required` argument, yoki hamma narsani qabul qiladigan ochiq sxema. Hozir **653 tekshirilgan tool'da 0 o'lik property va 0 o'qilmagan required** (673 tool'dan 20 tasi delegating handler sababli tashqarida), va 673 ta sxemaning barchasi e'lon qilmagan property'ni rad etadi.
 - `verify:package` nashr paketida shebang, `files` allowlist va **nol credential/manba fayl** ekanligini isbotlaydi.
