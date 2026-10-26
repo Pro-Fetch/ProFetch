@@ -1192,6 +1192,80 @@ describe('pro_fetch_workflow — refusals, refusals of shape, and secrets', () =
   });
 });
 
+/* ------------------------------------------------------------------ §4.5 + §16.3 */
+
+describe('pro_fetch_workflow — plan view and repeated failure (§4.5, §16.3)', () => {
+  it('answers with the machine-readable plan the spec asks for', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        deliverables: ['dashboard.html'],
+        covers: ['E1', 'C1', 'D1'],
+      }),
+      plannedTask('T002', { objective: 'measure render', covers: ['A1', 'A2'] }),
+    ]);
+    const view = (payload(await call({ action: 'status', workflow_id: id, detail: 'full' })).plan_view ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+    expect(view.goal).toBe(GOAL.goal);
+    const map = view.requirement_map as Array<{ id: string; carried_by: string[] }>;
+    expect(map.map((entry) => entry.id)).toEqual(['E1', 'C1', 'D1', 'A1', 'A2']);
+    expect(map.find((entry) => entry.id === 'A2')?.carried_by).toEqual(['T002']);
+    expect(view.capabilities).toEqual([MUTATING_TOOL, REAL_TOOL].sort());
+    // cache_put reaches an external store, so the graded risk line says so — read from the registry, not the plan.
+    expect(view.risk_register).toEqual(['T001: pro_fetch_cache_put — registry: mutating (tashqi tizim)']);
+    expect(view.approval_required).toEqual(['T001']);
+    expect(view.acceptance_criteria).toEqual(GOAL.acceptanceCriteria);
+    // Nothing in this plan declared a fallback, and the view says so per step.
+    expect(view.steps_without_fallback).toEqual([`T001:${MUTATING_TOOL}`, `T002:${REAL_TOOL}`]);
+  });
+
+  it('shows which work could run at once and withholds the conflicting one', async () => {
+    const id = await plannedWith([
+      plannedTask('T001', { covers: ['E1', 'C1', 'D1'] }),
+      plannedTask('T002', { objective: 'measure render', toolName: OTHER_REAL_TOOL, covers: ['A1', 'A2'] }),
+    ]);
+    const view = payload(await call({ action: 'status', workflow_id: id, detail: 'full' })).plan_view as {
+      parallelisable: string[];
+      conflicts: unknown[];
+      dependency_graph: unknown[];
+    };
+    expect(view.parallelisable).toEqual(['T001', 'T002']);
+    expect(view.conflicts).toEqual([]);
+    expect(view.dependency_graph).toEqual([
+      { id: 'T001', depends_on: [] },
+      { id: 'T002', depends_on: [] },
+    ]);
+  });
+
+  it('records a task that keeps failing instead of letting it be retried forever (§16.3)', async () => {
+    const id = await started();
+    await executing(id);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const res = payload(
+        await call({ action: 'report_task_result', workflow_id: id, task_id: 'T001', task_status: 'failed' }),
+      );
+      if (attempt < 3) expect(res.next_action).toBe('get_next_task');
+      else expect(res.next_action).toBe('replan');
+    }
+    const full = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    const task = (full.tasks as Array<{ id: string; status: string }>)[0];
+    expect(task.status).toBe('failed');
+    const warned = await call({
+      action: 'report_task_result',
+      workflow_id: id,
+      task_id: 'T001',
+      task_status: 'failed',
+    });
+    expect(body(warned)).toContain('§16.3');
+    const ledger = JSON.parse(await readFile(path.join(dir, 'workflows', `${id}.json`), 'utf8')) as WorkflowState;
+    expect(ledger.plan?.tasks[0].blockers.some((entry) => entry.includes('failed x3'))).toBe(true);
+  });
+});
+
 /* ------------------------------------------------------------------ guards over the tool itself */
 
 describe('pro_fetch_workflow — fixture and contract sanity', () => {

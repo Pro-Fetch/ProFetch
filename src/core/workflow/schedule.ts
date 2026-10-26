@@ -46,6 +46,23 @@ export function conflicts(left: Task, right: Task): string | null {
   return sharedResource(left, right);
 }
 
+/**
+ * The work that could run concurrently right now (§4.5): dependencies satisfied, not already in
+ * flight, and not racing another ready task for the same deliverable.
+ */
+export function parallelisableTasks(tasks: Task[]): string[] {
+  const done = new Set(tasks.filter((task) => task.status === 'verified').map((task) => task.id));
+  const ready = tasks.filter(
+    (task) =>
+      task.status !== 'verified' && !IN_FLIGHT.includes(task.status) && task.dependsOn.every((dep) => done.has(dep)),
+  );
+  const chosen: Task[] = [];
+  for (const candidate of ready) {
+    if (!chosen.some((other) => conflicts(candidate, other))) chosen.push(candidate);
+  }
+  return chosen.map((task) => task.id);
+}
+
 /** Every pair touching the same deliverable, flagged by whether both of them write it. */
 export function planConflicts(tasks: Task[]): { deliverable: string; tasks: [string, string]; bothWrite: boolean }[] {
   const found: { deliverable: string; tasks: [string, string]; bothWrite: boolean }[] = [];

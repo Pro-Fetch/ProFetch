@@ -39,7 +39,7 @@ import {
 import { saveWorkflow, loadWorkflow } from '../../core/workflow/store.js';
 import { validateFinding, validateGoalSpec, validatePlan, verificationWeakness } from '../../core/workflow/validate.js';
 import { assessPlan, pendingApprovals, riskIssues } from '../../core/workflow/risk.js';
-import { nextRunnable, planConflicts } from '../../core/workflow/schedule.js';
+import { nextRunnable, parallelisableTasks, planConflicts } from '../../core/workflow/schedule.js';
 import {
   emptyStats,
   requirements,
@@ -146,6 +146,46 @@ function metrics(state: WorkflowState): Record<string, unknown> {
     },
     independence: state.audit?.independence ?? 'not-audited',
     elapsed_ms: state.updatedAt - state.createdAt,
+  };
+}
+
+/**
+ * The plan in the shape spec §4.5 asks for — machine-readable, and derived entirely from what is
+ * already stored. Nothing here is a second source of truth: the requirement map is read from the
+ * same `covers` the coverage gate enforces, the risk register is the graded mutating steps, and the
+ * parallel set is what the scheduler would actually hand out at once. A host that wants to show a
+ * plan to a human reads this instead of re-assembling the pieces and getting them subtly wrong.
+ */
+function planView(state: WorkflowState): Record<string, unknown> {
+  const tasks = state.plan?.tasks ?? [];
+  const requirements_ = requirements(state.goal).filter((entry) => entry.kind !== 'unknown');
+  const closed = state.unknowns ?? [];
+  return {
+    goal: state.goal.goal,
+    scope: { constraints: state.goal.constraints, deliverables: state.goal.deliverables },
+    requirement_map: requirements_.map((entry) => ({
+      id: entry.id,
+      kind: entry.kind,
+      text: entry.text,
+      carried_by: tasks.filter((task) => (task.covers ?? []).includes(entry.id)).map((task) => task.id),
+    })),
+    dependency_graph: tasks.map((task) => ({ id: task.id, depends_on: task.dependsOn })),
+    parallelisable: parallelisableTasks(tasks),
+    conflicts: planConflicts(tasks),
+    capabilities: [...new Set(tasks.flatMap((task) => task.toolPlan.map((plan) => plan.toolName)))].sort(),
+    risk_register: state.plan?.risks ?? [],
+    approval_required: awaitingApproval(state),
+    verification_strategy: state.plan?.verificationStrategy ?? '',
+    steps_without_fallback: tasks.flatMap((task) =>
+      task.toolPlan.filter((plan) => !plan.fallback).map((plan) => `${task.id}:${plan.toolName}`),
+    ),
+    acceptance_criteria: state.goal.acceptanceCriteria,
+    unknowns: {
+      open: requirements(state.goal)
+        .filter((entry) => entry.kind === 'unknown' && !closed.some((done) => done.id === entry.id))
+        .map((entry) => entry.id),
+      closed: closed.map((entry) => ({ id: entry.id, verdict: entry.verdict })),
+    },
   };
 }
 
@@ -727,6 +767,12 @@ export default defineTool({
         task.status = status;
         task.attempts += 1;
         bump(state, 'attempts');
+        // §16.3: repeated failure is recorded, not quietly retried. The third one turns the task into
+        // a blocker and sends the host to replan or block, which is the difference between a retry
+        // budget and an infinite loop with extra steps.
+        const stuck = status === 'failed' && task.attempts >= 3;
+        if (stuck && !task.blockers.some((entry) => entry.startsWith(`failed x${task.attempts}`)))
+          task.blockers.push(`failed x${task.attempts}: oxirgi xato qaytarildi, keyingi urinish samarasiz`);
         if (closing) task.verifiedWith = given as VerificationType;
         if (evidence) {
           const exitCode = Number.parseInt(strOrEmpty(p, 'exit_code'), 10);
@@ -750,9 +796,20 @@ export default defineTool({
           status: task.status,
           counts_toward_completion: status === 'verified',
           verified: (state.plan?.tasks ?? []).filter((entry) => entry.status === 'verified').length,
-          next_action: remaining === 0 ? 'verify' : 'get_next_task',
+          next_action: stuck ? 'replan' : remaining === 0 ? 'verify' : 'get_next_task',
+          ...(stuck
+            ? {
+                warning:
+                  `task ${task.id} ${task.attempts} marta xato berdi — boshqa yo‘l sinash yoki block ` +
+                  `bilan aniq blocker qayd etish kerak (§16.3)`,
+              }
+            : {}),
           ...(detail === 'full'
-            ? { evidence_id: task.evidenceRefs[task.evidenceRefs.length - 1] ?? null, remaining }
+            ? {
+                evidence_id: task.evidenceRefs[task.evidenceRefs.length - 1] ?? null,
+                remaining,
+                blockers: task.blockers,
+              }
             : {}),
         });
       }
@@ -1065,7 +1122,11 @@ export default defineTool({
           independence: state.audit?.independence ?? 'not-audited',
           metrics: measures,
           ...(detail === 'full'
-            ? { evidence_records: state.evidence, tasks: (state.plan?.tasks ?? []).map(briefTask) }
+            ? {
+                evidence_records: state.evidence,
+                plan_view: planView(state),
+                tasks: (state.plan?.tasks ?? []).map(briefTask),
+              }
             : {}),
         });
       }
@@ -1084,6 +1145,7 @@ export default defineTool({
           ...(detail === 'full'
             ? {
                 metrics: metrics(state),
+                plan_view: planView(state),
                 risks: state.plan?.risks ?? [],
                 awaiting_approval: awaitingApproval(state),
                 tasks: tasks.map(briefTask),
