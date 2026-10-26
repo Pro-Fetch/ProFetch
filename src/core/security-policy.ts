@@ -75,7 +75,8 @@ export function assertActionAllowed(action: string, toolName: string): void {
   if (action && isMutatingAction(action)) {
     throw new PolicyError(
       `'${action}' amali holatni o'zgartiradi, PRO_FETCH_READ_ONLY=true rejimida bloklangan. ` +
-        `O'qishga ruxsat etilgan amallar: ${[...READ_ONLY_ACTIONS].sort().join(', ')}.`,
+        `O'qishga ruxsat etilgan amallar: ${[...READ_ONLY_ACTIONS].sort().join(', ')}. ` +
+        `Istisno faqat operator qo‘lidan: ${toolName} ni PRO_FETCH_MUTATION_ALLOWLIST ga kiriting.`,
     );
   }
 }
@@ -121,7 +122,10 @@ export function assertToolAllowed(tool: ToolDefinition, input: Record<string, un
   if (process.env.PRO_FETCH_READ_ONLY === 'true') {
     const exceptions = csv('PRO_FETCH_MUTATION_ALLOWLIST');
     if (!exceptions.has(tool.name) && isMutationTool(tool.name))
-      throw new PolicyError(`'${tool.name}' yozish/o'zgartirish amali. PRO_FETCH_READ_ONLY=true.`);
+      throw new PolicyError(
+        `'${tool.name}' yozish/o'zgartirish amali. PRO_FETCH_READ_ONLY=true. ` +
+          `Istisno faqat operator qo‘lidan: ${tool.name} ni PRO_FETCH_MUTATION_ALLOWLIST ga kiriting.`,
+      );
     const method = typeof input.method === 'string' ? input.method.trim().toUpperCase() : '';
     if (!exceptions.has(tool.name) && method && !new Set(['GET', 'HEAD', 'OPTIONS']).has(method)) {
       throw new PolicyError(`HTTP ${method} usuli PRO_FETCH_READ_ONLY=true rejimida bloklangan.`);

@@ -40,6 +40,10 @@ const EXPLICIT_MUTATION_TOOLS: readonly RegExp[] = [
   /^(?:download_file|media_download)$/, // http/media: writes a file to the output root
   /^screenshot_(?:page|full_page)$/, // media: writes a PNG
   /browser_screenshot$/, // browser: writes a PNG (name keeps its pro_browser_ prefix)
+  // Measured: `readOnlyHint: true` on a tool whose handler calls saveWorkflow() and writes
+  // `<id>.json` to the workflow store on nearly every action. The generated table cannot see it —
+  // that scan reads each tool's own handler body, and this write lives one helper call away.
+  /^workflow$/, // admin: persists Bigfoot workflow state to disk
 ];
 
 /** Verb anywhere in a tool name that implies a write. */

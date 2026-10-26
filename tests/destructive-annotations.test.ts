@@ -22,6 +22,7 @@ describe('destructive control-plane and file-writing tools are not advertised re
     'pro_fetch_screenshot_page', // writes a PNG
     'pro_fetch_screenshot_full_page', // writes a PNG
     'pro_browser_browser_screenshot', // writes a PNG
+    'pro_fetch_workflow', // persists <id>.json to the workflow store
   ];
   for (const name of mustNotBeReadOnly) {
     it(`${name} is destructive`, () => {
