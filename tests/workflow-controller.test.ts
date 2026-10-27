@@ -441,6 +441,28 @@ describe('pro_fetch_workflow — regressions found from the host side', () => {
     }
   });
 
+  it('does not make a status-less finding unclosable, and names the ids a refusal means', async () => {
+    // Both reported by hosts: a finding submitted without `status` could never be resolved
+    // ("finding F1 allaqachon undefined"), and an invented `covers` id gave no hint what was legal.
+    const id = await started();
+    const bad = await call({
+      action: 'submit_plan',
+      workflow_id: id,
+      plan: JSON.stringify({ tasks: [plannedTask('T001', { covers: ['E9'] })] }),
+    });
+    expect(refused(bad)).toBe(true);
+    expect(body(bad)).toContain('E1');
+
+    const plannedId = await plannedWith(COVERED_PLAN());
+    const noStatus = { ...(finding('F001') as object), status: undefined } as unknown as Finding;
+    const review = await disclosePlan(call, plannedId, [noStatus as unknown as Record<string, unknown>]);
+    expect(review.review.phase).toBe('PLAN_READY');
+    const closed = payload(
+      await call({ action: 'resolve_finding', workflow_id: plannedId, finding_id: 'F001', resolution: 'checked' }),
+    );
+    expect(closed.status).toBe('resolved');
+  });
+
   it('says so when direct mode skips the independent audit', async () => {
     const startedDirect = payload(await call({ action: 'start', goal: JSON.stringify(GOAL), mode: 'direct' }));
     const id = String(startedDirect.workflow_id);

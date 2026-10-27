@@ -420,6 +420,10 @@ export default defineTool({
       const known = requirementIdSet(state!.goal);
       const existing = new Map(state!.findings.map((entry) => [entry.id, entry]));
       for (const finding of findings) {
+        // Same reason tasks are normalised: `status` is what the closing step reads. Without a default
+        // a finding submitted without one became permanently unclosable ("finding F2 allaqachon undefined").
+        finding.status = finding.status ?? 'open';
+        finding.blocking = Boolean(finding.blocking);
         const issues = validateFinding(finding, known);
         if (issues.length) return `finding ${finding?.id} yaroqsiz — ${err(issues)}`;
         const prior = existing.get(finding.id);

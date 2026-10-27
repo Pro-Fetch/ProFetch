@@ -87,7 +87,10 @@ export function validateTasks(tasks: Task[], knownRequirementIds?: ReadonlySet<s
     if (knownRequirementIds) {
       for (const ref of t.covers ?? []) {
         if (!knownRequirementIds.has(ref))
-          issues.push({ code: 'task_covers_unknown', message: `task ${t.id}: noma'lum talab id: ${ref}` });
+          issues.push({
+            code: 'task_covers_unknown',
+            message: `task ${t.id}: noma'lum talab id: ${ref} — mavjud idlar: ${[...knownRequirementIds].join(', ')}`,
+          });
       }
     }
   }
