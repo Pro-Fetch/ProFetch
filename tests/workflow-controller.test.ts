@@ -376,6 +376,69 @@ describe('pro_fetch_workflow — duplicate work (§5.4)', () => {
   });
 });
 
+/* ---------------------------------- regressions found by real hosts driving the tool */
+
+describe('pro_fetch_workflow — regressions found from the host side', () => {
+  it("accepts a plan that omits the machinery's own bookkeeping fields", async () => {
+    // A host writes a plan, not a TypeScript literal. `dependsOn`, `deliverables`, `evidenceRefs`,
+    // `blockers`, `attempts` and `status` are the controller's bookkeeping; when they were absent the
+    // plan was accepted and the first honest report then threw
+    // "Cannot read properties of undefined (reading 'push')".
+    const id = await started();
+    const bare = [
+      {
+        id: 'T001',
+        objective: 'measure the source',
+        priority: 'medium',
+        acceptanceCriteria: ['a number was read'],
+        verification: { method: 're-run', evidenceRequired: true },
+        covers: ['E1', 'C1', 'D1', 'A1', 'A2'],
+        toolPlan: [
+          {
+            toolName: REAL_TOOL,
+            category: categoryOf(REAL_TOOL),
+            purpose: 'read',
+            sensitivity: 'read_only',
+            requiresApproval: false,
+          },
+        ],
+      },
+    ];
+    const planned = await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks: bare }) });
+    expect(refused(planned), body(planned)).toBe(false);
+    await executing(id);
+    const closed = await closeTask(id, 'T001');
+    expect(closed.status).toBe('verified');
+    const stored = JSON.parse(await readFile(path.join(dir, 'workflows', `${id}.json`), 'utf8')) as WorkflowState;
+    expect(stored.plan?.tasks[0].evidenceRefs.length).toBe(1);
+    expect(stored.plan?.tasks[0].blockers).toEqual([]);
+  });
+
+  it('lets a run that fails its own final audit go back to work', async () => {
+    // `finish` said the task was unverified; the only door back was `replan`, which then demanded a
+    // new fact the host did not have. FINAL_AUDIT must be able to reach REPAIR too.
+    const id = await plannedWith([plannedTask('T001', { covers: ['E1', 'C1', 'D1', 'A1', 'A2'] })]);
+    await executing(id);
+    await call({ action: 'report_task_result', workflow_id: id, task_id: 'T001', task_status: 'needs_verification' });
+    await call({ action: 'verify', workflow_id: id });
+    const audit = payload(await call({ action: 'final_audit', workflow_id: id, note: 'the ledger does not prove A2' }));
+    expect(audit.phase).toBe('FINAL_AUDIT');
+    expect((audit.blockers as string[]).some((line) => line.includes('needs_verification'))).toBe(true);
+    const refusedFinish = await call({ action: 'finish', workflow_id: id });
+    expect(refused(refusedFinish)).toBe(true);
+
+    const repaired = payload(await call({ action: 'repair', workflow_id: id, reason: 'A2 was never compared' }));
+    expect(repaired.phase).toBe('EXECUTING');
+    await closeTask(id, 'T001');
+    await call({ action: 'verify', workflow_id: id });
+    const audited = payload(
+      await call({ action: 'final_audit', workflow_id: id, note: 're-checked A2 against the source' }),
+    );
+    expect(audited.blockers).toEqual([]);
+    expect(payload(await call({ action: 'finish', workflow_id: id })).phase).toBe('COMPLETED');
+  });
+});
+
 /* ------------------------------------------------------------------ §5.3 risk audit */
 
 describe('pro_fetch_workflow — omission/risk audit (§5.3)', () => {

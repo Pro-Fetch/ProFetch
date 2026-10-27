@@ -443,6 +443,21 @@ export default defineTool({
         } catch {
           return fail('plan JSON matni noto‘g‘ri.');
         }
+        // A host that omits an array field must not be able to crash the controller three calls later.
+        // `validateTasks` checks what a plan has to *say*; this fills what the machinery *uses*.
+        // Measured: a plan submitted without `evidenceRefs` passed validation, then threw
+        // "Cannot read properties of undefined (reading 'push')" on the first honest report.
+        tasks = tasks.map((entry) => ({
+          ...entry,
+          dependsOn: entry.dependsOn ?? [],
+          deliverables: entry.deliverables ?? [],
+          evidenceRefs: entry.evidenceRefs ?? [],
+          blockers: entry.blockers ?? [],
+          covers: entry.covers ?? [],
+          attempts: Number.isFinite(entry.attempts) ? entry.attempts : 0,
+          status: entry.status ?? 'pending',
+        }));
+
         const { ok, issues } = validatePlan(tasks, knownToolNames(), state.goal);
         if (!ok) return refuse(state, 'duplicatePlanRefused', `Plan rad etildi — ${err(issues)}`);
         // The host's `sensitivity` label is a claim; the registry is the evidence.
@@ -1037,8 +1052,15 @@ export default defineTool({
       }
 
       case 'repair': {
-        if (state.phase !== 'VERIFYING')
-          return refuse(state, 'illegalTransitionRefused', `repair faqat VERIFYING fazasida (hozir: ${state.phase}).`);
+        // Reachable from both places a run finds out it is not actually done: VERIFYING (a check
+        // failed) and FINAL_AUDIT (the independent audit found the gap). Without the second one, a
+        // host told by `finish` that a task is unverified has no legal door back to work on it.
+        if (state.phase !== 'VERIFYING' && state.phase !== 'FINAL_AUDIT')
+          return refuse(
+            state,
+            'illegalTransitionRefused',
+            `repair VERIFYING yoki FINAL_AUDIT fazasida kerak (hozir: ${state.phase}).`,
+          );
         if (!strOrEmpty(p, 'reason').trim()) return fail('repair uchun reason kerak: qaysi qabul mezoni bajarilmadi?');
         state = transition(state, 'REPAIR', `repair: ${strOrEmpty(p, 'reason').trim()}`);
         state = transition(state, 'EXECUTING', 'repair continues execution');

@@ -26,7 +26,9 @@ const TRANSITIONS: Readonly<Record<WorkflowPhase, readonly WorkflowPhase[]>> = {
   // refuses COMPLETED from VERIFYING until the independent final audit has been passed (§12.3).
   VERIFYING: ['COMPLETED', 'REPAIR', 'FINAL_AUDIT', 'EXECUTING', 'REPLANNING', 'PAUSED', 'BLOCKED'],
   REPAIR: ['VERIFYING', 'EXECUTING', 'REPLANNING', 'PAUSED', 'BLOCKED'],
-  FINAL_AUDIT: ['COMPLETED', 'REPLANNING', 'EXECUTING', 'BLOCKED'],
+  // REPAIR belongs here too: when the independent audit finds an acceptance criterion that was
+  // never actually met, the work has to go back the same way VERIFYING sends it back.
+  FINAL_AUDIT: ['COMPLETED', 'REPAIR', 'REPLANNING', 'EXECUTING', 'BLOCKED'],
   REPLANNING: ['PLANNING', 'EXECUTING', 'PAUSED', 'BLOCKED'],
   // `resume` returns to wherever the pause record says; this is what is reachable from PAUSED.
   PAUSED: [
