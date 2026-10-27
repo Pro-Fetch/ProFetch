@@ -253,8 +253,18 @@ export default defineTool({
         description: 'start javobidagi id (introduce/startdan tashqari barcha actionlar)',
       },
       goal: { type: 'string', description: 'start: foydalanuvchi maqsadi (GoalSpec JSON matni yoki oddiy satr)' },
-      mode: { type: 'string', description: 'start: full|lite|direct (standart full)' },
-      plan: { type: 'string', description: 'submit_plan: {tasks:[...]} JSON matni (har task covers:[E1,A2,...])' },
+      mode: {
+        type: 'string',
+        description:
+          'start: full | lite (yakuniy audit ixtiyoriy) | direct (mustaqil auditni host o‘z zimmasiga oladi)',
+      },
+      plan: {
+        type: 'string',
+        description:
+          'submit_plan: {tasks:[{id, objective, priority, dependsOn[], deliverables[], covers:[E1,A2,...], ' +
+          'acceptanceCriteria[], verification:{method, evidenceRequired, type?}, toolPlan:[{toolName, category, ' +
+          'purpose, sensitivity, requiresApproval, fallback?}]}]} JSON matni',
+      },
       findings: { type: 'string', description: 'submit_review | report_finding | final_audit: [finding,...] JSON' },
       stage: { type: 'string', description: 'begin_audit/submit_review: blind (plan ko‘rinmaydi) | full' },
       dismissed_risks: {
@@ -439,10 +449,14 @@ export default defineTool({
         let tasks: Task[];
         try {
           const parsed = JSON.parse(strOrEmpty(p, 'plan'));
-          tasks = (Array.isArray(parsed) ? parsed : parsed.tasks) as Task[];
+          tasks = (Array.isArray(parsed) ? parsed : parsed?.tasks) as Task[];
         } catch {
           return fail('plan JSON matni noto‘g‘ri.');
         }
+        if (!Array.isArray(tasks))
+          return fail('plan {tasks:[...]} yoki to‘g‘ridan-to‘g‘ri task massivi bo‘lishi kerak.');
+        if (tasks.some((entry) => typeof entry !== 'object' || entry === null))
+          return fail('har bir task obyekti bo‘lishi kerak (matn yoki massiv emas).');
         // A host that omits an array field must not be able to crash the controller three calls later.
         // `validateTasks` checks what a plan has to *say*; this fills what the machinery *uses*.
         // Measured: a plan submitted without `evidenceRefs` passed validation, then threw
@@ -454,6 +468,8 @@ export default defineTool({
           evidenceRefs: entry.evidenceRefs ?? [],
           blockers: entry.blockers ?? [],
           covers: entry.covers ?? [],
+          toolPlan: entry.toolPlan ?? [],
+          acceptanceCriteria: entry.acceptanceCriteria ?? [],
           attempts: Number.isFinite(entry.attempts) ? entry.attempts : 0,
           status: entry.status ?? 'pending',
         }));
@@ -510,8 +526,18 @@ export default defineTool({
         };
         state.progress = [...(state.progress ?? []), snapshot];
         state = transition(state, 'AUDIT_REQUIRED', 'plan submitted');
+        let skippedAudit = false;
+        if (state.mode === 'direct') {
+          // `direct` means the host accepts the plan without an independent SmartToDo pass. The step is
+          // still traversed in history and said out loud in the answer and the metrics: a skipped step
+          // that leaves no trace is how a run starts believing it was reviewed.
+          state = transition(state, 'PLAN_READY', 'direct mode: independent audit skipped by the host');
+          state.audit = { at: Date.now(), ...state.audit, independence: 'reduced' };
+          skippedAudit = true;
+        }
         await saveWorkflow(state);
         return jsonBlock('Plan qabul qilindi', {
+          ...(skippedAudit ? { audit_skipped: true } : {}),
           workflow_id: id,
           phase: state.phase,
           tasks: tasks.length,
@@ -809,7 +835,15 @@ export default defineTool({
           state = transition(state, 'EXECUTING', 'execution started');
           await saveWorkflow(state);
         }
-        if (state.phase !== 'EXECUTING') return fail(`get_next_task faqat EXECUTING fazasida (hozir: ${state.phase}).`);
+        if (state.phase !== 'EXECUTING')
+          return fail(
+            `get_next_task faqat EXECUTING fazasida (hozir: ${state.phase}) — ` +
+              (state.phase === 'AUDIT_REQUIRED'
+                ? 'avval begin_audit stage=full va submit_review.'
+                : state.phase === 'PLAN_READY'
+                  ? 'avval approve_plan (yozish qadami bo‘lsa), so‘ng get_next_task.'
+                  : 'keyingi actionni pastdagi xabardan oling.'),
+          );
         const tasks = state.plan?.tasks ?? [];
         const picked = nextRunnable(tasks);
         if (picked.serialised) bump(state, 'conflictsSerialised', picked.serialised);

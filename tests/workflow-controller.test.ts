@@ -414,6 +414,46 @@ describe('pro_fetch_workflow — regressions found from the host side', () => {
     expect(stored.plan?.tasks[0].blockers).toEqual([]);
   });
 
+  it('refuses a malformed plan instead of throwing at the host', async () => {
+    // A real host sends JSON shapes it invented. Each of these used to surface as a TypeError from
+    // inside the validator ("... is not iterable"), which tells the host nothing about what to send.
+    const id = await started();
+    const cases: Array<[string, unknown]> = [
+      ['tasks is not an array', { tasks: { id: 'T001' } }],
+      ['a task is a string', ['T001']],
+      [
+        'a task has no toolPlan',
+        [
+          {
+            id: 'T001',
+            objective: 'x',
+            acceptanceCriteria: ['a'],
+            verification: { method: 'm', evidenceRequired: true },
+          },
+        ],
+      ],
+    ];
+    for (const [label, plan] of cases) {
+      const res = await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify(plan) });
+      expect(refused(res), `${label}: ${body(res)}`).toBe(true);
+      expect(body(res), label).not.toContain('not iterable');
+      expect(body(res), label).not.toContain('is not a function');
+    }
+  });
+
+  it('says so when direct mode skips the independent audit', async () => {
+    const startedDirect = payload(await call({ action: 'start', goal: JSON.stringify(GOAL), mode: 'direct' }));
+    const id = String(startedDirect.workflow_id);
+    const planned = payload(
+      await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks: COVERED_PLAN() }) }),
+    );
+    // Skipped out loud: the answer says so, and the run carries the lower independence level.
+    expect(planned.audit_skipped).toBe(true);
+    expect(planned.phase).toBe('PLAN_READY');
+    const full = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    expect((full.metrics as { independence: string }).independence).toBe('reduced');
+  });
+
   it('lets a run that fails its own final audit go back to work', async () => {
     // `finish` said the task was unverified; the only door back was `replan`, which then demanded a
     // new fact the host did not have. FINAL_AUDIT must be able to reach REPAIR too.
