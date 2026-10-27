@@ -3,11 +3,11 @@
 > This file is the agent's memory across context loss. It is written to disk, not held in context.
 > Update it after every completed work item.
 
-**Last updated:** 2026-10-20
+**Last updated:** 2026-10-26
 
 ## Scope Actually Covered (read before claiming more)
 
-Registered tools: **672**. Categories: **42**. Tests: **936** across **42** files. Packaged files: **556**.
+Registered tools: **673**. Categories: **42**. Tests: **1188** across **63** files. Smart profile: **12** meta-tools (minimal 74 / standard 179 / full 673).
 `npm run check` exit 0.
 
 This increment: two new categories, each built so the measurement could fail.
@@ -1497,3 +1497,41 @@ needs statement-boundary tracking inside a `switch` (`core/source-resolver.ts`).
 (CI browser note in the README, the 58 `any` usages in five files, a live provider matrix with
 real keys) are ordinary follow-ups, not blockers.
 
+---
+
+## Bigfoot — MexaPlan + SmartToDo + MaxEffort (2026-10-26)
+
+`docs/AGENT_WORKFLOW.md` endi kodda bajariladi. Darvozalarning barchasi ishlaydi va o'lchandi.
+
+| Spec bo'limi | Holat | Kod / dalil |
+|---|---|---|
+| §4.1 GoalSpec (talab idlari, riskTolerance) | DONE | `requirements()` → E1·I1·C1·D1·A1·U1; `start` sonini qaytaradi |
+| §4.5 Plan A (mashina qayta ishlaydigan reja) | DONE | `plan_view`: talab→task matritsasi, dependency graph, `parallelisable`, risk register, approval ro'yxati, `steps_without_fallback`, qabul mezonlari |
+| §5.1 Blind-first review | DONE | `begin_audit stage=blind` plan'ni ko'rsatmaydi; o'tkazib yuborilsa `independence: "reduced"` deb yoziladi |
+| §5.2 Coverage audit | DONE | `unmappedRequirements()` plan'ni rad etadi; yakun darvozasida qayta tekshiriladi |
+| §5.3 Omission/risk audit | DONE | `core/workflow/risks.ts` — bandlar plan nimani qilishidan olchinadi; har biri topilma yoki sababli rad bilan yopilishi shart |
+| §5.4 Takrorlarni olib tashlash | DONE | `task_duplicate_objective` / `task_duplicate_toolplan` (tool + talab juftligi bo'yicha) |
+| §5.5 Task graph va parallel konflikt | DONE | DAG/sikl `validate.ts`da; `schedule.ts` bitta resursni yozadiganlarni serialaydi |
+| §5.6/§5.7 E'tiroz formati va replanning | DONE | `classification` majburiy; dalil hashisiz qayta ochish rad; `revise_plan`/`resolve_finding`/`replan` |
+| §6.2–§6.6 Ijro, chuqurlashish, tugash mezonlari | DONE | `verification_type` kuchi, `challenge`, `log_call` takrorlari, `resolve_unknown`, artifact talabi |
+| §12.1/§12.2 Halol dalil | DONE | `VERIFICATION_TYPES` + kuch jadvali; `mock_verified`/`not_run`/`skipped` bajarilgan hisoblanmaydi |
+| §12.3 Independent completion audit | DONE | `FINAL_AUDIT` fazasi; `full` rejimda undan o'tmasa `finish` rad etiladi |
+| §13.2/§13.3 Stagnatsiya | DONE | Yangi dalil yoki topilma bo'lmasa ikkinchi revision rad (`stagnation`) |
+| §14.1/§14.2/§14.5 Xavfsizlik va tasdiq | DONE | `risk.ts` xavfni registrydan olchaydi; `approve_plan` sabab bilan; operator siyosati `PRO_FETCH_READ_ONLY` |
+| §17 Holat mashinasi | DONE | 13 faza (REPAIR, FINAL_AUDIT, PAUSED, REPLANNING, BLOCKED bilan) + `pause`/`resume` |
+| §19 Bosqichma-bosqich reja | DONE | Phase 0–6 exit mezonlari yuqoridagi bo'limlarda; kontroller registryga ulangan |
+| §20.1–§20.4 Benchmarklar | DONE | `tests/bigfoot-benchmark.test.ts`: must_fix_recall **1.00** (8/8, qoida nomi bilan), false_positive_rate **0.00** (4/4), fake-completion **8/8** rad, security **5/5** rad |
+| §20.5 O'lchov ko'rsatkichlari | Qisman (halol) | Coverage, must-fix, attempts, rad etishlar, takror chaqiruvlar, konfliklar va manbalar hisoblanadi; `result quality` va haqiqiy recall tashqi label to'plamni talab qiladi |
+| §15.2/§15.4 Host adapterlari va MCP chegarasi | Hujjatda | `docs/ARCHITECTURE.md` §11 “Kafolat va chegarasi”: server host fikrlashini boshqara olmaydi, avtomatik uch bosqich kafolatlanmaydi |
+
+**O'lchangan holat:** `npm run check` EXIT=0 — 63 test fayli, 1188 test; `verify:registry` 673 tool / 42
+kategoriya / smart 12; `verify:package` PASS; format PASS.
+
+**Jonli dalil:** to'liq sikl QwenWork MCP connector'i orqali o'tkazildi (start → plan → blind → full
+audit → ijro → verify → final_audit → COMPLETED); `metrics.refused` hisoblagichlari rad etilgan
+urinishlarni sanaydi, `plan_view` connector javobida ko'rindi.
+
+**Ma'lum cheklovlar:** konflikt serializatsiyasi `deliverables`da e'lon qilingan resurslarga qaraydi
+(e'lon qilinmagan yozuv ko'rinmaydi — lekin yozuvchi qadam baribir tasdiq darvozasidan o'tadi);
+`result quality`/must-fix recall uchun label to'plam yo'q; §19'ning host-ga oid qismlari
+(skill/instruction fayllari) Pro-fetch kodida emas.
