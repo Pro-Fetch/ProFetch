@@ -39,9 +39,11 @@ import {
 import { saveWorkflow, loadWorkflow } from '../../core/workflow/store.js';
 import { validateFinding, validateGoalSpec, validatePlan, verificationWeakness } from '../../core/workflow/validate.js';
 import { assessPlan, pendingApprovals, riskIssues } from '../../core/workflow/risk.js';
+import { riskChecklist, riskCoverage, type RiskDisposal } from '../../core/workflow/risks.js';
 import { nextRunnable, parallelisableTasks, planConflicts } from '../../core/workflow/schedule.js';
 import {
   emptyStats,
+  requirementIds,
   requirements,
   SOURCE_RELIABILITY,
   VERIFICATION_TYPES,
@@ -134,6 +136,7 @@ function metrics(state: WorkflowState): Record<string, unknown> {
       stagnation: stats.stagnationRefused,
       weak_evidence: stats.unverifiableEvidenceRefused,
       unsourced_resolution: stats.unsourcedResolutionRefused,
+      unaddressed_risk: stats.unaddressedRiskRefused,
     },
     calls: { logged: stats.callsLogged, duplicated: stats.duplicateCalls },
     conflicts: { serialised: stats.conflictsSerialised, pairs: planConflicts(tasks) },
@@ -143,6 +146,12 @@ function metrics(state: WorkflowState): Record<string, unknown> {
         acc[kind] = (state.sources ?? []).filter((entry) => entry.reliability === kind).length;
         return acc;
       }, {}),
+    },
+    risk_audit: {
+      applicable: (state.audit?.risks ?? []).length,
+      by_finding: (state.audit?.risks ?? []).filter((entry) => entry.disposition === 'finding').length,
+      dismissed: (state.audit?.risks ?? []).filter((entry) => entry.disposition === 'dismissed').length,
+      open: (state.audit?.risks ?? []).filter((entry) => entry.disposition === 'open').length,
     },
     independence: state.audit?.independence ?? 'not-audited',
     elapsed_ms: state.updatedAt - state.createdAt,
@@ -174,6 +183,11 @@ function planView(state: WorkflowState): Record<string, unknown> {
     conflicts: planConflicts(tasks),
     capabilities: [...new Set(tasks.flatMap((task) => task.toolPlan.map((plan) => plan.toolName)))].sort(),
     risk_register: state.plan?.risks ?? [],
+    risk_audit: (state.audit?.risks ?? []).map((entry) => ({
+      item: entry.item,
+      disposition: entry.disposition,
+      note: entry.note ?? '',
+    })),
     approval_required: awaitingApproval(state),
     verification_strategy: state.plan?.verificationStrategy ?? '',
     steps_without_fallback: tasks.flatMap((task) =>
@@ -243,6 +257,12 @@ export default defineTool({
       plan: { type: 'string', description: 'submit_plan: {tasks:[...]} JSON matni (har task covers:[E1,A2,...])' },
       findings: { type: 'string', description: 'submit_review | report_finding | final_audit: [finding,...] JSON' },
       stage: { type: 'string', description: 'begin_audit/submit_review: blind (plan ko‘rinmaydi) | full' },
+      dismissed_risks: {
+        type: 'string',
+        description:
+          'submit_review: [{item, reason}] JSON matni — bu plan ko‘targan, lekin alohida topilma ' +
+          'talab qilmaydigan risk bandlari (sabab majburiy, §5.3)',
+      },
       task_id: { type: 'string', description: 'report_task_result | log_call | approve_plan: task id' },
       task_status: { type: 'string', description: 'report_task_result: §12.2 holatlaridan biri' },
       evidence: { type: 'string', description: 'report_task_result: dalil matni (tokenlar avtomatik yashiriladi)' },
@@ -457,7 +477,22 @@ export default defineTool({
           ),
           verificationStrategy: 'per-task verification',
         };
-        state.audit = { at: Date.now(), coverage: { total: requirements(state.goal).length, mapped: 0, unmapped: [] } };
+        // Both numbers are measured here. An earlier version wrote `mapped: 0` and counted unknowns
+        // as requirements, so an unaudited run reported a coverage figure that was simply wrong.
+        const requiredIds = requirementIds(state.goal);
+        state.audit = {
+          at: Date.now(),
+          coverage: {
+            total: requiredIds.length,
+            mapped: requiredIds.length - unmapped.length,
+            unmapped,
+          },
+          risks: riskChecklist(state.goal, tasks, risks).map((item) => ({
+            item: item.id,
+            because: item.because,
+            disposition: 'open' as const,
+          })),
+        };
         state.progress = [...(state.progress ?? []), snapshot];
         state = transition(state, 'AUDIT_REQUIRED', 'plan submitted');
         await saveWorkflow(state);
@@ -507,6 +542,11 @@ export default defineTool({
           phase: state.phase,
           independence: state.audit.independence,
           next_action: 'submit_review',
+          // §5.3: the items are derived from what the plan actually does, so the auditor cannot be
+          // told a shorter list than the plan deserves.
+          risk_checklist: (state.audit?.risks ?? []).map((entry) => ({ item: entry.item, because: entry.because })),
+          risk_rule:
+            'Har bir item bo‘yicha topilma yozing (finding.riskItem) yoki `dismissed_risks` bilan sabab bilan rad eting.',
           ...(detail === 'full'
             ? { plan: state.plan?.tasks ?? [], conflicts: planConflicts(state.plan?.tasks ?? []) }
             : {}),
@@ -528,6 +568,7 @@ export default defineTool({
           );
         if (stage === 'blind' && !blindFirst)
           return fail("Blind review endi ma'nosiz: plan allaqachon ochilgan — submit_review stage=full.");
+        const findingsBefore = state.findings.length;
         const parsed = readFindings(stage === 'blind');
         if (typeof parsed === 'string') return refuse(state, 'duplicatePlanRefused', parsed);
 
@@ -542,12 +583,56 @@ export default defineTool({
             instruction: 'Endi begin_audit stage=full bilan plan’ni oching va uni shu topilmalar bilan solishtiring.',
           });
         }
-        const unmapped = unmappedRequirements(state.goal, state.plan?.tasks ?? []);
+        const tasks = state.plan?.tasks ?? [];
+        const unmapped = unmappedRequirements(state.goal, tasks);
         const required = requirements(state.goal).filter((requirement) => requirement.kind !== 'unknown');
+        // §5.3: the risk items are derived from the plan, and every one of them has to be disposed of
+        // before the plan can be called ready — as a finding, or as a dismissal with a reason. Items
+        // dismissed in an earlier round stay disposed of; the auditor is not asked to argue twice.
+        const checklist = riskChecklist(state.goal, tasks, assessPlan(tasks));
+        let dismissed: RiskDisposal[] = (state.audit?.risks ?? [])
+          .filter((entry) => entry.disposition === 'dismissed')
+          .map((entry) => ({ item: entry.item, reason: entry.note ?? '' }));
+        const rawDismissed = strOrEmpty(p, 'dismissed_risks');
+        if (rawDismissed) {
+          try {
+            const parsedDismissed = JSON.parse(rawDismissed) as RiskDisposal[];
+            if (!Array.isArray(parsedDismissed)) return fail('dismissed_risks massiv bo‘lishi kerak.');
+            dismissed = [...dismissed, ...parsedDismissed];
+          } catch {
+            return fail('dismissed_risks JSON matni noto‘g‘ri.');
+          }
+        }
+        const riskCheck = riskCoverage(checklist, state.findings, dismissed);
+        if (!riskCheck.ok) {
+          const named = (list: string[]) => (list.length ? list.join(', ') : '—');
+          // Roll the submission back rather than half-keeping it: findings left behind would make the
+          // corrected retry fail the duplicate check instead of the risk check it now violates.
+          state.findings.length = findingsBefore;
+          return refuse(
+            state,
+            'unaddressedRiskRefused',
+            `Risk audit to‘liq emas (§5.3) — qarovsiz qolgan: ${named(riskCheck.unaddressed)}; ` +
+              `plan ko'tarmagan item: ${named(riskCheck.invented)}; sababsiz rad: ${named(riskCheck.emptyDismissing)}. ` +
+              `Hujumni topilma (finding.riskItem) yoki dismissed_risks bilan yopib qayta yuboring.`,
+          );
+        }
         const audit = {
           ...(state.audit ?? { at: Date.now() }),
           independence: state.audit?.blindStartedAt ? ('blind' as const) : ('reduced' as const),
           coverage: { total: required.length, mapped: required.length - unmapped.length, unmapped },
+          risks: checklist.map((item) => {
+            const finding = state!.findings.find((entry) => entry.riskItem === item.id);
+            if (finding)
+              return { item: item.id, because: item.because, disposition: 'finding' as const, note: finding.id };
+            const dismissal = dismissed.find((entry) => entry.item === item.id);
+            return {
+              item: item.id,
+              because: item.because,
+              disposition: 'dismissed' as const,
+              note: dismissal?.reason ?? '',
+            };
+          }),
         };
         state.audit = audit;
         const blockingOpen = state.findings.some((finding) => findingBlocks(finding) && finding.status === 'open');
@@ -563,6 +648,8 @@ export default defineTool({
           blocking: blockingOpen,
           independence: audit.independence,
           coverage: audit.coverage,
+          risks_reviewed: audit.risks?.length ?? 0,
+          risks_by_finding: (audit.risks ?? []).filter((entry) => entry.disposition === 'finding').length,
           next_action: blockingOpen ? 'revise_plan' : awaitingApproval(state).length ? 'approve_plan' : 'get_next_task',
           ...(detail === 'full'
             ? {

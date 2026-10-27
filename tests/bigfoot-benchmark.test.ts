@@ -19,6 +19,7 @@ import path from 'node:path';
 import '../src/loader.js';
 import { dispatch } from '../src/core/tool.js';
 import type { GoalSpec, Task } from '../src/core/workflow/types.js';
+import { disclosePlan } from './helpers/bigfootAudit.js';
 
 const ORIGINAL = { ...process.env };
 let dir = '';
@@ -93,9 +94,10 @@ async function started(goal: GoalSpec = GOAL): Promise<string> {
 async function readyToWork(over: Partial<Task> = {}): Promise<string> {
   const id = await started();
   await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks: [task('T001', over)] }) });
-  await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
-  const review = await call({ action: 'submit_review', workflow_id: id, findings: '[]' });
-  expect(rejected(review), text(review)).toBe(false);
+  // §5.3 is a gate, so the helper disposes of the derived risk items with reasons; see
+  // tests/helpers/bigfootAudit.ts for why the list is read back rather than written here.
+  const disclosure = await disclosePlan(call, id, []);
+  expect(disclosure.review.phase, JSON.stringify(disclosure.review)).toBe('PLAN_READY');
   const next = await call({ action: 'get_next_task', workflow_id: id });
   expect(rejected(next), text(next)).toBe(false);
   return id;
@@ -162,7 +164,12 @@ describe('planning benchmark (§20.1)', () => {
       outcomes.push({ label: item.label, rejected: rejected(res), body: text(res), expect: item.expect });
     }
     const missed = outcomes.filter((entry) => !entry.rejected || !entry.body.includes(entry.expect));
-    console.log(`planning: ${outcomes.length - missed.length}/${outcomes.length} refused with the named rule`);
+    // Reported under the §20.5 name so the number in the log is the metric the spec asks for, not an
+    // ad-hoc count: must-fix recall = seeded defects the gates caught, by rule name.
+    console.log(
+      `must_fix_recall: ${((outcomes.length - missed.length) / outcomes.length).toFixed(2)} ` +
+        `(${outcomes.length - missed.length}/${outcomes.length}, matched by rule name)`,
+    );
     expect(missed.map((entry) => entry.label)).toEqual([]);
   });
 
@@ -204,11 +211,16 @@ describe('planning benchmark (§20.1)', () => {
         ],
       },
     ];
+    let falseRefusals = 0;
     for (const entry of valid) {
       const id = await started();
       const res = await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks: entry.tasks }) });
+      if (rejected(res)) falseRefusals += 1;
       expect(rejected(res), `${entry.label}: ${text(res)}`).toBe(false);
     }
+    console.log(
+      `false_positive_rate: ${(falseRefusals / valid.length).toFixed(2)} (0 = ${valid.length}/${valid.length} valid plans accepted)`,
+    );
   });
 });
 
@@ -402,8 +414,8 @@ async function writes(): Promise<string> {
       ],
     }),
   });
-  await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
-  await call({ action: 'submit_review', workflow_id: id, findings: '[]' });
+  const disclosure = await disclosePlan(call, id, []);
+  expect(disclosure.review.phase, JSON.stringify(disclosure.review)).toBe('PLAN_READY');
   return id;
 }
 
@@ -482,8 +494,7 @@ describe('security benchmark (§20.4)', () => {
   it('refuses an approval the registry says is unnecessary rather than granting a fake one', async () => {
     const id = await started();
     await call({ action: 'submit_plan', workflow_id: id, plan: JSON.stringify({ tasks: [task('T001')] }) });
-    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
-    await call({ action: 'submit_review', workflow_id: id, findings: '[]' });
+    await disclosePlan(call, id, []);
     const res = await call({ action: 'approve_plan', workflow_id: id, note: 'nothing writes here' });
     expect(rejected(res)).toBe(true);
     expect(text(res)).toContain('shart emas');

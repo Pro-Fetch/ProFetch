@@ -27,6 +27,7 @@ import '../src/loader.js';
 import { allTools, dispatch } from '../src/core/tool.js';
 import { isMutationTool } from '../src/core/tool-classification.js';
 import type { Finding, GoalSpec, Task, WorkflowState } from '../src/core/workflow/types.js';
+import { disclosePlan } from './helpers/bigfootAudit.js';
 
 const ORIGINAL = { ...process.env };
 let dir = '';
@@ -158,14 +159,18 @@ async function plannedWith(tasks: Task[], goal: GoalSpec = GOAL): Promise<string
   return id;
 }
 
-/** begin_audit(full) + a clean submit_review → PLAN_READY. Only valid from AUDIT_REQUIRED. */
+/**
+ * Open the plan to the auditor and file the review, disposing of every §5.3 risk item the audit
+ * derived from this plan. Only valid from AUDIT_REQUIRED.
+ */
 async function audited(id: string, findings: Finding[] = [finding('F001')]): Promise<Record<string, unknown>> {
   expect(await phaseOf(id)).toBe('AUDIT_REQUIRED');
-  const opened = await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
-  expect(refused(opened), body(opened)).toBe(false);
-  const review = await call({ action: 'submit_review', workflow_id: id, findings: JSON.stringify(findings) });
-  expect(refused(review), body(review)).toBe(false);
-  return payload(review);
+  const { review, checklist } = await disclosePlan(call, id, findings as unknown as Array<Record<string, unknown>>);
+  // A plan with no derived risk would make the disposal above vacuous; the derivation is part of what
+  // these tests depend on, so it is asserted rather than assumed.
+  expect(checklist.length, 'risk checklist derived from the plan').toBeGreaterThan(0);
+  expect(review.phase, JSON.stringify(review)).not.toBe('AUDIT_REQUIRED');
+  return review;
 }
 
 /**
@@ -371,6 +376,152 @@ describe('pro_fetch_workflow — duplicate work (§5.4)', () => {
   });
 });
 
+/* ------------------------------------------------------------------ §5.3 risk audit */
+
+describe('pro_fetch_workflow — omission/risk audit (§5.3)', () => {
+  it('derives the item list from what the plan actually does', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full' }));
+    const items = (opened.risk_checklist as Array<{ item: string; because: string }>).map((entry) => entry.item);
+    // A remote read plus no fallback plus a constraint: each derived from a real property of the plan.
+    expect(items).toContain('source-reliability-and-limits');
+    expect(items).toContain('fallback-for-failing-step');
+    expect(items).toContain('constraint-compliance');
+    // Nothing in this plan touches credentials or writes a local file, so those must not appear.
+    expect(items).not.toContain('credentials-and-scopes');
+    expect(items).not.toContain('local-state-recovery');
+  });
+
+  it('separates a local writer from an external one', async () => {
+    // Measured against the registry, not assumed: pro_fetch_config_set writes locally, while
+    // pro_fetch_cache_put reaches an archive service. A checklist that could not tell them apart would
+    // demand an external-rollback review for work that never leaves the machine.
+    const local = await plannedWith([
+      plannedTask('T001', {
+        toolName: 'pro_fetch_config_set',
+        sensitivity: 'mutating',
+        deliverables: ['dashboard.html'],
+        covers: ['E1', 'C1', 'D1', 'A1', 'A2'],
+      }),
+    ]);
+    const localItems = (
+      (payload(await call({ action: 'begin_audit', workflow_id: local, stage: 'full' })).risk_checklist ??
+        []) as Array<{
+        item: string;
+      }>
+    ).map((entry) => entry.item);
+    expect(localItems).toContain('local-state-recovery');
+    expect(localItems).toContain('artifact-verifiability');
+    expect(localItems).not.toContain('external-write-rollback');
+
+    const remote = await plannedWith([
+      plannedTask('T001', { toolName: MUTATING_TOOL, sensitivity: 'mutating', covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+    ]);
+    const remoteItems = (
+      (payload(await call({ action: 'begin_audit', workflow_id: remote, stage: 'full' })).risk_checklist ??
+        []) as Array<{
+        item: string;
+      }>
+    ).map((entry) => entry.item);
+    expect(remoteItems).toContain('external-write-rollback');
+    expect(remoteItems).not.toContain('local-state-recovery');
+  });
+
+  it('refuses a review that leaves an item untouched, and does not keep the findings hostage', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
+    const silence = await call({ action: 'submit_review', workflow_id: id, findings: '[]' });
+    expect(refused(silence)).toBe(true);
+    expect(body(silence)).toContain('§5.3');
+    expect((await fullMetrics(id)).refused.unaddressed_risk).toBe(1);
+
+    // The refused submission must not leave findings behind: the corrected retry has to be accepted.
+    const fixed = await disclosePlan(call, id, []);
+    expect(fixed.review.phase).toBe('PLAN_READY');
+    const status = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    expect((status.findings as unknown[]).length).toBe(0);
+  });
+
+  it('accepts a dismissal with a reason and refuses one without', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full' }));
+    const items = (opened.risk_checklist as Array<{ item: string }>).map((entry) => entry.item);
+    const noReason = items.map((item) => ({ item, reason: '  ' }));
+    const lazy = await call({
+      action: 'submit_review',
+      workflow_id: id,
+      findings: '[]',
+      dismissed_risks: JSON.stringify(noReason),
+    });
+    expect(refused(lazy)).toBe(true);
+    expect(body(lazy)).toContain('sababsiz rad');
+
+    const reasoned = items.map((item) => ({ item, reason: `reviewed: ${item} does not apply beyond the plan itself` }));
+    const ok = payload(
+      await call({
+        action: 'submit_review',
+        workflow_id: id,
+        findings: '[]',
+        dismissed_risks: JSON.stringify(reasoned),
+      }),
+    );
+    expect(ok.phase).toBe('PLAN_READY');
+    expect(ok.risks_reviewed).toBe(items.length);
+  });
+
+  it('refuses an item the plan never raised, instead of ignoring the typo', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
+    const res = await call({
+      action: 'submit_review',
+      workflow_id: id,
+      findings: '[]',
+      dismissed_risks: JSON.stringify([{ item: 'made-up-risk', reason: 'because I said so' }]),
+    });
+    expect(refused(res)).toBe(true);
+    expect(body(res)).toContain('made-up-risk');
+  });
+
+  it('lets a finding dispose of the risk it names', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full' }));
+    const items = (opened.risk_checklist as Array<{ item: string }>).map((entry) => entry.item);
+    const named = items[0];
+    const { review } = await disclosePlan(call, id, [
+      finding('F050', { riskItem: named }) as unknown as Record<string, unknown>,
+    ]);
+    expect(review.phase).toBe('PLAN_READY');
+    expect(review.risks_by_finding).toBe(1);
+    const full = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
+    const audit = (full.plan_view as { risk_audit: Array<{ item: string; disposition: string; note: string }> })
+      .risk_audit;
+    expect(audit.find((entry) => entry.item === named)?.disposition).toBe('finding');
+    expect(audit.find((entry) => entry.item === named)?.note).toBe('F050');
+  });
+
+  it('keeps a risk dismissed in one round dismissed in the next', async () => {
+    const id = await plannedWith(COVERED_PLAN());
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full' }));
+    const items = (opened.risk_checklist as Array<{ item: string }>).map((entry) => entry.item);
+    const roundOne = await disclosePlan(call, id, [
+      finding('F001', { classification: 'must_fix', blocking: true }) as unknown as Record<string, unknown>,
+    ]);
+    expect(roundOne.review.phase).toBe('REVISION_REQUIRED');
+    expect(roundOne.checklist.map((entry) => entry.item)).toEqual(items);
+    // Round two: the same items must not have to be re-dismissed after the plan came back.
+    await call({
+      action: 'resolve_finding',
+      workflow_id: id,
+      finding_id: 'F001',
+      resolution: 'acceptance criteria added',
+    });
+    const reopened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full' }));
+    const again = payload(await call({ action: 'submit_review', workflow_id: id, findings: '[]' }));
+    expect(reopened.next_action).toBe('submit_review');
+    expect(again.phase).toBe('PLAN_READY');
+  });
+});
+
 /* ------------------------------------------------------------------ §5.1 independence */
 
 describe('pro_fetch_workflow — audit independence (§5.1)', () => {
@@ -398,7 +549,7 @@ describe('pro_fetch_workflow — audit independence (§5.1)', () => {
     expect(blindRound.next_action).toBe('begin_audit');
 
     await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
-    const review = payload(await call({ action: 'submit_review', workflow_id: id, findings: '[]' }));
+    const { review } = await disclosePlan(call, id, []);
     expect(review.independence).toBe('blind');
     // The blind objection still stands: the plan cannot be declared ready under it.
     expect(review.phase).toBe('REVISION_REQUIRED');
@@ -435,9 +586,7 @@ describe('pro_fetch_workflow — audit independence (§5.1)', () => {
 
   it('says so when the review was not independent', async () => {
     const id = await plannedWith(COVERED_PLAN());
-    const review = payload(
-      await call({ action: 'submit_review', workflow_id: id, findings: JSON.stringify([finding('F001')]) }),
-    );
+    const { review } = await disclosePlan(call, id, [finding('F001') as unknown as Record<string, unknown>]);
     expect(review.independence).toBe('reduced');
     await executing(id, []);
   });
@@ -465,12 +614,8 @@ describe('pro_fetch_workflow — findings (§5.6, §5.7)', () => {
 
   it('refuses the same finding twice, and reopening it without a new fact', async () => {
     const id = await plannedWith(COVERED_PLAN());
-    const payload1 = await call({
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001')]),
-    });
-    expect(refused(payload1)).toBe(false);
+    const first = await disclosePlan(call, id, [finding('F001') as unknown as Record<string, unknown>]);
+    expect(first.review.phase).toBe('PLAN_READY');
     const again = await call({
       action: 'report_finding',
       workflow_id: id,
@@ -502,7 +647,7 @@ describe('pro_fetch_workflow — findings (§5.6, §5.7)', () => {
 
   it('a closing needs evidence and cannot be undone', async () => {
     const id = await plannedWith(COVERED_PLAN());
-    await call({ action: 'submit_review', workflow_id: id, findings: JSON.stringify([finding('F001')]) });
+    await audited(id);
     expect(refused(await call({ action: 'resolve_finding', workflow_id: id, finding_id: 'F001' }))).toBe(true);
     const closed = payload(
       await call({
@@ -520,11 +665,7 @@ describe('pro_fetch_workflow — findings (§5.6, §5.7)', () => {
 
   it('needs_user_approval blocks completion even when the host forgot to flag it', async () => {
     const id = await plannedWith(COVERED_PLAN());
-    await call({
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001', { classification: 'needs_user_approval', blocking: false })]),
-    });
+    await audited(id, [finding('F001', { classification: 'needs_user_approval', blocking: false })]);
     const status = payload(await call({ action: 'status', workflow_id: id, detail: 'full' }));
     const entry = (status.findings as Array<{ id: string; blocking: boolean }>)[0];
     expect(entry.blocking).toBe(true);
@@ -1081,11 +1222,7 @@ describe('pro_fetch_workflow — stagnation and interruption', () => {
   it('refuses a second revision that brought neither new evidence nor a new finding (§13.3)', async () => {
     const id = await plannedWith(COVERED_PLAN());
     // Round one: the plan is rejected for a real objection, and the revision changes the finding count.
-    await call({
-      action: 'submit_review',
-      workflow_id: id,
-      findings: JSON.stringify([finding('F001', { classification: 'must_fix', blocking: true })]),
-    });
+    await audited(id, [finding('F001', { classification: 'must_fix', blocking: true })]);
     await call({ action: 'revise_plan', workflow_id: id, reason: 'mapping for A2 added' });
     const second = await call({
       action: 'submit_plan',
@@ -1095,8 +1232,7 @@ describe('pro_fetch_workflow — stagnation and interruption', () => {
     expect(refused(second), body(second)).toBe(false);
 
     // Round two: nothing new was measured and no new objection exists, so the same loop is refused.
-    await call({ action: 'begin_audit', workflow_id: id, stage: 'full' });
-    await call({ action: 'submit_review', workflow_id: id, findings: '[]' });
+    await audited(id, []);
     await call({ action: 'revise_plan', workflow_id: id, reason: 'same plan again' });
     const third = await call({
       action: 'submit_plan',

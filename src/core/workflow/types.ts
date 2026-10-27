@@ -169,6 +169,11 @@ export interface Finding {
   /** True when the finding was raised before the auditor was shown the plan (spec §5.1). */
   blind?: boolean;
   /**
+   * The §5.3 risk item this finding disposes of. It is how "the audit happened" becomes checkable:
+   * each risk the plan raises has to be either a finding about it or an explicit dismissal.
+   */
+  riskItem?: string;
+  /**
    * How a closing was justified. Set by `resolve_finding`, never by the host editing the file: a
    * blocking finding cannot silently disappear, it has to carry the evidence that closed it.
    */
@@ -267,6 +272,11 @@ export interface AuditRecord {
   planSeenAt?: number;
   independence?: 'blind' | 'reduced';
   coverage?: { total: number; mapped: number; unmapped: string[] };
+  /**
+   * The §5.3 risk audit: every item this plan actually raises, and how the auditor disposed of it.
+   * `open` means nobody dealt with it, which blocks PLAN_READY rather than being quietly omitted.
+   */
+  risks?: { item: string; because: string; disposition: 'finding' | 'dismissed' | 'open'; note?: string }[];
   at: number;
 }
 
@@ -284,6 +294,7 @@ export interface WorkflowStats {
   stagnationRefused: number;
   unverifiableEvidenceRefused: number;
   unsourcedResolutionRefused: number;
+  unaddressedRiskRefused: number;
   conflictsSerialised: number;
   duplicateCalls: number;
   callsLogged: number;
@@ -329,6 +340,7 @@ export function emptyStats(): WorkflowStats {
     stagnationRefused: 0,
     unverifiableEvidenceRefused: 0,
     unsourcedResolutionRefused: 0,
+    unaddressedRiskRefused: 0,
     conflictsSerialised: 0,
     duplicateCalls: 0,
     callsLogged: 0,
