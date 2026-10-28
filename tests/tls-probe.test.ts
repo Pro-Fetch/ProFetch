@@ -59,8 +59,15 @@ describe('tls probe failures', () => {
 });
 
 describe('tls probe against a real host', () => {
-  it('reads protocol, cipher and certificate from the handshake', async () => {
+  it('reads protocol, cipher and certificate from the handshake', async (context) => {
     const facts = await probeTls('https://example.com/', 12_000);
+    // A live handshake needs the network and someone else's DNS; this suite must not become a
+    // connectivity monitor. When the host cannot be reached at all the case is skipped by name, and
+    // the pure rules above stay strict either way.
+    if (!facts.ok && /ENOTFOUND|EAI_|timed out|ECONNREFUSED|ETIMEDOUT/.test(facts.error ?? '')) {
+      context.skip();
+      return;
+    }
     expect(facts.ok, facts.error ?? '').toBe(true);
     expect(facts.protocol).toMatch(/^TLSv1\.[23]$/);
     expect(facts.cipher).toBeTruthy();
@@ -73,9 +80,13 @@ describe('tls probe against a real host', () => {
     expect(facts.elapsedMs).toBeGreaterThan(0);
   });
 
-  it('reports the certificate facts through the tool, not only in the module', async () => {
+  it('reports the certificate facts through the tool, not only in the module', async (context) => {
     const res = await dispatch('pro_fetch_security_tls_audit', { url: 'https://example.com/' });
     const body = text(res);
+    if (/DNS host manziliga resolve bo/.test(body)) {
+      context.skip();
+      return;
+    }
     expect(res.isError, body).not.toBe(true);
     expect(body).toContain('"is_tls_audit": true');
     expect(body).toContain('"validTo"');

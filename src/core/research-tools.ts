@@ -1167,6 +1167,18 @@ async function editionSearch(query: string, code: string, limit: number): Promis
   }
 }
 
+/**
+ * First few URLs from a provider's text answer, cleaned.
+ *
+ * The body arrives JSON-ish, so a raw match ends in an escaped quote and a comma — a URL that does
+ * not open. Seen live, twice, in the same answer.
+ */
+export function sampleUrlsFrom(body: string, limit = 3): string[] {
+  return [...body.matchAll(/https?:\/\/[^\s)\]]+/g)]
+    .map((match) => match[0].replace(/[\\",;:]+$/g, ''))
+    .slice(0, limit);
+}
+
 export async function researchAcrossLanguages(input: Input): Promise<ToolResult> {
   const query = value(input, 'query', 'topic');
   if (!query) throw new Error('query parametri kerak.');
@@ -1179,7 +1191,10 @@ export async function researchAcrossLanguages(input: Input): Promise<ToolResult>
       const edition = WIKI_EDITIONS.has(code) ? await editionSearch(query, code, limit) : { unsupported_edition: true };
       const response = await dispatch('pro_fetch_web_search', { query, limit });
       const body = response.content.map((part) => part.text).join(String.fromCharCode(10));
-      const urls = [...body.matchAll(/https?:\/\/[^\s)\]]+/g)].map((match) => match[0]).slice(0, 3);
+      // The provider answers through a JSON-ish body, so a bare URL match picks up the escaped quote
+      // and comma at the end of each string. Seen live: `...Kvant_kompyuterlari\",` — a URL that does
+      // not open. Trailing punctuation and escapes are stripped before the sample is handed back.
+      const urls = sampleUrlsFrom(body);
       return {
         language: code,
         wikipedia: edition,
