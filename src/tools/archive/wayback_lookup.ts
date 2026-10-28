@@ -1,5 +1,6 @@
 import { fetchWithOptions } from '../../core/http-client.js';
 import { jsonBlock, fail } from '../../core/format.js';
+import { parseUpstreamJson } from '../../core/json-response.js';
 
 /**
  * pro_fetch_wayback_lookup — List Wayback Machine snapshots availability of a URL
@@ -12,47 +13,23 @@ import { strOrEmpty, view } from '../../core/input.js';
  * What the availability endpoint's answer means.
  *
  * Kept as a pure function because the endpoint is not the interesting part: it answers with an HTML
- * block page or a 503 body often enough that `JSON.parse(r.text)` threw at the caller — an ops persona
+ * block page or a 503 body often enough that a direct parse of the response body threw at the caller —
+ * an ops persona
  * reported "CDX HTML qaytardi" and could not tell a missing snapshot from a broken request. Those are
  * different answers and the tool must say which one it got.
  */
 export function interpretWayback(
   queried: string,
-  status: number,
-  contentType: string,
-  text: string,
-): { ok: boolean; message?: string; payload?: Record<string, unknown> } {
-  const trimmed = (text ?? '').trim();
-  if (status >= 400) {
-    return {
-      ok: false,
-      message: `Wayback API ${status} qaytardi (${contentType || 'content-type yo‘q'})`,
-    };
-  }
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
-    return {
-      ok: false,
-      message:
-        `Wayback API JSON emas javob qaytardi (HTTP ${status}, content-type: ${contentType || 'noma’lum'}). ` +
-        `Bu odatda archive.org throttling yoki blok sahifasidir — nusxa yo‘q degani emas. Boshlap: ${trimmed.slice(0, 120)}`,
-    };
-  }
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(trimmed) as Record<string, unknown>;
-  } catch (error) {
-    return { ok: false, message: `Wayback javobi JSON sifatida o'qilmadi: ${(error as Error).message}` };
-  }
+  parsed: Record<string, unknown>,
+): { payload: Record<string, unknown> } {
   const snapshots = (parsed.archived_snapshots ?? {}) as Record<string, unknown>;
   const closest = snapshots.closest as Record<string, unknown> | undefined;
   if (!closest) {
     return {
-      ok: true,
       payload: { url: queried, available: false, note: 'bu URL uchun nusxa topilmadi (hech qanday snapshot yo‘q)' },
     };
   }
   return {
-    ok: true,
     payload: {
       url: queried,
       available: true,
@@ -81,8 +58,16 @@ export default defineTool({
     const queried = strOrEmpty(p, 'url');
     if (!queried) return fail('url kerak.');
     const r = await fetchWithOptions('https://archive.org/wayback/available?url=' + encodeURIComponent(queried));
-    const interpreted = interpretWayback(queried, r.status, String(r.headers?.['content-type'] ?? ''), r.text ?? '');
-    if (!interpreted.ok) return fail(interpreted.message ?? 'Wayback javobi o‘qilmadi.');
-    return jsonBlock('# Wayback: ' + queried, interpreted.payload ?? {});
+    if (r.status >= 400) return fail(`Wayback availability API ${r.status} qaytardi — bu nusxa yo‘q degani emas.`);
+    let decoded: Record<string, unknown>;
+    try {
+      // The helper, not a bare parse with an empty-object default: a throttling page is HTML with a 200
+      // a `{}` default turns that into a silent "no snapshot" claim. Measured by an ops host that read
+      // the old behaviour as "eski nusxa yo'q".
+      decoded = parseUpstreamJson<Record<string, unknown>>(r, 'Wayback availability API');
+    } catch (error) {
+      return fail((error as Error).message);
+    }
+    return jsonBlock('# Wayback: ' + queried, interpretWayback(queried, decoded).payload);
   },
 });

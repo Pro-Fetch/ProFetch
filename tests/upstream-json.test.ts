@@ -69,16 +69,27 @@ describe('no upstream decode is left unguarded', () => {
   });
 
   it('the remaining bare decodes are all guarded', () => {
-    // Two live in try/catch with a fallback, two parse with a `'{}'` default. If any of these lines
-    // changes shape, this test names the file so the rule stays complete rather than approximate.
+    // Two live in try/catch with a fallback. Two more used to be listed here as "guarded" by a `'{}'`
+    // default; that default is not a guard — a 200 with an HTML body decodes to an empty object and the
+    // tool then reports "nothing archived", which is what two hosts actually hit. They are asserted
+    // below as helper users instead. If any line here changes shape, this test names the file so the
+    // rule stays complete rather than approximate.
     const guarded: Array<[string, RegExp]> = [
       ['src/core/integration-tools.ts', /try \{\s*\n.*JSON\.parse\(response\.text\)/],
       ['src/core/max-platform-tools.ts', /try \{\s*\n.*JSON\.parse\(response\.text\)/],
-      ['src/tools/archive/wayback_lookup.ts', /JSON\.parse\(r\.text \|\| '\{\}'\)/],
-      ['src/tools/docs/wikipedia_deep_read.ts', /JSON\.parse\(r\.text \|\| '\{\}'\)/],
     ];
     for (const [file, guard] of guarded) {
       expect(readFileSync(file, 'utf8'), `${file} guard changed shape`).toMatch(guard);
+    }
+  });
+
+  it('the availability endpoints that relied on a default now use the helper', () => {
+    // Source-level, because reproducing the failure needs a throttled upstream: HTTP 200, HTML body.
+    for (const file of ['src/tools/archive/wayback_lookup.ts', 'src/tools/docs/wikipedia_deep_read.ts']) {
+      const source = readFileSync(file, 'utf8');
+      expect(source, file).toContain('parseUpstreamJson');
+      // No bare parse left at all: the helper is the only decoder in these two files.
+      expect(source.includes('JSON.parse('), file).toBe(false);
     }
   });
 

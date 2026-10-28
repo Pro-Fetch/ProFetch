@@ -8,6 +8,7 @@ import { ghApi, ghErr } from '../github/_api.js';
  * pro_fetch_wikipedia_deep_read — Deep read a Wikipedia article as plain text
  * Pack: docs (REAL ✅) (pro-fetch)
  */
+import { parseUpstreamJson } from '../../core/json-response.js';
 import { defineTool } from '../../core/tool.js';
 import { view } from '../../core/input.js';
 export default defineTool({
@@ -28,7 +29,14 @@ export default defineTool({
       'https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&redirects=1&titles=' +
         title,
     );
-    const j = JSON.parse(r.text || '{}');
+    // Same reasoning as wayback_lookup: `|| '{}'` hides an HTML error page behind "no such article".
+    // The shared decoder names the provider and the content type when the body is not JSON.
+    let j: any;
+    try {
+      j = parseUpstreamJson<any>(r, 'Wikipedia API');
+    } catch (error) {
+      return fail((error as Error).message);
+    }
     const page: any = Object.values(j.query?.pages ?? {})[0];
     if (!page || page.missing !== undefined) return fail('Maqola topilmadi: ' + p.query);
     return md('# ' + page.title + '\n\n' + (page.extract ?? ''));
