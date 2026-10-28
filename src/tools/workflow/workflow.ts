@@ -211,21 +211,77 @@ const INTRO = [
 ].join(' ');
 
 /** A GoalSpec from a host that is allowed to be sloppy about arrays, but not about the goal itself. */
-function normaliseGoal(raw: GoalSpec): GoalSpec {
-  const list = (value: unknown): string[] => (Array.isArray(value) ? value.map((item) => String(item)) : []);
-  return {
-    goal: String(raw?.goal ?? '').trim(),
-    explicitRequirements: list(raw?.explicitRequirements),
-    implicitRequirements: list(raw?.implicitRequirements),
-    constraints: list(raw?.constraints),
-    deliverables: list(raw?.deliverables),
-    acceptanceCriteria: list(raw?.acceptanceCriteria),
-    unknowns: list(raw?.unknowns),
-    qualityTarget: String(raw?.qualityTarget ?? 'high'),
-    riskTolerance: (['low', 'medium', 'high'] as const).includes(raw?.riskTolerance as never)
-      ? raw.riskTolerance
+/**
+ * A GoalSpec is written by a model, in prose, under a name it invented. Measured from hosts driving
+ * the tool: several lost their first `start` call to `acceptance_missing` while the payload carried
+ * `acceptance_criteria`. So the field names are matched case- and separator-insensitively plus the
+ * obvious synonyms, and anything still unrecognised is named back rather than dropped in silence —
+ * the second case is invisible unless it is reported.
+ */
+const GOAL_ALIASES: Record<string, readonly string[]> = {
+  goal: ['goal', 'objective', 'aim', 'maqsad'],
+  explicitRequirements: ['explicitrequirements', 'explicit_requirements', 'requirements', 'explicit'],
+  implicitRequirements: ['implicitrequirements', 'implicit_requirements', 'implicit'],
+  constraints: ['constraints', 'restrictions', 'limitations'],
+  deliverables: ['deliverables', 'outputs', 'artifacts', 'results'],
+  acceptanceCriteria: ['acceptancecriteria', 'acceptance_criteria', 'acceptance', 'criteria'],
+  unknowns: ['unknowns', 'open_questions', 'openquestions', 'uncertainties'],
+  qualityTarget: ['qualitytarget', 'quality_target', 'quality'],
+  riskTolerance: ['risktolerance', 'risk_tolerance', 'risk'],
+};
+
+/** Fields the controller will still be missing after normalisation, for the refusal message. */
+export interface GoalNormalisation {
+  goal: GoalSpec;
+  recognised: string[];
+  unrecognised: string[];
+}
+
+export function readGoalSpec(raw: unknown): GoalNormalisation {
+  const source = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const lowered = new Map<string, unknown>();
+  // Report the key the host actually typed, not the normalised form it was matched under.
+  const original = new Map<string, string>();
+  for (const [key, value] of Object.entries(source)) {
+    const normalised = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    lowered.set(normalised, value);
+    original.set(normalised, key);
+  }
+  const recognised: string[] = [];
+  const used = new Set<string>();
+  const pick = (field: string): unknown => {
+    for (const alias of GOAL_ALIASES[field] ?? []) {
+      if (lowered.has(alias)) {
+        used.add(alias);
+        recognised.push(field);
+        return lowered.get(alias);
+      }
+    }
+    return undefined;
+  };
+  const list = (value: unknown): string[] =>
+    Array.isArray(value) ? value.map((item) => String(item)).filter((item) => item.trim()) : [];
+  const single = (value: unknown): string[] => (typeof value === 'string' && value.trim() ? [value.trim()] : []);
+
+  const goal: GoalSpec = {
+    goal: String(pick('goal') ?? '').trim(),
+    explicitRequirements: [...list(pick('explicitRequirements')), ...single(source.explicitRequirements as unknown)],
+    implicitRequirements: list(pick('implicitRequirements')),
+    constraints: list(pick('constraints')),
+    deliverables: list(pick('deliverables')),
+    acceptanceCriteria: list(pick('acceptanceCriteria')),
+    unknowns: list(pick('unknowns')),
+    qualityTarget: String(pick('qualityTarget') ?? 'high'),
+    riskTolerance: (['low', 'medium', 'high'] as const).includes(pick('riskTolerance') as never)
+      ? (pick('riskTolerance') as GoalSpec['riskTolerance'])
       : 'low',
   };
+  const unrecognised = [...lowered.keys()].filter((key) => !used.has(key)).map((key) => original.get(key) ?? key);
+  return { goal, recognised: [...new Set(recognised)], unrecognised };
+}
+
+function normaliseGoal(raw: unknown): GoalSpec {
+  return readGoalSpec(raw).goal;
 }
 
 export default defineTool({
@@ -372,13 +428,22 @@ export default defineTool({
       let goal: GoalSpec;
       try {
         goal = rawGoal.trim().startsWith('{')
-          ? normaliseGoal(JSON.parse(rawGoal) as GoalSpec)
-          : normaliseGoal({ goal: rawGoal, acceptanceCriteria: [rawGoal] } as GoalSpec);
+          ? normaliseGoal(JSON.parse(rawGoal))
+          : { ...normaliseGoal({ goal: rawGoal }), acceptanceCriteria: [rawGoal.trim()] };
       } catch {
         return fail('goal JSON matni noto‘g‘ri.');
       }
+      const read = readGoalSpec(rawGoal.trim().startsWith('{') ? JSON.parse(rawGoal) : { goal: rawGoal });
+      goal = read.goal;
       const gIssues = validateGoalSpec(goal);
-      if (gIssues.length) return fail(`GoalSpec yaroqsiz — ${err(gIssues)}`);
+      if (gIssues.length)
+        return fail(
+          `GoalSpec yaroqsiz — ${err(gIssues)}` +
+            (read.unrecognised.length
+              ? `. Tushunilmagan kalitlar: ${read.unrecognised.join(', ')} (kutilgani: goal, explicitRequirements, ` +
+                'constraints, deliverables, acceptanceCriteria, unknowns)'
+              : ''),
+        );
       const mode = (
         ['full', 'lite', 'direct'].includes(strOrEmpty(p, 'mode')) ? strOrEmpty(p, 'mode') : 'full'
       ) as WorkflowMode;
@@ -391,6 +456,12 @@ export default defineTool({
         workflow_id: id,
         phase: state.phase,
         requirements: requirements(goal).length,
+        // Hosts guessed at `E1`/`A1` often enough to burn a round trip each time; the ids a plan has
+        // to carry are cheap and are the whole point of the coverage gate.
+        requirement_ids: requirementIds(goal),
+        unknown_ids: requirements(goal)
+          .filter((entry) => entry.kind === 'unknown')
+          .map((entry) => entry.id),
         next_action: 'submit_plan',
         ...(detail === 'full'
           ? {

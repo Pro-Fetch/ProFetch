@@ -246,6 +246,28 @@ describe('pro_fetch_workflow — onboarding', () => {
     expect(list.map((entry) => entry.id)).toEqual(['E1', 'C1', 'D1', 'A1', 'A2']);
   });
 
+  it('accepts the field names a model actually writes', async () => {
+    // Measured: hosts lost their first `start` to `acceptance_missing` while the payload carried
+    // `acceptance_criteria`, because the schema names were never said out loud in the failure.
+    const snake = await call({
+      action: 'start',
+      goal: JSON.stringify({
+        objective: 'make it reproducible',
+        acceptance_criteria: ['runs twice'],
+        unknowns: ['rate limit?'],
+      }),
+    });
+    expect(refused(snake), body(snake)).toBe(false);
+    const ids = payload(snake).requirement_ids as string[];
+    expect(ids).toEqual(['A1']);
+    expect(payload(snake).unknown_ids).toEqual(['U1']);
+
+    const wrong = await call({ action: 'start', goal: JSON.stringify({ objective: 'x', must_haves: ['a'] }) });
+    expect(refused(wrong)).toBe(true);
+    // The refusal names the key it could not place, instead of only complaining what was missing.
+    expect(body(wrong)).toContain('must_haves');
+  });
+
   it('normalises arrays the host left out, but not an untestable goal', async () => {
     const sparse = await call({ action: 'start', goal: JSON.stringify({ goal: 'x', acceptanceCriteria: ['runs'] }) });
     expect(refused(sparse), body(sparse)).toBe(false);
