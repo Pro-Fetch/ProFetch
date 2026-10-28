@@ -47,6 +47,7 @@ import {
   requirements,
   SOURCE_RELIABILITY,
   VERIFICATION_TYPES,
+  verificationStrength,
   type Finding,
   type FindingClassification,
   type GoalSpec,
@@ -153,6 +154,11 @@ function metrics(state: WorkflowState): Record<string, unknown> {
       dismissed: (state.audit?.risks ?? []).filter((entry) => entry.disposition === 'dismissed').length,
       open: (state.audit?.risks ?? []).filter((entry) => entry.disposition === 'open').length,
     },
+    // §20.5 asks for result quality, not only refusals. These are computed from the ledger — ratios
+    // of what the run actually holds, never an opinion about it. A 1.0 means every verifiable claim
+    // in this run has evidence behind it; a value below 1 means something in it was closed on a
+    // weaker basis (an accepted risk, an unpointed deliverable), which is legitimate but must show.
+    quality: qualityScores(state),
     independence: state.audit?.independence ?? 'not-audited',
     elapsed_ms: state.updatedAt - state.createdAt,
   };
@@ -200,6 +206,44 @@ function planView(state: WorkflowState): Record<string, unknown> {
         .map((entry) => entry.id),
       closed: closed.map((entry) => ({ id: entry.id, verdict: entry.verdict })),
     },
+  };
+}
+
+/**
+ * Quality measured from the stored run. Denominators of zero report 1: an empty obligation set is
+ * satisfied, not unknown, and the counts next to the ratio say how much was judged.
+ */
+function qualityScores(state: WorkflowState): Record<string, unknown> {
+  const tasks = state.plan?.tasks ?? [];
+  const verified = tasks.filter((task) => task.status === 'verified');
+  const ratio = (num: number, den: number): number => (den === 0 ? 1 : Math.round((num / den) * 100) / 100);
+  const evidenceBacked = verified.filter((task) => state.evidence.some((record) => record.taskId === task.id)).length;
+  const strengthMet = verified.filter((task) => {
+    const required = task.verification?.type;
+    const given = task.verifiedWith;
+    if (!required || !given) return true;
+    return verificationStrength(given) >= verificationStrength(required);
+  }).length;
+  const promised = tasks.filter((task) => (task.deliverables ?? []).length > 0).length;
+  const pointed = tasks.filter(
+    (task) =>
+      (task.deliverables ?? []).length > 0 &&
+      state.evidence.some((record) => record.taskId === task.id && record.artifact),
+  ).length;
+  const risks = state.audit?.risks ?? [];
+  const disposed = risks.filter((entry) => entry.disposition !== 'open').length;
+  const unknownTotal = requirements(state.goal).filter((entry) => entry.kind === 'unknown').length;
+  const unknownClosed = state.unknowns ?? [];
+  const unknownSourced = unknownClosed.filter(
+    (entry) => entry.verdict === 'resolved' && (entry.sources?.length ?? 0) > 0,
+  ).length;
+  return {
+    evidence_backed_verified: { ratio: ratio(evidenceBacked, verified.length), of: verified.length },
+    strength_met: { ratio: ratio(strengthMet, verified.length), of: verified.length },
+    deliverables_pointed: { ratio: ratio(pointed, promised), of: promised },
+    risks_disposed: { ratio: ratio(disposed, risks.length), of: risks.length },
+    unknowns_closed: { ratio: ratio(unknownClosed.length, unknownTotal), of: unknownTotal },
+    unknowns_sourced: { ratio: ratio(unknownSourced, unknownClosed.length), of: unknownClosed.length },
   };
 }
 

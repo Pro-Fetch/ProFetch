@@ -523,6 +523,53 @@ describe('pro_fetch_workflow — regressions found from the host side', () => {
   });
 });
 
+/* ------------------------------------------------------------------ §20.5 result quality */
+
+describe('pro_fetch_workflow — measured result quality (§20.5)', () => {
+  /** Run a clean job to completion and hand back its quality block. */
+  async function cleanRun() {
+    const id = await plannedWith(COVERED_PLAN());
+    await executing(id);
+    for (const task of ['T001', 'T002']) await closeTask(id, task);
+    await call({ action: 'verify', workflow_id: id });
+    await call({ action: 'final_audit', workflow_id: id, note: 'each criterion checked against evidence' });
+    await call({ action: 'finish', workflow_id: id });
+    return (await fullMetrics(id)).quality as Record<string, { ratio: number; of: number }>;
+  }
+
+  it('scores an honest run at full marks, with the denominators shown', async () => {
+    const quality = await cleanRun();
+    expect(quality.evidence_backed_verified).toEqual({ ratio: 1, of: 2 });
+    expect(quality.strength_met).toEqual({ ratio: 1, of: 2 });
+    expect(quality.risks_disposed.ratio).toBe(1);
+    // A run with nothing promised is scored 1 with a denominator of 0 — satisfied, not unknown.
+    expect(quality.deliverables_pointed).toEqual({ ratio: 1, of: 0 });
+    expect(quality.unknowns_closed).toEqual({ ratio: 1, of: 0 });
+  });
+
+  it('shows an accepted risk as closed but unproven', async () => {
+    const id = await plannedWith(COVERED_PLAN(), GOAL_WITH_UNKNOWN);
+    await executing(id);
+    for (const task of ['T001', 'T002']) await closeTask(id, task);
+    await call({ action: 'verify', workflow_id: id });
+    await call({
+      action: 'resolve_unknown',
+      workflow_id: id,
+      unknown_id: 'U1',
+      verdict: 'accepted_risk',
+      note: 'operator accepted the residual risk; no source could settle it',
+    });
+    await call({ action: 'final_audit', workflow_id: id, note: 'ledger reviewed' });
+    const done = await call({ action: 'finish', workflow_id: id });
+    expect(refused(done), body(done)).toBe(false);
+    const quality = (await fullMetrics(id)).quality as Record<string, { ratio: number; of: number }>;
+    expect(quality.unknowns_closed).toEqual({ ratio: 1, of: 1 });
+    // Honest, not perfect: closing an unknown by accepting the risk is legitimate and must not read
+    // as though it were researched.
+    expect(quality.unknowns_sourced).toEqual({ ratio: 0, of: 1 });
+  });
+});
+
 /* ------------------------------------------------------------------ §5.3 risk audit */
 
 describe('pro_fetch_workflow — omission/risk audit (§5.3)', () => {
