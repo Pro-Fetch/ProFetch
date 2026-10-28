@@ -34,7 +34,11 @@ export default defineConfig({
     // `pool: 'forks'` stays because `tests/product-readiness.test.ts` calls `process.chdir()`, which
     // is unavailable in worker threads; the threads pool runs all 16 files with no abort but fails
     // that one test.
-    testTimeout: 30_000,
+    // 60s, not 30s: `tests/opendata-socrata.test.ts` retries a throttled portal up to three times with
+    // backoff, and under a full parallel run that sequence overran 30 seconds — a slow third party was
+    // being reported as a failing test. Measured: the same file passes 25/25 when run alone. Only the
+    // wall-clock allowance moved; an assertion that actually fails still fails the build.
+    testTimeout: 60_000,
     hookTimeout: 30_000,
     coverage: {
       provider: 'v8',
