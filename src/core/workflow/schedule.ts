@@ -24,8 +24,19 @@ export function taskWrites(task: Task): boolean {
   return assessPlan([task]).some((risk) => risk.mutating);
 }
 
+/**
+ * What a task touches, declared. Deliverables plus anything else it writes.
+ *
+ * The honest limit of this design: a write nobody declared is invisible here. That is why
+ * `undeclared-write-resources` is a derived risk item rather than a comment — the audit has to say
+ * something about a mutating step that names no resource.
+ */
 const resourcesOf = (task: Task): Set<string> =>
-  new Set((task.deliverables ?? []).map((item) => item.trim().toLowerCase()).filter(Boolean));
+  new Set(
+    [...(task.deliverables ?? []), ...(task.writes ?? [])]
+      .map((item) => String(item).trim().toLowerCase())
+      .filter(Boolean),
+  );
 
 /** A deliverable both tasks name, if any. */
 function sharedResource(left: Task, right: Task): string | null {

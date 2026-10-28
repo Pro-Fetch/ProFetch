@@ -13,6 +13,7 @@
  */
 
 import type { PlanRisk } from './risk.js';
+import { taskWrites } from './schedule.js';
 import type { GoalSpec, Task } from './types.js';
 
 export interface RiskItem {
@@ -54,6 +55,17 @@ const RULES: readonly RiskRule[] = [
             plan.sensitivity === 'destructive' || /(?:delete|clear|drop|purge|remove)(?:_|$)/i.test(plan.toolName),
         );
       return hit ? `${hit.task.id}:${hit.plan.toolName} qaytarib bo'lmaydigan amaldi` : null;
+    },
+  },
+  {
+    id: 'undeclared-write-resources',
+    applies: ({ tasks }) => {
+      // A mutating step that declares no file/key/path cannot be conflict-checked; §5.5 serialises on
+      // declared resources, so the silent case is exactly the one that has to be raised.
+      const silent = tasks.filter(
+        (task) => taskWrites(task) && [...(task.deliverables ?? []), ...(task.writes ?? [])].length === 0,
+      );
+      return silent.length ? `yozuvchi qadam resurs e'lon qilmagan: ${silent.map((task) => task.id).join(', ')}` : null;
     },
   },
   {

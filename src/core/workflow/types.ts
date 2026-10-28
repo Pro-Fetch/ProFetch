@@ -143,6 +143,12 @@ export interface Task {
   evidenceRefs: string[];
   blockers: string[];
   /**
+   * Files/resources this task modifies that are not themselves deliverables (a cache key, a repo
+   * path, an output file). Conflict serialisation can only see what is declared; declaring nothing
+   * is why `undeclared-write-resources` exists as a risk item.
+   */
+  writes?: string[];
+  /**
    * Set by `approve_plan` for a task whose steps the registry says can change state. A new plan
    * replaces the task objects, so an approval never carries over from a revision.
    */

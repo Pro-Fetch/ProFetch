@@ -1225,6 +1225,40 @@ describe('pro_fetch_workflow — resource conflicts and research (§5.5, §10)',
     expect((after.task as { id: string }).id).toBe('T002');
   });
 
+  it('serialises on a declared write that is not a deliverable, and flags one that is missing', async () => {
+    // §5.5 serialises on declared resources. A task that writes something it never names cannot be
+    // serialised — so the audit has to see that gap as a risk item, not as an invisible success.
+    const declared = await plannedWith([
+      plannedTask('T001', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        writes: ['cache:bench'],
+        covers: ['E1', 'C1', 'D1'],
+      }),
+      plannedTask('T002', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        objective: 'measure render path',
+        writes: ['cache:bench'],
+        covers: ['A1', 'A2'],
+      }),
+    ]);
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: declared, stage: 'full', detail: 'full' }));
+    expect(opened.conflicts).toEqual([{ deliverable: 'cache:bench', tasks: ['T001', 'T002'], bothWrite: true }]);
+    const items = (opened.risk_checklist as Array<{ item: string }>).map((entry) => entry.item);
+    expect(items).not.toContain('undeclared-write-resources');
+
+    const undeclared = await plannedWith([
+      plannedTask('T001', { toolName: MUTATING_TOOL, sensitivity: 'mutating', covers: ['E1', 'C1', 'D1', 'A1', 'A2'] }),
+    ]);
+    const opened2 = payload(await call({ action: 'begin_audit', workflow_id: undeclared, stage: 'full' }));
+    const items2 = (opened2.risk_checklist as Array<{ item: string; because: string }>).filter(
+      (entry) => entry.item === 'undeclared-write-resources',
+    );
+    expect(items2.length).toBe(1);
+    expect(items2[0].because).toContain('T001');
+  });
+
   it('does not serialise when only one side writes the shared deliverable', async () => {
     const id = await plannedWith([
       plannedTask('T001', {
