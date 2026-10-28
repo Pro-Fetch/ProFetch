@@ -11,6 +11,7 @@ import type { ToolDefinition, ToolResult } from './types.js';
 import { fetchWithOptions } from './http-client.js';
 import { getCredential } from './credentials.js';
 import { assertSafeUrl } from './ssrf-guard.js';
+import { probeTls } from './tls-probe.js';
 
 const execFileAsync = promisify(execFile);
 type Json = Record<string, unknown> | unknown[] | string | number | boolean | null;
@@ -1862,7 +1863,7 @@ async function runSecurity(action: string, i: Record<string, unknown>): Promise<
       // certificate, a cipher, a protocol version or an expiry date, because `fetch` exposes none of
       // them. The result states what was and was not examined, because presenting header presence as a
       // TLS audit is how an expired certificate gets reported as a pass.
-      const headerChecks = {
+      const headerChecks: Record<string, boolean> = {
         hsts: Boolean(h['strict-transport-security']),
         // The header is `content-security-policy`. `content-security-security` does not exist, so
         // this read was always undefined and every site with a CSP was reported as missing one - a security
@@ -1873,10 +1874,18 @@ async function runSecurity(action: string, i: Record<string, unknown>): Promise<
         referrerPolicy: Boolean(h['referrer-policy']),
         permissionsPolicy: Boolean(h['permissions-policy']),
       };
+      // A probe failure is reported, never thrown: this function answers a security question and a
+      // timeout is itself an answer.
+      const tls = action === 'tls_audit' && safe.protocol === 'https:' ? await probeTls(safe.toString()) : null;
+      if (tls?.ok) {
+        headerChecks.certificateValid = tls.certificate ? !tls.certificate.expired : false;
+        headerChecks.hostnameMatchesCertificate = tls.hostnameMatches;
+      }
       return {
         ...security,
-        scope: 'http_response_headers',
-        is_tls_audit: false,
+        scope: tls?.ok ? 'http_response_headers + tls_handshake' : 'http_response_headers',
+        is_tls_audit: Boolean(tls?.ok),
+        ...(tls ? { tls } : {}),
         checks: headerChecks,
         headers_present: Object.entries(headerChecks)
           .filter(([, value]) => value)
@@ -1884,17 +1893,25 @@ async function runSecurity(action: string, i: Record<string, unknown>): Promise<
         headers_missing: Object.entries(headerChecks)
           .filter(([, value]) => !value)
           .map(([name]) => name),
-        not_checked: [
-          'sertifikat muddati (expiry)',
-          'sertifikat zanjiri va ishonch ildizi',
-          'TLS protokol versiyasi',
-          'shifrlash algoritmi (cipher suite)',
-          'serverning nomi sertifikatiga mosligi',
-        ],
-        tls_note:
-          safe.protocol === 'https:'
-            ? 'HTTPS so rovi bajarildi. Bu TIL audit emas - faqat HTTP javob sarlavhalari tekshirildi.'
-            : 'Not HTTPS - protokol tekshiruvi ham bajarilmadi.',
+        // What is still NOT examined, stated per case. Revocation is genuinely absent (no OCSP/CRL
+        // fetch), and an independent chain build is not claimed either - `authorized` is Node's verdict
+        // against its root store. Everything the probe did read is no longer listed here.
+        not_checked: tls?.ok
+          ? ['sertifikat bekor qilinishi (OCSP/CRL)', 'mustaqil zanjir qurish (Node root store’iga suyangan)']
+          : [
+              'sertifikat muddati (expiry)',
+              'sertifikat zanjiri va ishonch ildizi',
+              'TLS protokol versiyasi',
+              'shifrlash algoritmi (cipher suite)',
+              'serverning nomi sertifikatiga mosligi',
+            ],
+        tls_note: tls?.ok
+          ? `TLS qo‘l berish tekshirildi (${tls.protocol ?? '?'}, ${tls.cipher ?? '?'}) va sertifikat o‘qildi.`
+          : tls
+            ? `TLS probe javab bermadi (${tls.error ?? 'noma’lum xato'}) — faqat sarlavhalar tekshirildi.`
+            : safe.protocol === 'https:'
+              ? 'HTTPS so‘rovi bajarildi; bu audit emas — faqat HTTP javob sarlavhalari tekshirildi.'
+              : 'HTTPS emas — protokol va sertifikat tekshiruvi bajarilmadi.',
       };
     }
     if (action === 'cors_audit')
