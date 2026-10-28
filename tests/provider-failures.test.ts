@@ -22,7 +22,8 @@ describe('redirect loops name the loop', () => {
     // message — `HTTP redirect limit exceeded (5)` — sent the caller counting redirects. There is a
     // second provider now, so the answer must still name the loop and say which provider served it.
     const result = await dispatch('pro_fetch_jobs_search', { query: 'nodejs', limit: 3 });
-    expect(result.isError, text(result)).toBe(false);
+    // A successful tool result leaves `isError` undefined, not false.
+    expect(result.isError, text(result)).not.toBe(true);
     const body = text(result);
     expect(body).toMatch(/redirect loop/i);
     expect(body).toMatch(/remoteok\.com/);
