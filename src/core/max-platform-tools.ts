@@ -1877,16 +1877,24 @@ async function runSecurity(action: string, i: Record<string, unknown>): Promise<
       // A probe failure is reported, never thrown: this function answers a security question and a
       // timeout is itself an answer.
       const tls = action === 'tls_audit' && safe.protocol === 'https:' ? await probeTls(safe.toString()) : null;
-      if (tls?.ok) {
-        headerChecks.certificateValid = tls.certificate ? !tls.certificate.expired : false;
-        headerChecks.hostnameMatchesCertificate = tls.hostnameMatches;
-      }
+      // Certificate verdicts are reported beside the header checks, never inside them: `headers_present`
+      // and `headers_missing` answer "which response headers exist", and a live run showed a certificate
+      // fact landing in a header list — the kind of label that makes a report read wrong even when the
+      // underlying checks are right.
+      const certificateChecks = tls?.ok
+        ? {
+            certificateValid: tls.certificate ? !tls.certificate.expired : false,
+            hostnameMatchesCertificate: tls.hostnameMatches,
+            chainAuthorized: tls.authorized,
+          }
+        : null;
       return {
         ...security,
         scope: tls?.ok ? 'http_response_headers + tls_handshake' : 'http_response_headers',
         is_tls_audit: Boolean(tls?.ok),
         ...(tls ? { tls } : {}),
         checks: headerChecks,
+        ...(certificateChecks ? { certificate_checks: certificateChecks } : {}),
         headers_present: Object.entries(headerChecks)
           .filter(([, value]) => value)
           .map(([name]) => name),

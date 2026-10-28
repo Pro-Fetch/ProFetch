@@ -79,6 +79,9 @@ describe('tls probe against a real host', () => {
     expect(res.isError, body).not.toBe(true);
     expect(body).toContain('"is_tls_audit": true');
     expect(body).toContain('"validTo"');
+    // The certificate verdict sits beside the header lists, not inside them.
+    expect(body).toContain('"certificate_checks"');
+    expect(body).not.toContain('"headers_present": ["certificateValid');
     // What genuinely remains unchecked shrinks to revocation and independent chain building.
     expect(body).toContain('OCSP');
     expect(body).not.toContain('shifrlash algoritmi (cipher suite)');
