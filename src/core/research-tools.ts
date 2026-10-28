@@ -1099,25 +1099,117 @@ export function buildResearchTimeline(input: Input): ToolResult {
   );
 }
 
+/** Languages with a Wikipedia edition the tool can address directly. */
+const WIKI_EDITIONS = new Set([
+  'en',
+  'uz',
+  'ru',
+  'kk',
+  'tr',
+  'az',
+  'es',
+  'fr',
+  'de',
+  'it',
+  'pt',
+  'pl',
+  'nl',
+  'sv',
+  'uk',
+  'ar',
+  'fa',
+  'hi',
+  'id',
+  'zh',
+  'ja',
+  'ko',
+  'cs',
+  'he',
+]);
+
+/**
+ * One language edition of Wikipedia, queried in that language.
+ *
+ * This is what makes the result language-specific at all. The previous implementation searched the
+ * topic with the language code appended (`"kvant hisoblagichi uz"`) and called the outcome
+ * per-language; the API had no reason to honour that, so an Uzbek pass returned English URLs and a
+ * student driving the workflow could not finish the task.
+ */
+async function editionSearch(query: string, code: string, limit: number): Promise<Record<string, unknown>> {
+  const url = new URL(`https://${code}.wikipedia.org/w/api.php`);
+  url.searchParams.set('action', 'query');
+  url.searchParams.set('list', 'search');
+  url.searchParams.set('srsearch', query);
+  url.searchParams.set('srlimit', String(limit));
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('utf8', '1');
+  try {
+    const response = await fetchWithOptions(url.toString(), {
+      headers: { accept: 'application/json' },
+      maxBytes: 2_000_000,
+    });
+    if (response.status >= 400) return { error: `${code}.wikipedia.org HTTP ${response.status}` };
+    const payload = parseUpstreamJson(response, `${code}.wikipedia.org`) as {
+      query?: { search?: Array<{ title?: string; snippet?: string; pageid?: number }> };
+    };
+    const hits = payload?.query?.search ?? [];
+    return {
+      found: hits.length,
+      results: hits.map((hit) => ({
+        title: hit.title ?? '',
+        // The API returns HTML-ish snippets; tags stripped, because they arrive as markup noise.
+        snippet: String(hit.snippet ?? '').replace(/<[^>]*>/g, ''),
+        url: `https://${code}.wikipedia.org/?curid=${hit.pageid ?? ''}`,
+      })),
+    };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
 export async function researchAcrossLanguages(input: Input): Promise<ToolResult> {
   const query = value(input, 'query', 'topic');
   if (!query) throw new Error('query parametri kerak.');
   const languages = list(input, 'languages').map(String).filter(Boolean).slice(0, 8);
   const selected = languages.length ? languages : ['en', 'uz'];
+  const limit = boundedLimit(input.limit, 5, 10);
   const results = await Promise.all(
     selected.map(async (language) => {
-      const response = await dispatch('pro_fetch_web_search', {
-        query: `${query} ${language}`,
-        limit: boundedLimit(input.limit, 5, 10),
-      });
+      const code = language.toLowerCase();
+      const edition = WIKI_EDITIONS.has(code) ? await editionSearch(query, code, limit) : { unsupported_edition: true };
+      const response = await dispatch('pro_fetch_web_search', { query, limit });
+      const body = response.content.map((part) => part.text).join(String.fromCharCode(10));
+      const urls = [...body.matchAll(/https?:\/\/[^\s)\]]+/g)].map((match) => match[0]).slice(0, 3);
       return {
-        language,
-        results: response.content.map((part) => part.text).join('\n'),
-        error: response.isError ?? false,
+        language: code,
+        wikipedia: edition,
+        web: {
+          // Stated rather than hidden: the web provider has no language filter here, so these are
+          // "results about the topic", not "results in this language".
+          language_filtered: false,
+          count: urls.length,
+          sample_urls: urls,
+        },
+        ...(WIKI_EDITIONS.has(code)
+          ? edition.found === 0
+            ? { hint: "bu tilda natija bo'lmadi — so'rovni aynan shu tilda yozish kerak (tarjima emas)" }
+            : {}
+          : { note: `${code} uchun Vikikipediya nashri ma'lum emas` }),
       };
     }),
   );
-  return result(JSON.stringify({ query, languages: results }, null, 2));
+  return result(
+    JSON.stringify(
+      {
+        query,
+        languages: results,
+        method_note:
+          "Til bo'yicha haqiqiy manba — o'sha tilning Vikikipediya nashri. Web qidiruv tili bo'yicha filtrlanmaydi (provider qo'llamaydi), shuning uchun u bo'lim `language_filtered: false`.",
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 function termsFrom(text: string): string[] {

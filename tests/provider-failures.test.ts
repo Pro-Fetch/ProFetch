@@ -17,15 +17,18 @@ const text = (r: ToolResult): string =>
  * say what actually happened.
  */
 describe('redirect loops name the loop', () => {
-  it('reports bot protection instead of a hop count', async () => {
+  it('reports bot protection instead of a hop count, then falls back honestly', async () => {
     // remoteok.com answers an unknown user-agent with `302 /` from `/` itself, forever. The old
-    // message — `HTTP redirect limit exceeded (5)` — sent the caller counting redirects.
-    const result = await dispatch('pro_fetch_jobs_search', { query: 'nodejs', limit: 1 });
-    expect(result.isError).toBe(true);
+    // message — `HTTP redirect limit exceeded (5)` — sent the caller counting redirects. There is a
+    // second provider now, so the answer must still name the loop and say which provider served it.
+    const result = await dispatch('pro_fetch_jobs_search', { query: 'nodejs', limit: 3 });
+    expect(result.isError, text(result)).toBe(false);
     const body = text(result);
     expect(body).toMatch(/redirect loop/i);
     expect(body).toMatch(/remoteok\.com/);
     expect(body).not.toMatch(/limit exceeded/);
+    expect(body).toContain('"provider": "Remotive"');
+    expect(body).toContain('"fallback_from": "Remote OK"');
   }, 30_000);
 });
 
