@@ -184,7 +184,12 @@ function inferSchema(value: unknown): Record<string, unknown> {
       properties: Object.fromEntries(
         Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, inferSchema(child)]),
       ),
-      additionalProperties: false,
+      // A schema inferred from one sample does not know the domain: `additionalProperties: false` is
+      // the convention for a tool's *input* contract, where the author enumerated every field. Here it
+      // made a QA user's real GitHub payload fail validation for fields the single sample simply lacked
+      // (forks_url, owner.avatar_url, default_workflow_permissions...). Inference describes what was
+      // seen; it must not forbid what was not.
+      additionalProperties: true,
     };
   return { type: typeof value === 'number' && Number.isInteger(value) ? 'integer' : typeof value };
 }
