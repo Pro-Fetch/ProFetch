@@ -440,7 +440,7 @@ try {
   // out as tools/list` (625/625 unique - an unbalanced inline code span. `verify:registry` checks the
   // numbers it knows about and said nothing about the punctuation, because punctuation is not a number.
   // Both failure modes of a script that edits prose need a guard, not just the numeric one.
-  for (const readme of ['README.md', 'README.uz.md']) {
+  for (const readme of ['README.md']) {
     const text = readFileSync(path.join(root, readme), 'utf8');
     const lines = text.split('\n');
     const fences = lines.filter((line) => line.trim().startsWith('```')).length;

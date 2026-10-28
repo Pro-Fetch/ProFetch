@@ -26,7 +26,7 @@ const failures: string[] = [];
  * and `standard` 177 after every one of those had changed, because nothing compared the prose to the
  * numbers. A reader is the one who pays for that.
  */
-for (const readme of ['README.md', 'README.uz.md']) {
+for (const readme of ['README.md']) {
   const text = await readFile(path.join(root, readme), 'utf8');
   const claims: Array<[string, RegExp, number]> = [
     ['test count', /\*\*(\d+) tests?\*\*/i, manifest.testCount],

@@ -1,7 +1,8 @@
 # AGENTS.md — Pro-Fetch ish uslubi
 
-> To'liq konsepsiya: [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md) (MexaPlan + SmartToDo + MaxEffort).
-> Bu fayl — konsepsiyani amaliy ish tartibiga aylantiradi. Konsepsiyani o'zgartirmaydi.
+> Ish-oqimning o'zi mahsulotda: `pro_fetch_workflow` (MexaPlan + SmartToDo + MaxEffort) va
+> `pro_fetch_workflow {action:"introduce"}` hostga qaysi bosqichlar mavjudligini aytadi.
+> Bu fayl — o'sha siklni amaliy ish tartibiga aylantiradi.
 
 Bu repo'da ishlayotgan har bir AI agent uchun majburiy ish tartibi. Pro-Fetch — MCP server:
 uning tool'lari orqali real amallar bajariladi, lekin **ish tartibini agent boshqaradi**.
@@ -195,7 +196,8 @@ shu hujjatni o'qigan agentning majburiyati, server tomonidan majburlash emas.
 
 ## 10. O'z vaqtini saqlash
 
-Ish uzun bo'lsa, holatni `docs/IMPLEMENTATION_STATUS.md` da saqla:
+Ish uzun bo'lsa, holatni **`pro_fetch_workflow` ichida** saqla (u holatni diskka yozadi, repo'ga
+emas). Ushbu tartib sahifada ham qaytariladi:
 
 - **Phase** — hozirgi bosqich
 - **Active task** — bitta qator, aniq
@@ -203,5 +205,6 @@ Ish uzun bo'lsa, holatni `docs/IMPLEMENTATION_STATUS.md` da saqla:
 - **Workstreams** — holat har biri bilan: `NOT_STARTED` / `IN_PROGRESS` / `DONE` / `BLOCKED`
 - **Verification log** — bajarilgan har bir komanda va uning **haqiqiy** natijasi
 
-Sessiya tugasa, keyingi agent shu faylni o'qab, aynan qayerda to'xtaganini biladi. Kontekst
+Sessiya tugasa, keyingi agent `pro_fetch_workflow {action:"status", detail:"full"}` chaqirib, aynan
+qayerda to'xtaganini biladi. Kontekst
 yo'qolsa ham ish yo'qolmaydi.

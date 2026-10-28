@@ -96,7 +96,7 @@ function syncManifestCounts(reportedFiles, reportedTests) {
 }
 
 /**
- * Updates the test badge in both READMEs, with a guard that refuses rather than guesses.
+ * Updates the test badge in the README, with a guard that refuses rather than guesses.
  *
  * `verify:registry` compares the prose against the manifest and fails when they disagree, so a stale
  * badge breaks `npm run check` on the run *after* the one that measured the new number. That ordering
@@ -122,18 +122,6 @@ function syncReadmeBadges(reportedFiles, reportedTests) {
       // A table cell: `**741 tests** across 39 files`.
       pattern: /(\*\*\s*)(\d+)(\s+tests\*\*\s+across\s+)(\d+)(\s+files)/,
       replacement: (_whole, a, _t, b, _f, c) => `${a}${reportedTests}${b}${reportedFiles}${c}`,
-      what: 'jadval',
-    },
-    {
-      file: 'README.uz.md',
-      pattern: /(!\[tests\]\(https:\/\/img\.shields\.io\/badge\/tests-)(\d+)(\s*%20passing)/,
-      replacement: (_whole, before, _old, after) => `${before}${reportedTests}${after}`,
-      what: 'badge',
-    },
-    {
-      file: 'README.uz.md',
-      pattern: /(\*\*\s*)(\d+)(\s+ta\s+test\*\*)/,
-      replacement: (_whole, a, _t, b) => `${a}${reportedTests}${b}`,
       what: 'jadval',
     },
   ];
