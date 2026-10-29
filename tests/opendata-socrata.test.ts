@@ -228,10 +228,17 @@ describe('live: rows through SODA', () => {
     expect(data.rows).toEqual([]);
   });
 
-  it('distinguishes a portal with no data API from a bad query', async () => {
+  it('distinguishes a portal with no data API from a bad query', async (context) => {
     // data.fortworthtexas.gov answers 200 with an HTML page for SODA. Reporting that as an empty result
     // would tell the caller their query matched nothing.
     const data = payload(await liveTool('pro_opendata_rows', { dataset: 'eax3-qev8', limit: 2 }));
+    // The portal is a third party under load: when it throttles us the answer is a rate-limit shape,
+    // not the "no data API" shape this asserts. Skip by name rather than fail the build for someone
+    // else's queue — the assertion still runs on every normal answer.
+    if (data.throttled === true || data.rate_limited === true || /429|too many/i.test(JSON.stringify(data))) {
+      context.skip();
+      return;
+    }
     expect(data.portal_without_data_api).toBe(true);
   });
 });
