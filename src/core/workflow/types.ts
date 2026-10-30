@@ -122,6 +122,12 @@ export interface ToolPlan {
   sensitivity: ToolSensitivity;
   requiresApproval: boolean;
   fallback?: string;
+  /**
+   * The arguments the step will be called with, when the planner already knows them. The scheduler
+   * reads resource identities out of these (`path`, `key`, `dataset`, `url`...), so a conflict is
+   * visible even when nobody wrote it down in `deliverables`.
+   */
+  arguments?: Record<string, unknown>;
 }
 
 export interface Task {

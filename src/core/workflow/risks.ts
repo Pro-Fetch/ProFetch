@@ -13,7 +13,7 @@
  */
 
 import type { PlanRisk } from './risk.js';
-import { taskWrites } from './schedule.js';
+import { taskResources, taskWrites } from './schedule.js';
 import type { GoalSpec, Task } from './types.js';
 
 export interface RiskItem {
@@ -62,9 +62,7 @@ const RULES: readonly RiskRule[] = [
     applies: ({ tasks }) => {
       // A mutating step that declares no file/key/path cannot be conflict-checked; §5.5 serialises on
       // declared resources, so the silent case is exactly the one that has to be raised.
-      const silent = tasks.filter(
-        (task) => taskWrites(task) && [...(task.deliverables ?? []), ...(task.writes ?? [])].length === 0,
-      );
+      const silent = tasks.filter((task) => taskWrites(task) && taskResources(task).size === 0);
       return silent.length ? `yozuvchi qadam resurs e'lon qilmagan: ${silent.map((task) => task.id).join(', ')}` : null;
     },
   },

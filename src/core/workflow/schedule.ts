@@ -25,23 +25,84 @@ export function taskWrites(task: Task): boolean {
 }
 
 /**
- * What a task touches, declared. Deliverables plus anything else it writes.
- *
- * The honest limit of this design: a write nobody declared is invisible here. That is why
- * `undeclared-write-resources` is a derived risk item rather than a comment — the audit has to say
- * something about a mutating step that names no resource.
+ * Argument names that identify a resource the step touches. Not a whitelist of tools: any key that
+ * names a path, key, dataset or endpoint counts, because that is what a conflict is made of.
  */
-const resourcesOf = (task: Task): Set<string> =>
-  new Set(
-    [...(task.deliverables ?? []), ...(task.writes ?? [])]
-      .map((item) => String(item).trim().toLowerCase())
-      .filter(Boolean),
-  );
+const RESOURCE_ARG_KEYS = [
+  'path',
+  'file',
+  'filename',
+  'file_path',
+  'output_path',
+  'dir',
+  'directory',
+  'key',
+  'cache_key',
+  'dataset',
+  'table',
+  'bucket',
+  'prefix',
+  'queue',
+  'channel',
+  'webhook',
+  'webhook_url',
+  'url',
+  'endpoint',
+  'session_id',
+  'issue_id',
+  'pull_id',
+  'pr_id',
+  'page_id',
+  'note_id',
+  'task_id',
+  'glob',
+];
 
-/** A deliverable both tasks name, if any. */
+/** One argument value into a comparable resource id. URLs lose query and fragment; everything is trimmed. */
+function resourceKey(value: unknown): string | null {
+  const text = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (!text) return null;
+  if (/^https?:\/\//.test(text)) {
+    try {
+      const url = new URL(text);
+      return `${url.host.replace(/^www\./, '')}${url.pathname}`.replace(/\/+$/, '') || url.host;
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
+/**
+ * What a task touches: declared deliverables and writes, plus whatever its step arguments name.
+ *
+ * Inferring from arguments is what makes this more than a paperwork check. A plan that says
+ * `cache_put {key: "bench"}` twice conflicts whether or not anybody wrote it in `deliverables`;
+ * the declaration is now the escape hatch for steps whose arguments are not known yet, not the only
+ * way the scheduler can see anything.
+ */
+export function taskResources(task: Task): Set<string> {
+  const found = new Set<string>();
+  for (const item of [...(task.deliverables ?? []), ...(task.writes ?? [])]) {
+    const key = resourceKey(item);
+    if (key) found.add(key);
+  }
+  for (const plan of task.toolPlan ?? []) {
+    for (const [name, value] of Object.entries(plan.arguments ?? {})) {
+      if (!RESOURCE_ARG_KEYS.includes(name.toLowerCase())) continue;
+      const key = resourceKey(value);
+      if (key) found.add(key);
+    }
+  }
+  return found;
+}
+
+/** A resource both tasks name, if any. */
 function sharedResource(left: Task, right: Task): string | null {
-  const leftResources = resourcesOf(left);
-  for (const resource of resourcesOf(right)) if (leftResources.has(resource)) return resource;
+  const leftResources = taskResources(left);
+  for (const resource of taskResources(right)) if (leftResources.has(resource)) return resource;
   return null;
 }
 
@@ -75,14 +136,14 @@ export function parallelisableTasks(tasks: Task[]): string[] {
 }
 
 /** Every pair touching the same deliverable, flagged by whether both of them write it. */
-export function planConflicts(tasks: Task[]): { deliverable: string; tasks: [string, string]; bothWrite: boolean }[] {
-  const found: { deliverable: string; tasks: [string, string]; bothWrite: boolean }[] = [];
+export function planConflicts(tasks: Task[]): { resource: string; tasks: [string, string]; bothWrite: boolean }[] {
+  const found: { resource: string; tasks: [string, string]; bothWrite: boolean }[] = [];
   for (let i = 0; i < tasks.length; i += 1) {
     for (let j = i + 1; j < tasks.length; j += 1) {
-      const deliverable = sharedResource(tasks[i], tasks[j]);
-      if (!deliverable) continue;
+      const resource = sharedResource(tasks[i], tasks[j]);
+      if (!resource) continue;
       found.push({
-        deliverable,
+        resource,
         tasks: [tasks[i].id, tasks[j].id],
         bothWrite: taskWrites(tasks[i]) && taskWrites(tasks[j]),
       });

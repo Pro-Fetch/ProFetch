@@ -1254,7 +1254,7 @@ describe('pro_fetch_workflow — resource conflicts and research (§5.5, §10)',
   it('reports the conflicting pair when the plan is disclosed to the auditor', async () => {
     const id = await plannedWith(conflictingPlan());
     const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full', detail: 'full' }));
-    expect(opened.conflicts).toEqual([{ deliverable: 'dashboard.html', tasks: ['T001', 'T002'], bothWrite: true }]);
+    expect(opened.conflicts).toEqual([{ resource: 'dashboard.html', tasks: ['T001', 'T002'], bothWrite: true }]);
   });
 
   it('serialises the second writer instead of handing it out over the first', async () => {
@@ -1270,6 +1270,90 @@ describe('pro_fetch_workflow — resource conflicts and research (§5.5, §10)',
     await closeTask(id, 'T001');
     const after = payload(await call({ action: 'get_next_task', workflow_id: id }));
     expect((after.task as { id: string }).id).toBe('T002');
+  });
+
+  it('sees a conflict through the step arguments, with nothing declared', async () => {
+    // The point of inferring resources: two steps that both write the same cache key conflict even if
+    // the plan never mentions a deliverable. Before this, the scheduler was blind exactly when the
+    // host was least careful.
+    const id = await plannedWith([
+      plannedTask('T001', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        covers: ['E1', 'C1', 'D1'],
+        toolPlan: [
+          {
+            toolName: MUTATING_TOOL,
+            category: categoryOf(MUTATING_TOOL),
+            purpose: 'write bench rows',
+            sensitivity: 'mutating',
+            requiresApproval: true,
+            arguments: { key: 'BENCH:rows', value: 'x' },
+          },
+        ],
+      }),
+      plannedTask('T002', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        objective: 'measure render path',
+        covers: ['A1', 'A2'],
+        toolPlan: [
+          {
+            toolName: MUTATING_TOOL,
+            category: categoryOf(MUTATING_TOOL),
+            purpose: 'write bench rows again',
+            sensitivity: 'mutating',
+            requiresApproval: true,
+            arguments: { key: 'bench:ROWS' },
+          },
+        ],
+      }),
+    ]);
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full', detail: 'full' }));
+    expect(opened.conflicts).toEqual([{ resource: 'bench:rows', tasks: ['T001', 'T002'], bothWrite: true }]);
+    const items = (opened.risk_checklist as Array<{ item: string }>).map((entry) => entry.item);
+    // Resources are known from the arguments, so the "nothing declared" risk must not fire.
+    expect(items).not.toContain('undeclared-write-resources');
+  });
+
+  it('normalises a URL argument to the resource it identifies', async () => {
+    // `?token=...` and `#section` do not make a different file; treating them as different would let a
+    // real conflict through.
+    const id = await plannedWith([
+      plannedTask('T001', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        covers: ['E1', 'C1', 'D1'],
+        toolPlan: [
+          {
+            toolName: 'pro_fetch_knowledge_ingest',
+            category: categoryOf('pro_fetch_knowledge_ingest'),
+            purpose: 'read a page',
+            sensitivity: 'mutating',
+            requiresApproval: true,
+            arguments: { url: 'https://example.com/docs?token=abc#intro' },
+          },
+        ],
+      }),
+      plannedTask('T002', {
+        toolName: MUTATING_TOOL,
+        sensitivity: 'mutating',
+        objective: 'read the same page',
+        covers: ['A1', 'A2'],
+        toolPlan: [
+          {
+            toolName: 'pro_fetch_knowledge_ingest',
+            category: categoryOf('pro_fetch_knowledge_ingest'),
+            purpose: 'read it again',
+            sensitivity: 'mutating',
+            requiresApproval: true,
+            arguments: { url: 'https://www.example.com/docs' },
+          },
+        ],
+      }),
+    ]);
+    const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full', detail: 'full' }));
+    expect(opened.conflicts).toEqual([{ resource: 'example.com/docs', tasks: ['T001', 'T002'], bothWrite: true }]);
   });
 
   it('serialises on a declared write that is not a deliverable, and flags one that is missing', async () => {
@@ -1291,7 +1375,7 @@ describe('pro_fetch_workflow — resource conflicts and research (§5.5, §10)',
       }),
     ]);
     const opened = payload(await call({ action: 'begin_audit', workflow_id: declared, stage: 'full', detail: 'full' }));
-    expect(opened.conflicts).toEqual([{ deliverable: 'cache:bench', tasks: ['T001', 'T002'], bothWrite: true }]);
+    expect(opened.conflicts).toEqual([{ resource: 'cache:bench', tasks: ['T001', 'T002'], bothWrite: true }]);
     const items = (opened.risk_checklist as Array<{ item: string }>).map((entry) => entry.item);
     expect(items).not.toContain('undeclared-write-resources');
 
@@ -1321,7 +1405,7 @@ describe('pro_fetch_workflow — resource conflicts and research (§5.5, §10)',
       }),
     ]);
     const opened = payload(await call({ action: 'begin_audit', workflow_id: id, stage: 'full', detail: 'full' }));
-    expect(opened.conflicts).toEqual([{ deliverable: 'dashboard.html', tasks: ['T001', 'T002'], bothWrite: false }]);
+    expect(opened.conflicts).toEqual([{ resource: 'dashboard.html', tasks: ['T001', 'T002'], bothWrite: false }]);
     await executing(id);
     const second = payload(await call({ action: 'get_next_task', workflow_id: id }));
     // A reader of the same file is not a writer racing it — that would serialise half of every plan.
