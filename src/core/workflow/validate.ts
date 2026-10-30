@@ -85,6 +85,14 @@ export function validateTasks(tasks: Task[], knownRequirementIds?: ReadonlySet<s
     }
     // `covers` is what the coverage matrix reads; invented ids would let a plan declare itself complete.
     if (knownRequirementIds) {
+      // Found by the labelled corpus, not by hand: a task carrying no requirement was accepted, which
+      // is exactly the "keraksiz ish" §5.4 tells the auditor to remove or mark out_of_scope. An orphan
+      // task inflates the graph, costs execution and approval, and maps to nothing.
+      if ((t.covers ?? []).length === 0)
+        issues.push({
+          code: 'task_out_of_scope',
+          message: `task ${t.id}: hech qanday talabni ko'tarmaydi (covers bo'sh) — olib tashlang yoki bitta talabga bog'lang (§5.4)`,
+        });
       for (const ref of t.covers ?? []) {
         if (!knownRequirementIds.has(ref))
           issues.push({
