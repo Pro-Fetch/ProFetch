@@ -247,6 +247,50 @@ function qualityScores(state: WorkflowState): Record<string, unknown> {
   };
 }
 
+/**
+ * The block a host is meant to install (AGENTS.md, CLAUDE.md, a skill, a system prompt — anything the
+ * host applies to every turn).
+ *
+ * Why it lives in code: §15.4 says the server cannot make the host think in a certain way, so the only
+ * honest lever is an instruction the host chooses to carry. That text was previously copied by hand
+ * into per-agent files and drifted immediately. It is exported so `introduce` serves it, the adapter
+ * files are generated from it, and a test fails if a file no longer matches.
+ */
+export const HOST_INSTRUCTION = [
+  'PRO-FETCH WORKFLOW (mandatory for substantial work):',
+  '1. If the request needs more than one tool call or any judgement, run the workflow:',
+  '   pro_fetch_workflow {action:"start", goal:"..."} — do not answer from a single ad-hoc call.',
+  '2. submit_plan: every task carries covers:[requirement ids returned by start], real registry tool',
+  '   names, acceptanceCriteria and verification. Unmapped or invented ids are refused.',
+  '3. begin_audit stage=blind, submit_review (findings without seeing the plan), then begin_audit',
+  '   stage=full and submit_review again. Dispose of every risk_checklist item with finding.riskItem or',
+  '   dismissed_risks (a reason is required).',
+  '4. If the plan mutates anything, approve_plan with a note before get_next_task.',
+  '5. report_task_result needs evidence and verification_type at least as strong as the task demanded;',
+  '   mock_verified, not_run and skipped do not count as done. Close unknowns with resolve_unknown',
+  '   citing record_source output.',
+  '6. verify, then final_audit, then finish. Never claim completion the gate refuses; if it blocks,',
+  '   repair, replan or block with the real reason instead.',
+].join(String.fromCharCode(10));
+
+/** What the server enforces, and what it cannot — said once, in the answer a host reads first. */
+export const ENFORCED = [
+  'phase order and illegal transitions',
+  'requirement coverage (unmapped ids refuse the plan)',
+  'risk derived from the registry, not from the plan label',
+  'approval for every state-changing step, with a reason',
+  'evidence strength per task, and the fake-completion gate',
+  'the independent final audit before COMPLETED in full mode',
+  'refusals counted in metrics, quality computed from the ledger',
+];
+
+export const NOT_GUARANTEED = [
+  'that the host will run the workflow at all: the server cannot see or steer the reasoning of the model',
+  'that a host without subagents performs a genuinely independent audit (it is then reported as reduced)',
+  'that evidence text is truthful — the gate checks shape, strength and provenance, not the claim itself',
+  'conflicts on resources nobody declared and no argument named',
+];
+
 const INTRO = [
   'Pro-Fetch: web fetch, crawl, search, deep research, GitHub, PDF/Office/image, data tools.',
   'For substantial work, run the workflow: start → submit_plan (MexaPlan) → begin_audit + submit_review',
@@ -462,6 +506,11 @@ export default defineTool({
       return jsonBlock('Pro-Fetch workflow — tanishuv', {
         intro: INTRO,
         next_action: 'start',
+        // The onboarding answer carries the installable instruction plus the honest boundary, so a
+        // connecting agent learns what Pro-Fetch is and what it cannot promise in one call.
+        host_instruction: HOST_INSTRUCTION,
+        enforced: ENFORCED,
+        not_guaranteed: NOT_GUARANTEED,
         ...(detail === 'full' ? { phases: PHASES } : {}),
       });
     }

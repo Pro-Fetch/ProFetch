@@ -10,7 +10,7 @@ catalog in a single round trip.
 [![npm](https://img.shields.io/npm/v/pro-fetch-mcp?label=npm&logo=npm)](https://www.npmjs.com/package/pro-fetch-mcp)
 [![node](https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js)](https://nodejs.org)
 [![license](https://img.shields.io/npm/l/pro-fetch-mcp?color=blue)](./LICENSE)
-[![tests](https://img.shields.io/badge/tests-1219%20passing-success?logo=vitest)](./)
+[![tests](https://img.shields.io/badge/tests-1223%20passing-success?logo=vitest)](./)
 
 </div>
 
@@ -69,6 +69,12 @@ Zero config, stdio transport. Works with Claude Desktop, Cursor, Qwen, VS Code, 
 ```
 
 Ready-to-copy config: [`mcp.example.json`](./mcp.example.json)
+
+**Making an agent actually use the workflow:** [`adapters/`](./adapters/README.md) carries the
+instruction block for Claude Code, Codex, Gemini CLI, Copilot CLI and generic MCP clients — generated
+from the same text `pro_fetch_workflow {action:"introduce"}` serves, and a test fails if the two drift.
+The server cannot steer a host's reasoning (§15.4), so this is the honest half of the story: the gates
+hold for every call that goes through the workflow, and nothing is marked complete without evidence.
 
 ---
 
@@ -306,7 +312,7 @@ Each step answers a different question:
 |---|---|
 | `verify:static` | Structural invariants must not regress: the tool count in `package.json` and in the READMEs, the smart profile's required meta-tools, the intent-search synonym vocabulary, no template dispatcher in the MAX packs, OSV batch bounds, knowledge content size, Windows `npm-cli.js` resolution, image-byte validation before OCR |
 | `verify:registry` | Boots the real registry: **673 tools / 42 categories / all four profile counts**, every tool has a schema and a handler, and the published counts in both READMEs still match |
-| `test` | **1219 tests** across 68 files - SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
+| `test` | **1223 tests** across 69 files - SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
 | `verify:package` | The published tarball has its shebang and `files` allowlist, and **zero credentials or source files** |
 | `audit:schema` *(on demand)* | Schemas against their code — 0 dead properties, 0 unread required |
 
