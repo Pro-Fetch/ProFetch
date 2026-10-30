@@ -10,6 +10,7 @@ import '../src/loader.js';
 import { callTool } from '../src/router.js';
 import { isDatasetId, parseReference, soqlIdentifier } from '../src/tools/opendata/_opendata.js';
 import type { ToolResult } from '../src/core/types.js';
+import { hostReachable } from './helpers/liveGate.js';
 
 function payload(result: ToolResult): Record<string, never> {
   const text = (result.content ?? [])
@@ -59,6 +60,15 @@ async function liveTool(name: string, input: Record<string, unknown>, attempts =
       `Oxirgi javob: ${JSON.stringify(lastData).slice(0, 300)}. Bu mahsulot nuqsoni emas - portal javob bermadi.`,
   );
 }
+
+/**
+ * One probe decides whether the live blocks below can mean anything this run. The portal answering
+ * with a 404 or an HTML page is a product question and still fails; not reaching it at all is a
+ * network fact, and reporting that as a test failure is what made the build lie about itself.
+ */
+const portalReachable = await hostReachable('https://api.us.socrata.com/api/catalog/v1?limit=1&q=traffic');
+if (!portalReachable)
+  console.warn('LIVE SKIPPED: Socrata catalog endpointga yetib borilmadi (tarmoq), mahsulot xatosi emas.');
 
 describe('dataset references', () => {
   it('accepts an id, a permalink and a SODA URL alike', () => {
@@ -132,7 +142,7 @@ describe('SoQL identifiers', () => {
   });
 });
 
-describe('live: catalog search', () => {
+describe.skipIf(!portalReachable)('live: catalog search', () => {
   it('returns datasets with a domain and an id', async () => {
     const result = await liveTool('pro_opendata_search', { query: 'traffic accident', limit: 5 });
     const data = payload(result);
@@ -164,7 +174,7 @@ describe('live: catalog search', () => {
   });
 });
 
-describe('live: resolving an id to a domain', () => {
+describe.skipIf(!portalReachable)('live: resolving an id to a domain', () => {
   it('finds the dataset from a bare id', async () => {
     // `?q=<id>` returns nothing - measured on four URL variations - so this depends entirely on the
     // `?ids=` parameter. If that ever stops working, this test is the one that says so.
@@ -189,7 +199,7 @@ describe('live: resolving an id to a domain', () => {
   });
 });
 
-describe('live: rows through SODA', () => {
+describe.skipIf(!portalReachable)('live: rows through SODA', () => {
   it('returns rows and the fields present', async () => {
     const data = payload(await liveTool('pro_opendata_rows', { dataset: '8wbx-tsch', limit: 3 }));
     expect(data.count).toBe(3);
@@ -243,7 +253,7 @@ describe('live: rows through SODA', () => {
   });
 });
 
-describe('live: aggregates', () => {
+describe.skipIf(!portalReachable)('live: aggregates', () => {
   it('returns the row total as a number', async () => {
     // SoQL returns every aggregate as a string, `{"count":"104900"}` included.
     const data = payload(await liveTool('pro_opendata_count', { dataset: '8wbx-tsch' }));
@@ -272,7 +282,7 @@ describe('live: aggregates', () => {
   });
 });
 
-describe('live: column profiling', () => {
+describe.skipIf(!portalReachable)('live: column profiling', () => {
   it('lists columns without querying when asked to', async () => {
     const data = payload(await liveTool('pro_opendata_columns', { dataset: '8wbx-tsch', only_list: true, limit: 4 }));
     expect(data.columns).toHaveLength(4);

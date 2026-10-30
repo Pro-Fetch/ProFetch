@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import '../src/loader.js';
 import { dispatch } from '../src/core/tool.js';
 import { daysUntil, hostMatchesPattern, probeTls, sanDnsNames } from '../src/core/tls-probe.js';
+import { isConnectivityFailure } from './helpers/liveGate.js';
 
 const text = (result: { content?: Array<{ type: string; text?: string }> }) =>
   (result.content ?? []).map((item) => item.text ?? '').join(' ');
@@ -64,7 +65,7 @@ describe('tls probe against a real host', () => {
     // A live handshake needs the network and someone else's DNS; this suite must not become a
     // connectivity monitor. When the host cannot be reached at all the case is skipped by name, and
     // the pure rules above stay strict either way.
-    if (!facts.ok && /ENOTFOUND|EAI_|timed out|ECONNREFUSED|ETIMEDOUT/.test(facts.error ?? '')) {
+    if (!facts.ok && isConnectivityFailure(facts.error ?? '')) {
       context.skip();
       return;
     }
@@ -83,7 +84,7 @@ describe('tls probe against a real host', () => {
   it('reports the certificate facts through the tool, not only in the module', async (context) => {
     const res = await dispatch('pro_fetch_security_tls_audit', { url: 'https://example.com/' });
     const body = text(res);
-    if (/DNS host manziliga resolve bo/.test(body)) {
+    if (isConnectivityFailure(body)) {
       context.skip();
       return;
     }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import '../src/loader.js';
 import { dispatch } from '../src/core/tool.js';
 import type { ToolResult } from '../src/core/types.js';
+import { hostReachable } from './helpers/liveGate.js';
 
 const text = (r: ToolResult): string =>
   (r.content ?? [])
@@ -16,7 +17,12 @@ const text = (r: ToolResult): string =>
  * redirect loop that reported a hop count, and a missing identifier that reported a 404. Both now
  * say what actually happened.
  */
-describe('redirect loops name the loop', () => {
+// Reachability is probed once per host. A 403 from GitHub, or a portal that answers with HTML, is
+// the product behaviour these tests exist to pin; not reaching the host at all is not.
+const githubReachable = await hostReachable('https://api.github.com/zen');
+const webReachable = await hostReachable('https://example.com/');
+
+describe.skipIf(!webReachable)('redirect loops name the loop', () => {
   it('reports bot protection instead of a hop count, then falls back honestly', async () => {
     // remoteok.com answers an unknown user-agent with `302 /` from `/` itself, forever. The old
     // message — `HTTP redirect limit exceeded (5)` — sent the caller counting redirects. There is a
@@ -38,7 +44,7 @@ describe('redirect loops name the loop', () => {
   }, 30_000);
 });
 
-describe('a repository without `main` still downloads', () => {
+describe.skipIf(!githubReachable)('a repository without `main` still downloads', () => {
   it('falls back to `master` when no ref was requested', async () => {
     // octocat/Hello-World defaults to `master`. Asking for `main` only used to fail it with a 404
     // that read as "repository not found".
