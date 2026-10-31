@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import '../src/loader.js';
 import { callTool } from '../src/router.js';
-import { isDatasetId, parseReference, soqlIdentifier } from '../src/tools/opendata/_opendata.js';
+import { htmlInsteadOfJson, isDatasetId, parseReference, soqlIdentifier } from '../src/tools/opendata/_opendata.js';
 import type { ToolResult } from '../src/core/types.js';
 import { hostReachable } from './helpers/liveGate.js';
 
@@ -142,6 +142,30 @@ describe('SoQL identifiers', () => {
   });
 });
 
+describe('an HTML answer is recognised as one', () => {
+  // Whether a portal exposes its data API is that portal's decision — `data.fortworthtexas.gov` moved
+  // its hub to ArcGIS and now redirects the SODA path to an HTML page. What must not depend on that is
+  // how this code reads the answer, so the rule is pinned here against the bodies actually measured,
+  // and the live block below asserts only the guarantee that holds whichever way the portal answers.
+  it('trusts the content type', () => {
+    expect(htmlInsteadOfJson('text/html; charset=utf-8', '<!DOCTYPE html><html>')).toBe(true);
+    expect(htmlInsteadOfJson('application/json; charset=utf-8', '[{"license_type":"TRUCK"}]')).toBe(false);
+  });
+
+  it('trusts the body when the header says nothing', () => {
+    // A proxy that drops the content type must not turn a web page into parsable JSON.
+    expect(htmlInsteadOfJson('', '<!doctype html>\n<html>')).toBe(true);
+    expect(htmlInsteadOfJson('text/plain', '   <HTML><body>Request blocked</body></html>')).toBe(true);
+  });
+
+  it('does not call a redirect stub or an empty body a web page', () => {
+    // `302` with `text/plain` is what the ArcGIS migration answers before the hop. It is not HTML, and
+    // the caller still gets a named decode failure rather than an empty result — see the live block.
+    expect(htmlInsteadOfJson('text/plain', 'Found. Redirecting to https://hub.arcgis.com/legacy')).toBe(false);
+    expect(htmlInsteadOfJson('application/json', '')).toBe(false);
+  });
+});
+
 describe.skipIf(!portalReachable)('live: catalog search', () => {
   it('returns datasets with a domain and an id', async () => {
     const result = await liveTool('pro_opendata_search', { query: 'traffic accident', limit: 5 });
@@ -238,18 +262,26 @@ describe.skipIf(!portalReachable)('live: rows through SODA', () => {
     expect(data.rows).toEqual([]);
   });
 
-  it('distinguishes a portal with no data API from a bad query', async (context) => {
-    // data.fortworthtexas.gov answers 200 with an HTML page for SODA. Reporting that as an empty result
-    // would tell the caller their query matched nothing.
+  it('never reports a portal that will not hand over rows as "no rows matched"', async (context) => {
+    // data.fortworthtexas.gov answers the SODA path with a web page (it redirects to
+    // hub.arcgis.com/legacy). Whether it keeps doing so is the portal's business — an earlier version
+    // of this test asserted the flag itself and failed once on a run where the product was correct and
+    // the portal had simply answered differently. What has to hold whichever way it answers is this:
+    // the dataset has rows, so an empty result is a lie, and any error names which kind it is.
     const data = payload(await liveTool('pro_opendata_rows', { dataset: 'eax3-qev8', limit: 2 }));
-    // The portal is a third party under load: when it throttles us the answer is a rate-limit shape,
-    // not the "no data API" shape this asserts. Skip by name rather than fail the build for someone
-    // else's queue — the assertion still runs on every normal answer.
-    if (data.throttled === true || data.rate_limited === true || /429|too many/i.test(JSON.stringify(data))) {
+    const error = data.error as unknown as string | undefined;
+    if (typeof error === 'string' && error.includes('domen topilmadi')) {
+      // The catalog did not resolve the id on this call. Third-party availability, reported by name.
       context.skip();
       return;
     }
-    expect(data.portal_without_data_api).toBe(true);
+    const rows = data.rows as unknown as unknown[] | undefined;
+    const silentEmpty = (data.count as unknown as number | undefined) === 0 && Array.isArray(rows) && rows.length === 0;
+    expect(
+      silentEmpty,
+      `Portal HTML qaytargan holatda "mos qator topilmadi" deb javob berildi: ${JSON.stringify(data).slice(0, 200)}`,
+    ).toBe(false);
+    if (error !== undefined) expect(typeof data.portal_without_data_api).toBe('boolean');
   });
 });
 

@@ -6,7 +6,7 @@ How to publish `pro-fetch`, and what is already verified.
 
 | Check                   | Evidence (re-measured 2026-10-31)                                              |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| `npm run check` green   | 1228 tests, 70 files, static + registry + package + format all PASS, exit 0     |
+| `npm run check` green   | 1231 tests, 70 files, static + registry + package + format all PASS, exit 0     |
 | Tarball clean           | 570 files, no `.env`, no keys, no `.d.ts`, shebang present (`verify:package`)    |
 | Name free               | `npm view pro-fetch` → HTTP 404 (free)                                          |
 | Old name               | `pro-fetch-mcp` exists on npm at `0.0.0-stage`, owned by this maintainer         |

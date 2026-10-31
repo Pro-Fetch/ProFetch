@@ -123,6 +123,19 @@ export function parseReference(input: string): DatasetRef | { error: string } {
 
 type Fetcher = <T>(url: string, label: string, timeoutMs?: number) => Promise<Fetched<T>>;
 
+/**
+ * Did the portal answer with a web page instead of data?
+ *
+ * Socrata portals that have their data API switched off still serve the dataset: the SODA path answers
+ * `200` with the human HTML app, or `302`s to another host's HTML page. Either way a caller that is
+ * told "0 rows matched" is being lied about — the dataset has rows, the portal just will not hand them
+ * over. This is that one decision, kept apart from the fetch so it can be checked against the shapes
+ * actually observed without depending on a third party keeping its configuration.
+ */
+export function htmlInsteadOfJson(contentType: string, text: string): boolean {
+  return contentType.includes('html') || /^\s*<(!doctype|html)/i.test(text);
+}
+
 export type Fetched<T> =
   { ok: true; value: T; status: number } | { ok: false; message: string; status: number; html: boolean };
 
@@ -143,7 +156,7 @@ async function request<T>(url: string, label: string, timeoutMs = 30_000): Promi
   }
 
   const contentType = response.contentType ?? '';
-  const looksHtml = contentType.includes('html') || /^\s*<(!doctype|html)/i.test(response.text);
+  const looksHtml = htmlInsteadOfJson(contentType, response.text);
 
   if (response.status >= 400) {
     // The provider's own message names the bad column or the malformed clause, which is worth more
