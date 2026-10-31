@@ -1,15 +1,15 @@
 # Release
 
-How to publish `pro-fetch-mcp`, and what is already verified.
+How to publish `pro-fetch`, and what is already verified.
 
 ## Preconditions (all verified)
 
-| Check | Evidence |
-|---|---|
-| `npm run check` green | 237 tests, 14 files, 4 verifications, format clean |
-| Tarball clean | 444 files, no `.env`, no keys, no `.d.ts`, shebang present (`verify:package`) |
-| Name free | `npm view pro-fetch-mcp` → 404 |
-| `npm publish --dry-run` | PASS (runs `prepublishOnly` → full `npm run check` first) |
+| Check                   | Evidence                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `npm run check` green   | 237 tests, 14 files, 4 verifications, format clean                            |
+| Tarball clean           | 444 files, no `.env`, no keys, no `.d.ts`, shebang present (`verify:package`) |
+| Name free               | `npm view pro-fetch` → 404                                                    |
+| `npm publish --dry-run` | PASS (runs `prepublishOnly` → full `npm run check` first)                     |
 
 ## Publish (requires the maintainer's npm account)
 
@@ -25,8 +25,8 @@ it publishes public by default; no `publishConfig` is needed.
 ## After publishing
 
 ```bash
-npm view pro-fetch-mcp version
-npx -y pro-fetch-mcp --help   # bin entry: dist/server.js
+npm view pro-fetch version
+npx -y pro-fetch --help   # bin entry: dist/server.js
 ```
 
 ## What this does not do

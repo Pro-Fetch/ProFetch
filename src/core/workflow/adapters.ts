@@ -38,7 +38,7 @@ const CONFIG = [
   '  "mcpServers": {',
   '    "pro-fetch": {',
   '      "command": "npx",',
-  '      "args": ["-y", "pro-fetch-mcp"],',
+  '      "args": ["-y", "pro-fetch"],',
   '      "env": { "PRO_FETCH_PROFILE": "smart" }',
   '    }',
   '  }',

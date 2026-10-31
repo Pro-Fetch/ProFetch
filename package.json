@@ -1,5 +1,5 @@
 {
-  "name": "pro-fetch-mcp",
+  "name": "pro-fetch",
   "version": "0.3.0",
   "description": "Professional fetch, deep-research va GitHub MCP serveri - 673 MCP tool, shared domain handlers, tool-pack profillari",
   "type": "module",
@@ -28,7 +28,7 @@
     "node": ">=22.13.0"
   },
   "bin": {
-    "pro-fetch-mcp": "dist/server.js"
+    "pro-fetch": "dist/server.js"
   },
   "files": [
     "dist/**/*.js",

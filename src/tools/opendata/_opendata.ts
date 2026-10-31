@@ -32,11 +32,12 @@ import { fetchWithOptions } from '../../core/http-client.js';
 import { parseUpstreamJson, tryParseUpstreamJson } from '../../core/json-response.js';
 import type { ToolResult } from '../../core/types.js';
 import { jsonBlock } from '../../core/format.js';
+import { PACKAGE_NAME } from '../../core/version.js';
 
 /** The global catalog. Reachable without a credential; measured 200 with results. */
 export const CATALOG = 'https://api.us.socrata.com/api/catalog/v1';
 
-export const USER_AGENT = process.env.PRO_FETCH_USER_AGENT ?? 'pro-fetch-mcp (MCP server; open data tooling)';
+export const USER_AGENT = process.env.PRO_FETCH_USER_AGENT ?? `${PACKAGE_NAME} (MCP server; open data tooling)`;
 
 export interface DatasetRef {
   id: string;

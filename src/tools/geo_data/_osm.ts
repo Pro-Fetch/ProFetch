@@ -1,4 +1,5 @@
 import { fetchWithOptions } from '../../core/http-client.js';
+import { PACKAGE_NAME, VERSION } from '../../core/version.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
 
 /**
@@ -24,8 +25,14 @@ const OVERPASS_MIRRORS = [
   'https://overpass.osm.ch/api/interpreter',
 ] as const;
 
+/**
+ * Overpass asks callers to identify themselves and to be reachable. The previous default named a
+ * package that is not this one (`github.com/mtth/avsc` — a copy-paste artifact) and hard-coded a
+ * version that went stale the moment `package.json` moved on. Both now come from the manifest, and
+ * the contact link points at the package page, which does not move when the repository does.
+ */
 export const USER_AGENT =
-  process.env.PRO_FETCH_USER_AGENT ?? 'pro-fetch-mcp/0.3 (MCP tool; https://github.com/mtth/avsc)';
+  process.env.PRO_FETCH_USER_AGENT ?? `${PACKAGE_NAME}/${VERSION} (MCP tool; https://www.npmjs.com/package/pro-fetch)`;
 
 /** A fetch that carries the identifying agent and returns the parsed JSON body. */
 export async function getJson(

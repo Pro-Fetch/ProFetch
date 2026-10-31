@@ -5,6 +5,21 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
+### Changed
+
+- **Paket nomi: `pro-fetch-mcp` → `pro-fetch`.** Repozitoriý `Pro-Fetch` nomi bilan `Pro-Fetch`
+  organizatsiyasiga o'tkazilmoqda, npm sahifasi ham shu nomni izlaydi (`pro-fetch` registry'da
+  bo'sh; `pro-fetch-mcp` band). `package.json` `name` va `bin`, `mcp.example.json`, besh ta host
+  adapteri va `docs/RELEASE.md` shu nomga yangilandi.
+- **Nom va User-Agent endi bitta manbadan.** `src/core/version.ts` oldin `pro-fetch-mcp`ni ikki
+  joyda qattiq yozgan edi: versiya qo'rqinchli `unknown`ga tushmasligi uchun nom tekshiruvida va
+  User-Agent satrida. Endi `PACKAGE_NAME`, `VERSION` va `USER_AGENT` uchala `package.json`dan
+  o'qiladi — nomni o'zgartirish bir qatorlik ish, tuzoq emas.
+- **Overpass User-Agenti to'g'irlandi.** `_osm.ts` eski defaultda **begona** loyiha manzilini
+  (`github.com/mtth/avsc`) va qo'lda yozilgan `0.3` versiyasini yuborardi; Overpass o'zini taniyi
+  deb so'raydigan sarlavha yolg'on edi. Endi nom+versiya manifestdan, aloqa havolasi esa npm
+  sahifasidan olinadi. Shuningdek `PGAPPNAME` va opendata User-Agenti yangi nomga o'tdi.
+
 ### Security
 
 Ushbu audit qator xavf/nuqsonni o'lchab, sinov bilan tasdiqlab yopdi (suite: 52 fayl / 999 test):

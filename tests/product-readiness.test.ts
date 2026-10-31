@@ -9,7 +9,7 @@ import { assertToolAllowed } from '../src/core/security-policy.js';
 import { currentProfile, isToolVisibleInProfile, profileEnforced } from '../src/core/profile.js';
 import { getCredential } from '../src/core/credentials.js';
 import { boundedEnv } from '../src/core/bounded-env.js';
-import { VERSION, USER_AGENT } from '../src/core/version.js';
+import { PACKAGE_NAME, VERSION, USER_AGENT } from '../src/core/version.js';
 import { asRecordArray, pathStr, pathNum, view } from '../src/core/input.js';
 import type { ToolDefinition } from '../src/core/types.js';
 
@@ -234,7 +234,9 @@ describe('credentials', () => {
 describe('version single source', () => {
   it('reads the version from package.json instead of a hard-coded literal', () => {
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+/);
-    expect(USER_AGENT).toBe(`pro-fetch-mcp/${VERSION}`);
+    // The name and the User-Agent both come from package.json, so a rename cannot leave one stale.
+    expect(PACKAGE_NAME).toBe('pro-fetch');
+    expect(USER_AGENT).toBe(`${PACKAGE_NAME}/${VERSION}`);
   });
 });
 

@@ -1454,7 +1454,7 @@ async function runDatabase(provider: string, action: string, i: Record<string, u
       PGPASSWORD: password || undefined,
       PGDATABASE: database || undefined,
       PGSSLMODE: parsed.searchParams.get('sslmode') || undefined,
-      PGAPPNAME: 'pro-fetch-mcp',
+      PGAPPNAME: 'pro-fetch',
     };
     const q =
       action === 'ping'
