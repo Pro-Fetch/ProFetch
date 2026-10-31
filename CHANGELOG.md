@@ -5,12 +5,55 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-31
+
+Birinchi barqaror release: nom, kontrakt va tekshirilganlik darajasi o'zgarmas deb e'lon qilinadi.
+
+### Added
+
+- **Bigfoot — majburiy ish oqimi.** `pro_fetch_workflow` bitta holatli lifecycle: plan → blind audit →
+  risk dispositions → writes uchun tasdiq → execute → verify → final audit → finish. Rejalashtirilgan
+  talabdan tashqaridagi vazifa, ro'yxatga olingan-lekin yo'nalishsiz qolgan xavf, da'voga nisbatan
+  kuchsiz tekshiruv va dalilsiz "bajarildi" endi rad etiladi; har rad etish sanaladi va hisobda chiqadi.
+  Xavf darajasi registry'dan hisoblanadi — qo'ng'iroqchi o'zi e'lon qilgan `writes`dan emas.
+- **Host adapterlari.** `adapters/` ichida Claude Code, Codex, Gemini CLI, Copilot CLI va umumiy MCP
+  uchun yo'riqnoma bloki — `introduce` action'i beradigan matndan generatsiya qilinadi va diskdagi
+  fayl bilan shu matn farq qilsa test yiqiladi. `introduce` endi `host_instruction`, `enforced` va
+  `not_guaranteed`ni alohida beradi: server hostning fikrini boshqara olmaydi (§15.4), shuning uchun
+  chegara yashirilmay, yozib qo'yiladi.
+- **Belgilangan korpus va o'lchanadigan sifat.** `tests/fixtures/bigfootCorpus.ts` — 11 nuqsonli reja,
+  4 toza reja, 5 "bajarildi" da'vosi. Natija: recall 1.00, precision 1.00, fake_completion_rate 0.00.
+  Korpus yozilganida birinchi haqiqiy bo'shliq topildi: `covers` bo'sh vazifa darvozadan o'tib
+  ketayotgan edi — endi `task_out_of_scope` bilan rad etiladi.
+- **Jonli tarmoq uchun nomli skip.** `tests/helpers/liveGate.ts` Node `fetch failed` cause zanjirini
+  o'qiydi: tarmoq yo'q bo'lsa test nom bilan `skip` bo'ladi, 403/500/HTML/noto'g'ri kalit bo'lsa
+  baribir FAIL bo'ladi. Tarmoq holati mahsulot xatosi sifatida yozilmaydi, aksincha ham.
+- **README category guard.** `verify:static` endi 42 kategoriyaning har birini manifestdagi soni bilan
+  README'da topishini talab qiladi. Eski jadval ikki tomonga chetlashgan edi: sarlavha "42 kategoriya"
+  deb, jadval 25 tasini sanar, `admin`ni esa 24 deb yozgandi.
+- **`smart` profili uchun to'liq ro'yxat guardi.** `pro_fetch_workflow` va `pro_synthesize` majburiy
+  12 tasiga qo'shildi — avval 10 tasi tekshirilardi, ya'ni profil ikkitasini tashlab yuborsa guard
+  jim qolardi.
+
+### Fixed
+
+- **Jonli test uchinchi toanning sozlamasini bizning xulq deb o'qiyotgandi.**
+  `tests/opendata-socrata.test.ts` Fort Worth portalining `portal_without_data_api: true` qaytarishini
+  talab qilardi; portal ArcGIS'ga ko'chgan (`/resource/…json` endi `hub.arcgis.com/legacy`ga 302
+  beradi) va CI bir kuni MAHSULOT to'g'ri turganda qizil bo'ldi. HTML qarori `htmlInsteadOfJson()` deb
+  alohida funksiya qilib, uchta tarmoqsiz test bilan bog'landi; jonli test endi istalgan javobda
+  o'rinli bo'lgan kafolatni tekshiradi: qatori bor dataset "0 ta topilmadi" deb yozilmasligi kerak.
+  Mutation bilan tasdiqlangan — funksiyani `false` qilsangiz ikki test darhol yiqiladi.
+
 ### Changed
 
-- **Paket nomi: `pro-fetch-mcp` → `pro-fetch`.** Repozitoriý `Pro-Fetch` nomi bilan `Pro-Fetch`
-  organizatsiyasiga o'tkazilmoqda, npm sahifasi ham shu nomni izlaydi (`pro-fetch` registry'da
-  bo'sh; `pro-fetch-mcp` band). `package.json` `name` va `bin`, `mcp.example.json`, besh ta host
-  adapteri va `docs/RELEASE.md` shu nomga yangilandi.
+- **Repozitoriý `Pro-Fetch` organizatsiyasiga ko'chirildi**, butun tarix (177 commit) `pro-fetch`
+  muallifi bilan qayta yozildi. `package.json` `repository`/`homepage`/`bugs` yangi manzilda.
+- **README 0-dan yozildi.** Markazlashgan hero, emoji sarlavhalar va "nega zo'r" bo'limlari o'rniga:
+  ish → javob beradigan tool jadvali, profil/ruhsat/javob boshqaruvining o'zi va o'lchangan raqamlar.
+- **Paket nomi: `pro-fetch-mcp` → `pro-fetch`.** Repozitoriý `Pro-Fetch` organizatsiyasiga o'tkazildi
+  va npm sahifasi shu nomni oladi (`pro-fetch` registry'da bo'sh; `pro-fetch-mcp` band). `package.json`
+  `name` va `bin`, `mcp.example.json`, besh ta host adapteri va `docs/RELEASE.md` shu nomda.
 - **Nom va User-Agent endi bitta manbadan.** `src/core/version.ts` oldin `pro-fetch-mcp`ni ikki
   joyda qattiq yozgan edi: versiya qo'rqinchli `unknown`ga tushmasligi uchun nom tekshiruvida va
   User-Agent satrida. Endi `PACKAGE_NAME`, `VERSION` va `USER_AGENT` uchala `package.json`dan

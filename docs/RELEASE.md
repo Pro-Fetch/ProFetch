@@ -6,6 +6,7 @@ How to publish `pro-fetch`, and what is already verified.
 
 | Check                   | Evidence (re-measured 2026-10-31)                                              |
 | ----------------------- | ------------------------------------------------------------------------------- |
+| Version cut             | `1.0.0` in `package.json` and the lockfile, `CHANGELOG.md` has a `[1.0.0]` section |
 | `npm run check` green   | 1231 tests, 70 files, static + registry + package + format all PASS, exit 0     |
 | Tarball clean           | 570 files, no `.env`, no keys, no `.d.ts`, shebang present (`verify:package`)    |
 | Name free               | `npm view pro-fetch` → HTTP 404 (free)                                          |
@@ -39,8 +40,7 @@ npm deprecate pro-fetch-mcp "renamed: use pro-fetch"
 
 ## What this does not do
 
-- No version bump is included. Bump `version` in `package.json` and add a `CHANGELOG.md` entry first
-  when the next release is cut.
-- No GitHub release is created. `origin` is configured and `main` is pushed; tagging and a GitHub
-  Release are separate steps the maintainer runs.
+- No publish. `npm login` is the maintainer's own account operation, and nothing here touches it.
+- No GitHub Release. `origin` points at `Pro-Fetch/Pro-Fetch`, `main` is pushed and `v1.0.0` is tagged;
+  publishing release notes is a separate step in the web UI.
 - No provenance attestation (`--provenance` needs CI OIDC; the workflow does not configure it).
