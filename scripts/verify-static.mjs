@@ -129,6 +129,17 @@ try {
     else if (found[1] !== String(expected))
       failures.push(`docs/ARCHITECTURE.md ${what}: states ${found[1]}, manifest says ${expected}`);
   }
+  // The README lists every category with its count. That list had drifted in two directions at once:
+  // it named 25 of 42 categories under a heading claiming all of them, and printed `admin 24` where the
+  // registry says 25. Nothing compared the table to the manifest, so the prose stayed confident while
+  // the numbers were wrong. A missing row fails, which means deleting the table is not an escape.
+  for (const [category, count] of Object.entries(countManifest.categories ?? {})) {
+    const row = new RegExp('`' + category + '`\\s+(\\d+)');
+    const found = row.exec(readme);
+    if (!found) failures.push(`README does not list the '${category}' category at all`);
+    else if (found[1] !== String(count))
+      failures.push(`README category '${category}': states ${found[1]}, manifest says ${count}`);
+  }
   // The smart-profile tool list now lives in `src/core/profile.ts`; `loader.ts` re-exports it.
   // The Smart System contract: the profile must expose the batch executor, the intent mapper and
   // the single-tool escape hatch, so a client that caps its tool budget still reaches everything.
@@ -143,6 +154,8 @@ try {
     'pro_pr_review',
     'pro_site_scan',
     'pro_data_pipeline',
+    'pro_fetch_workflow',
+    'pro_synthesize',
   ]) {
     if (!profileModule.includes(`'${required}'`)) failures.push(`smart profile is missing ${required}`);
   }
