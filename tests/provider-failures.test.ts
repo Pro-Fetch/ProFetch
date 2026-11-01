@@ -22,24 +22,27 @@ const text = (r: ToolResult): string =>
 const githubReachable = await hostReachable('https://api.github.com/zen');
 const webReachable = await hostReachable('https://example.com/');
 
-describe.skipIf(!webReachable)('redirect loops name the loop', () => {
-  it('reports bot protection instead of a hop count, then falls back honestly', async () => {
-    // remoteok.com answers an unknown user-agent with `302 /` from `/` itself, forever. The old
-    // message — `HTTP redirect limit exceeded (5)` — sent the caller counting redirects. There is a
-    // second provider now, so the answer must still name the loop and say which provider served it.
+describe.skipIf(!webReachable)('a provider switch is always explained', () => {
+  it('names the provider that answered and never reduces a block to a hop count', async () => {
+    // remoteok.com answered an unknown client with `302 /` from `/` itself for a long time, and the
+    // old message — `HTTP redirect limit exceeded (5)` — sent the caller counting redirects. It now
+    // answers with JSON that carries no `position` rows for a tag query, which is a different reason
+    // to fall back and a different reason to report. Either way the answer names its source.
     const result = await dispatch('pro_fetch_jobs_search', { query: 'nodejs', limit: 3 });
     // A successful tool result leaves `isError` undefined, not false.
     expect(result.isError, text(result)).not.toBe(true);
     const body = text(result);
-    // Which provider answers depends on whether Remote OK is blocking right now, so the contract is
-    // asserted, not today's network: the data came from one of the two, and if it came from the second
-    // one the reason says it was a redirect loop at remoteok.com, never a hop count.
+    // Which provider answers depends on what Remote OK is doing right now — it has answered this query
+    // with a `302` loop and with an empty listing, and both are legitimate reasons to fall back. The
+    // contract is therefore about the *shape* of the answer, not about today's upstream mood: name the
+    // provider that served it, and if a switch happened, say where from and why. What must never
+    // appear again is the hop count that used to stand in for an explanation.
     expect(body).toMatch(/"provider": "(Remote OK|Remotive)"/);
     expect(body).not.toMatch(/limit exceeded/);
     if (body.includes('"provider": "Remotive"')) {
-      expect(body).toMatch(/redirect loop/i);
-      expect(body).toMatch(/remoteok\.com/);
       expect(body).toContain('"fallback_from": "Remote OK"');
+      expect(body).toMatch(/"fallback_reason": ".*Remote OK/);
+      expect(body).toMatch(/remoteok|Remote OK/);
     }
   }, 30_000);
 });
