@@ -140,6 +140,34 @@ async function createSession(id: string, url?: string, input: Input = {}, persis
   }
 }
 
+/**
+ * One guarded page for callers that need a single rendered read and then want the browser gone.
+ *
+ * `pro_fetch_spa_render` used to launch its own bare `chromium.launch()` and navigate straight to the
+ * caller's URL: no `assertSafeUrl`, no pinned proxy, no navigation check. Every other path in this
+ * file routes through `createSession`, which validates the first navigation, refuses private and
+ * internal hosts, and serves every sub-resource from this process over a connection pinned to the
+ * address that was just validated. A second, unguarded launch point meant one tool could reach
+ * `http://169.254.169.254/` while the browser category could not — the guard is only as strong as the
+ * widest door.
+ *
+ * This reuses the session machinery rather than copying it, so a future change to the policy applies
+ * here automatically. The session is ephemeral (`persist: false`) and always torn down.
+ */
+export async function withGuardedPage<T>(url: string, input: Input, fn: (page: Page) => Promise<T>): Promise<T> {
+  // Validate before spawning: a URL that policy will refuse must not cost the caller a browser
+  // process, and `createSession` only checks the address after launching.
+  await assertSafeUrl(url);
+  const id = 'guarded-' + randomUUID();
+  const session = await createSession(id, url, input, false);
+  try {
+    return await fn(session.page);
+  } finally {
+    sessions.delete(id);
+    await session.browser.close().catch(() => {});
+  }
+}
+
 async function persistState(session: Session): Promise<void> {
   if (!session.persist) return;
   try {

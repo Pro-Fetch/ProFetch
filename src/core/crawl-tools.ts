@@ -1,7 +1,8 @@
 import { load } from 'cheerio';
 import { cache } from './cache.js';
 import { fetchWithOptions } from './http-client.js';
-import { assertSafeUrl } from './ssrf-guard.js';
+import { assertSafeUrl, UrlSecurityError } from './ssrf-guard.js';
+import { withGuardedPage } from './browser-tools.js';
 import { compileSafeRegex } from './safe-regex.js';
 import { result, fail } from './format.js';
 import type { ToolResult } from './types.js';
@@ -483,20 +484,19 @@ export async function runCrawlTool(toolName: string, input: Input): Promise<Tool
     if (!url) return result('url parametri kerak.');
     if (name === 'spa_render') {
       try {
-        const { chromium } = await import('playwright');
-        const browser = await chromium.launch({ headless: true });
-        try {
-          const page = await browser.newPage();
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: Number(input.timeout_ms ?? 20000) });
-          return result((await page.locator('body').innerText()).slice(0, 20000));
-        } finally {
-          await browser.close();
-        }
-      } catch (error) {
-        throw new Error(
-          "SPA render uchun Playwright o'rnatilganini tekshiring: " +
-            (error instanceof Error ? error.message : String(error)),
+        return await withGuardedPage(url, input, async (page) =>
+          result((await page.locator('body').innerText()).slice(0, 20000)),
         );
+      } catch (error) {
+        // A refused URL is a policy decision, not a missing dependency. Wrapping it in "check that
+        // Playwright is installed" would send the caller off to fix something that is not broken, and
+        // would bury the one message in this path that says a private address was blocked.
+        if (error instanceof UrlSecurityError) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (/Cannot find (?:package|module)|ERR_MODULE_NOT_FOUND|playwright/i.test(message)) {
+          throw new Error("SPA render uchun Playwright o'rnatilganini tekshiring: " + message);
+        }
+        throw error;
       }
     }
     return crawlSite(input);
