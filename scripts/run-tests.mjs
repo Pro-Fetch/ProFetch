@@ -128,6 +128,16 @@ function syncReadmeBadges(reportedFiles, reportedTests) {
       replacement: (_whole, a, _t, b, _f, c) => `${a}${reportedTests}${b}${reportedFiles}${c}`,
       what: 'jadval',
     },
+    {
+      file: 'docs/ARCHITECTURE.md',
+      // The pipeline line: ``test` (999)`. ARCHITECTURE.md is guarded against drift by
+      // `verify:static`, which is how this was caught — but a guard that only reports the drift
+      // leaves every test-adding session to fix the prose by hand, and the fix is the same
+      // mechanical substitution the README already gets.
+      pattern: /(`test` \()(\d+)(\))/,
+      replacement: (_whole, a, _old, b) => `${a}${reportedTests}${b}`,
+      what: 'arkitektura',
+    },
   ];
 
   const byFile = new Map();

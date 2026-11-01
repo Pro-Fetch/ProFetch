@@ -64,8 +64,8 @@
     "pro_data_pipeline",
     "pro_synthesize"
   ],
-  "testFiles": 71,
-  "testCount": 1237,
+  "testFiles": 76,
+  "testCount": 1348,
   "coverageComposites": {
     "pro_workspace_ops": {
       "categories": [
