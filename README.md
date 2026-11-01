@@ -26,7 +26,7 @@
 <p align="center">
   <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4"><img alt="The pro-fetch film: 673 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
   <br>
-  <b>Two minutes, scored, no voiceover</b> — <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4">watch the film</a>.
+  <b>Two minutes, silent, no voiceover</b> — <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4">watch the film</a>.
 </p>
 
 ---
