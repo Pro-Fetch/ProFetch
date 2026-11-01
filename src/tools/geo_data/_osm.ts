@@ -1,5 +1,5 @@
 import { fetchWithOptions } from '../../core/http-client.js';
-import { PACKAGE_NAME, VERSION } from '../../core/version.js';
+import { UA_PRODUCT, VERSION } from '../../core/version.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
 
 /**
@@ -32,7 +32,8 @@ const OVERPASS_MIRRORS = [
  * the contact link points at the package page, which does not move when the repository does.
  */
 export const USER_AGENT =
-  process.env.PRO_FETCH_USER_AGENT ?? `${PACKAGE_NAME}/${VERSION} (MCP tool; https://www.npmjs.com/package/pro-fetch)`;
+  process.env.PRO_FETCH_USER_AGENT ??
+  `${UA_PRODUCT}/${VERSION} (MCP tool; https://www.npmjs.com/package/@pro-fetch/mcp)`;
 
 /** A fetch that carries the identifying agent and returns the parsed JSON body. */
 export async function getJson(

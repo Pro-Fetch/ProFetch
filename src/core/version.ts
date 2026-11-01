@@ -54,5 +54,15 @@ export const PACKAGE_NAME: string = readName();
 
 export const VERSION: string = readVersion();
 
+/**
+ * The product token for the User-Agent header.
+ *
+ * A scoped package name is not a legal HTTP product token: `@` and a second `/` are both outside
+ * RFC 7231's token grammar, so `@pro-fetch/mcp/1.0.0` would be read by a strict parser as a product
+ * named `@pro-fetch` at version `mcp`. The scope is flattened into the token instead — the header
+ * still names the package, in the one alphabet HTTP allows.
+ */
+export const UA_PRODUCT: string = PACKAGE_NAME.replace(/^@/, '').replace(/\//g, '-');
+
 /** User-Agent sent with every outbound request made by this server. */
-export const USER_AGENT: string = `${PACKAGE_NAME}/${VERSION}`;
+export const USER_AGENT: string = `${UA_PRODUCT}/${VERSION}`;

@@ -26,7 +26,7 @@ PRO-FETCH WORKFLOW (mandatory for substantial work):
   "mcpServers": {
     "pro-fetch": {
       "command": "npx",
-      "args": ["-y", "pro-fetch"],
+      "args": ["-y", "@pro-fetch/mcp"],
       "env": { "PRO_FETCH_PROFILE": "smart" }
     }
   }

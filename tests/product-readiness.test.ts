@@ -9,7 +9,7 @@ import { assertToolAllowed } from '../src/core/security-policy.js';
 import { currentProfile, isToolVisibleInProfile, profileEnforced } from '../src/core/profile.js';
 import { getCredential } from '../src/core/credentials.js';
 import { boundedEnv } from '../src/core/bounded-env.js';
-import { PACKAGE_NAME, VERSION, USER_AGENT } from '../src/core/version.js';
+import { PACKAGE_NAME, UA_PRODUCT, VERSION, USER_AGENT } from '../src/core/version.js';
 import { asRecordArray, pathStr, pathNum, view } from '../src/core/input.js';
 import type { ToolDefinition } from '../src/core/types.js';
 
@@ -235,8 +235,10 @@ describe('version single source', () => {
   it('reads the version from package.json instead of a hard-coded literal', () => {
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+/);
     // The name and the User-Agent both come from package.json, so a rename cannot leave one stale.
-    expect(PACKAGE_NAME).toBe('pro-fetch');
-    expect(USER_AGENT).toBe(`${PACKAGE_NAME}/${VERSION}`);
+    expect(PACKAGE_NAME).toBe('@pro-fetch/mcp');
+    // A scoped name is not a legal HTTP product token, so the header carries the flattened form.
+    expect(UA_PRODUCT).toBe('pro-fetch-mcp');
+    expect(USER_AGENT).toBe(`${UA_PRODUCT}/${VERSION}`);
   });
 });
 

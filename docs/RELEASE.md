@@ -27,8 +27,8 @@ it publishes public by default; no `publishConfig` is needed.
 ## After publishing
 
 ```bash
-npm view pro-fetch version
-npx -y pro-fetch --help   # bin entry: dist/server.js
+npm view @pro-fetch/mcp version
+npx -y @pro-fetch/mcp --help   # bin entry: dist/server.js
 ```
 
 The previous package name, `pro-fetch-mcp`, is this maintainer's own placeholder (`0.0.0-stage`).

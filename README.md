@@ -40,7 +40,7 @@
 ## Run it
 
 ```bash
-npx -y pro-fetch
+npx -y @pro-fetch/mcp
 ```
 
 ```json
@@ -48,7 +48,7 @@ npx -y pro-fetch
   "mcpServers": {
     "pro-fetch": {
       "command": "npx",
-      "args": ["-y", "pro-fetch"],
+      "args": ["-y", "@pro-fetch/mcp"],
       "env": { "PRO_FETCH_PROFILE": "smart" }
     }
   }
