@@ -1,0 +1,133 @@
+{
+  "os": "windows",
+  "started": 1793547690007,
+  "ms": 2739,
+  "results": [
+    {
+      "product": "chrome",
+      "step": "launch",
+      "ok": true,
+      "detail": "chrome.exe · profile=pro-fetch-chrome",
+      "ms": 615
+    },
+    {
+      "product": "chrome",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 86
+    },
+    {
+      "product": "chrome",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 5
+    },
+    {
+      "product": "chrome",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 46
+    },
+    {
+      "product": "chrome",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 12
+    },
+    {
+      "product": "chrome",
+      "step": "perceive",
+      "ok": true,
+      "detail": "4 nodes, 1 outlined, button \"Press me\" identity=05b23d4f",
+      "ms": 11
+    },
+    {
+      "product": "chrome",
+      "step": "stale-detection",
+      "ok": true,
+      "detail": "ID_RECYCLED: node id pf-2 now belongs to \"button\" — the original element is gone and clicking this id would hit s",
+      "ms": 12
+    },
+    {
+      "product": "chrome",
+      "step": "obstruction",
+      "ok": true,
+      "detail": "covered button not interactable; conflicts: hit-test at the centre returns a different element",
+      "ms": 21
+    },
+    {
+      "product": "chrome",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 157
+    },
+    {
+      "product": "edge",
+      "step": "launch",
+      "ok": true,
+      "detail": "msedge.exe · profile=pro-fetch-edge",
+      "ms": 390
+    },
+    {
+      "product": "edge",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 123
+    },
+    {
+      "product": "edge",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 5
+    },
+    {
+      "product": "edge",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 42
+    },
+    {
+      "product": "edge",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 15
+    },
+    {
+      "product": "edge",
+      "step": "perceive",
+      "ok": true,
+      "detail": "4 nodes, 1 outlined, button \"Press me\" identity=05b23d4f",
+      "ms": 14
+    },
+    {
+      "product": "edge",
+      "step": "stale-detection",
+      "ok": true,
+      "detail": "ID_RECYCLED: node id pf-2 now belongs to \"button\" — the original element is gone and clicking this id would hit s",
+      "ms": 7
+    },
+    {
+      "product": "edge",
+      "step": "obstruction",
+      "ok": true,
+      "detail": "covered button not interactable; conflicts: hit-test at the centre returns a different element",
+      "ms": 9
+    },
+    {
+      "product": "edge",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 300
+    }
+  ]
+}

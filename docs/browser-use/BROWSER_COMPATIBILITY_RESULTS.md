@@ -93,3 +93,40 @@ Phase 4 is not finished by one host. To close it honestly:
    or record why it cannot be.
 4. Screenshots, input, interception, downloads: each needs its own probe step before its matrix cell can
    move.
+
+---
+
+## Run 2 — 2026-11-01T15:41:32Z — Windows, perception layer against a real DOM
+
+Artifact: `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
+18/18 steps passed on Chrome 156.0.8078.74 and Edge 156.0.4314.58 in 2741 ms. The three new steps
+are the ones that matter for Phase 5:
+
+| step | what it proves |
+| --- | --- |
+| `perceive` | the in-page collector returned 4 nodes, the merge kept them, the outline emitted 1 interactable element with a stable identity (`05b23d4f`, identical on both browsers) |
+| `stale-detection` | the button was replaced with a new element of the same tag, name, position and accessible name; resolution returned `ID_RECYCLED` and refused the action |
+| `obstruction` | a fixed overlay above the button made it non-interactable, with the conflict named: `hit-test at the centre returns a different element` |
+
+### The design bug run 2 caught
+
+The first version of `identityOf` hashed frame + path + tag + role + name + text. The probe
+replaced an element with an identical-looking one and resolution answered `FRESH` — clickable.
+That is the precise failure this layer was written to prevent, reproduced in my own code: a
+structural fingerprint describes what an element *looks like*, not *which element it is*, and a
+traversal ordinal assigned by the collector is reused by the replacement just as a CDP
+`backendNodeId` is. Position and naming cannot substitute for identity.
+
+The fix is a token bound to the DOM node itself — a `WeakMap` held on the page, so a new element
+gets a new token even when it is otherwise indistinguishable, and the same element re-rendered
+keeps its own. Identity now includes it, `resolveTarget` compares it, and the offline test suite
+pins the case the probe found (`identityOf(token: t2) !== identityOf(token: t1)` with everything
+else equal).
+
+Two smaller defects surfaced the same way: TypeScript syntax had leaked into the collector, which
+is a string evaluated inside the page (`SyntaxError: Unexpected identifier 'as'` on both
+browsers), and the `hitTesting` capability — previously `?` because it had only ever been read
+off a protocol page — is now genuinely observed, so it moved to `Y*`.
+
+Matrix after run 2: 12 `VERIFIED_MANAGED`, 555 `PARTIALLY_VERIFIED`, 49 `UNSUPPORTED
+`, 52 `BLOCKED_BY_ENVIRONMENT`, 52 `UNKNOWN`.

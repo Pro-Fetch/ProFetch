@@ -1,0 +1,133 @@
+{
+  "os": "windows",
+  "started": 1793547416962,
+  "ms": 2701,
+  "results": [
+    {
+      "product": "chrome",
+      "step": "launch",
+      "ok": true,
+      "detail": "chrome.exe · profile=pro-fetch-chrome",
+      "ms": 748
+    },
+    {
+      "product": "chrome",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 60
+    },
+    {
+      "product": "chrome",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 4
+    },
+    {
+      "product": "chrome",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 51
+    },
+    {
+      "product": "chrome",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 14
+    },
+    {
+      "product": "chrome",
+      "step": "perceive",
+      "ok": true,
+      "detail": "4 nodes, 1 outlined, button \"Press me\" identity=b2e2f0af",
+      "ms": 7
+    },
+    {
+      "product": "chrome",
+      "step": "stale-detection",
+      "ok": false,
+      "detail": "a replaced element resolved as clickable — the identity check is not working",
+      "ms": 8
+    },
+    {
+      "product": "chrome",
+      "step": "obstruction",
+      "ok": true,
+      "detail": "covered button not interactable; conflicts: hit-test at the centre returns a different element",
+      "ms": 19
+    },
+    {
+      "product": "chrome",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 158
+    },
+    {
+      "product": "edge",
+      "step": "launch",
+      "ok": true,
+      "detail": "msedge.exe · profile=pro-fetch-edge",
+      "ms": 402
+    },
+    {
+      "product": "edge",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 100
+    },
+    {
+      "product": "edge",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 4
+    },
+    {
+      "product": "edge",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 33
+    },
+    {
+      "product": "edge",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 7
+    },
+    {
+      "product": "edge",
+      "step": "perceive",
+      "ok": true,
+      "detail": "4 nodes, 1 outlined, button \"Press me\" identity=b2e2f0af",
+      "ms": 4
+    },
+    {
+      "product": "edge",
+      "step": "stale-detection",
+      "ok": false,
+      "detail": "a replaced element resolved as clickable — the identity check is not working",
+      "ms": 6
+    },
+    {
+      "product": "edge",
+      "step": "obstruction",
+      "ok": true,
+      "detail": "covered button not interactable; conflicts: hit-test at the centre returns a different element",
+      "ms": 18
+    },
+    {
+      "product": "edge",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 175
+    }
+  ]
+}

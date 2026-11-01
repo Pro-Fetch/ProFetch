@@ -23,7 +23,17 @@ const { selectBrowser } = await import('../src/core/browser-use-registry.js');
 
 interface ProbeResult {
   product: string;
-  step: 'detect' | 'launch' | 'navigate' | 'read' | 'geometry' | 'accessibility' | 'close';
+  step:
+    | 'detect'
+    | 'launch'
+    | 'navigate'
+    | 'read'
+    | 'geometry'
+    | 'accessibility'
+    | 'perceive'
+    | 'stale-detection'
+    | 'obstruction'
+    | 'close';
   ok: boolean;
   detail: string;
   ms: number;
@@ -116,6 +126,67 @@ for (const entry of registry.entries) {
     const snapshot: string = await page.locator('#b').ariaSnapshot();
     if (!/Press me/i.test(snapshot)) throw new Error(`aria snapshot missing the accessible name: ${snapshot.slice(0, 80)}`);
     return `ariaSnapshot: ${snapshot.trim().slice(0, 60)}`;
+  });
+
+  // --- perception: the collector and the merge, against a real DOM -------------------
+  const { COLLECTOR_SCRIPT } = await import('../src/core/browser-use-collector.js');
+  const perception = await import('../src/core/browser-use-perception.js');
+  const snap = (id: string, collected: any) =>
+    perception.buildSnapshot(collected.nodes, {
+      snapshotId: id,
+      url: collected.url,
+      title: collected.title,
+      viewport: collected.viewport,
+      deviceScaleFactor: collected.deviceScaleFactor,
+      scroll: collected.scroll,
+      capturedAt: Date.now(),
+    });
+
+  let firstIdentity = '';
+  let firstBackend = '';
+
+  await step(product, 'perceive', async () => {
+    const collected = await page.evaluate(COLLECTOR_SCRIPT);
+    const snapshot = snap('probe-1', collected);
+    const outline = perception.serializeOutline(snapshot);
+    const button = snapshot.nodes.find((n) => n.role === 'button');
+    if (!button) throw new Error('collector found no button on a page that has one');
+    if (!button.interactable) throw new Error('the button was judged not interactable: ' + button.conflicts.join('; '));
+    firstIdentity = button.identity;
+    firstBackend = button.backendId;
+    return `${collected.nodes.length} nodes, ${outline.lines} outlined, button "${button.name}" identity=${button.identity}`;
+  });
+
+  await step(product, 'stale-detection', async () => {
+    // Replace the element entirely, keeping tag, name and position. A backend-id lookup would find a
+    // node and click it; an identity lookup must refuse.
+    await page.evaluate(() => {
+      const old = document.getElementById('b');
+      const fresh = document.createElement('button');
+      fresh.id = 'b';
+      fresh.setAttribute('aria-label', 'Press me');
+      fresh.textContent = 'Press';
+      old!.replaceWith(fresh);
+    });
+    const collected = await page.evaluate(COLLECTOR_SCRIPT);
+    const r = perception.resolveTarget({ identity: firstIdentity, backendId: firstBackend }, snap('probe-2', collected));
+    if (r.ok) throw new Error('a replaced element resolved as clickable — the identity check is not working');
+    return `${r.staleness}: ${r.detail.slice(0, 100)}`;
+  });
+
+  await step(product, 'obstruction', async () => {
+    await page.evaluate(() => {
+      const veil = document.createElement('div');
+      veil.id = 'veil';
+      veil.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999';
+      document.body.appendChild(veil);
+    });
+    const collected = await page.evaluate(COLLECTOR_SCRIPT);
+    const button = snap('probe-3', collected).nodes.find((n) => n.role === 'button');
+    if (!button) throw new Error('the button vanished under the overlay');
+    if (button.interactable) throw new Error('a covered button was still reported interactable');
+    await page.evaluate(() => document.getElementById('veil')?.remove());
+    return `covered button not interactable; conflicts: ${button.conflicts.join(' | ') || 'hit-test said not self'}`;
   });
 
   await step(product, 'close', async () => {

@@ -1,0 +1,133 @@
+{
+  "os": "windows",
+  "started": 1793547602401,
+  "ms": 2278,
+  "results": [
+    {
+      "product": "chrome",
+      "step": "launch",
+      "ok": true,
+      "detail": "chrome.exe · profile=pro-fetch-chrome",
+      "ms": 563
+    },
+    {
+      "product": "chrome",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 68
+    },
+    {
+      "product": "chrome",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 12
+    },
+    {
+      "product": "chrome",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 41
+    },
+    {
+      "product": "chrome",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 11
+    },
+    {
+      "product": "chrome",
+      "step": "perceive",
+      "ok": false,
+      "detail": "page.evaluate: SyntaxError: Unexpected identifier 'as'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:311:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "ms": 5
+    },
+    {
+      "product": "chrome",
+      "step": "stale-detection",
+      "ok": false,
+      "detail": "page.evaluate: SyntaxError: Unexpected identifier 'as'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:311:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "ms": 4
+    },
+    {
+      "product": "chrome",
+      "step": "obstruction",
+      "ok": false,
+      "detail": "page.evaluate: SyntaxError: Unexpected identifier 'as'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:311:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "ms": 4
+    },
+    {
+      "product": "chrome",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 168
+    },
+    {
+      "product": "edge",
+      "step": "launch",
+      "ok": true,
+      "detail": "msedge.exe · profile=pro-fetch-edge",
+      "ms": 397
+    },
+    {
+      "product": "edge",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 102
+    },
+    {
+      "product": "edge",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 3
+    },
+    {
+      "product": "edge",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 35
+    },
+    {
+      "product": "edge",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 9
+    },
+    {
+      "product": "edge",
+      "step": "perceive",
+      "ok": false,
+      "detail": "page.evaluate: SyntaxError: Unexpected identifier 'as'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:311:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "ms": 1
+    },
+    {
+      "product": "edge",
+      "step": "stale-detection",
+      "ok": false,
+      "detail": "page.evaluate: SyntaxError: Unexpected identifier 'as'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:311:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "ms": 3
+    },
+    {
+      "product": "edge",
+      "step": "obstruction",
+      "ok": false,
+      "detail": "page.evaluate: SyntaxError: Unexpected identifier 'as'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:311:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "ms": 2
+    },
+    {
+      "product": "edge",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 144
+    }
+  ]
+}
