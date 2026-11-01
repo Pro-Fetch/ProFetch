@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { renderEngineSupportMatrix } from '../src/core/browser-use-matrix.js';
 import { ALL_CAPABILITIES, CAPABILITY_PROFILES } from '../src/core/browser-use-capabilities.js';
+import { VERIFIED } from '../src/core/browser-use-verified.js';
 
 /**
  * The support matrix is the document people will quote in issues, and this repository has already
@@ -29,14 +30,31 @@ describe('the support matrix cannot drift from the profiles', () => {
     expect(committed).toContain('Do not edit by hand');
   });
 
-  it('does not claim anything is verified before Phase 4 has run', () => {
-    // The document asserts this in prose; the assertion is checked against the data as well, so the
-    // sentence cannot survive a status change that nobody noticed.
-    const claimed = products().filter((p) =>
+  it('backs every Y* with a verified fact whose artifact actually exists', () => {
+    // Phase 4 turned "nothing has been run" into a claim that needs checking. A `Y*` is now allowed —
+    // but only where the overlay records a run, and only while the artifact that run wrote is still on
+    // disk. Delete the evidence and the claim stops being true, which is the point.
+    const missing = VERIFIED.filter((f) => !existsSync(f.evidence)).map(
+      (f) => `${f.product}.${f.capability} → ${f.evidence}`,
+    );
+    expect(missing, 'a verified fact without its artifact is not verified').toEqual([]);
+    expect(VERIFIED.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the profiles themselves free of verified statuses', () => {
+    // A run is a fact about a host, so it belongs in the overlay — not baked into a profile, where it
+    // would travel to a Linux box and be quoted as though it had been checked there.
+    const baked = products().filter((p) =>
       CAPABILITY_PROFILES[p].answers.some((a) => a.status === 'VERIFIED_NATIVE' || a.status === 'VERIFIED_MANAGED'),
     );
-    expect(claimed).toEqual([]);
-    expect(committed).toContain('No cell in this revision is `Y*`');
+    expect(baked).toEqual([]);
+  });
+
+  it('lists each verified fact with the artifact that produced it', () => {
+    for (const f of VERIFIED) {
+      expect(committed).toContain(`\`${f.product} · ${f.capability} · ${f.os}\``);
+      expect(committed).toContain(f.evidence);
+    }
   });
 });
 

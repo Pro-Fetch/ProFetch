@@ -48,6 +48,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.{mts,mjs}\"",
     "gen:adapters": "tsx scripts/gen-adapters.mts",
     "gen:browser-matrix": "tsx scripts/gen-browser-matrix.mts",
+    "probe:browser-use": "tsx scripts/browser-use-probe.mts",
     "gen:mutation-sinks": "tsx scripts/generate-mutation-sinks.mts",
     "lint": "tsc --noEmit",
     "measure:coverage": "tsx scripts/measure-composite-coverage.mts",

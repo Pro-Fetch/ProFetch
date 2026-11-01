@@ -7,9 +7,11 @@
  */
 
 import { ALL_CAPABILITIES, CAPABILITY_PROFILES } from './browser-use-capabilities.js';
+import { VERIFIED, effectiveAnswer } from './browser-use-verified.js';
+import { currentOs } from './browser-use-runtime.js';
 import { ADAPTERS } from './browser-use-adapters.js';
 import { PRODUCTS } from './browser-use-detect.js';
-import type { CapabilityStatus } from './browser-use-contract.js';
+import type { CapabilityStatus, OperatingSystem } from './browser-use-contract.js';
 
 const STATUS_GLYPH: Record<CapabilityStatus, string> = {
   VERIFIED_NATIVE: 'Y*',
@@ -51,7 +53,7 @@ const NOTABLE: Array<[string, string, string]> = [
   ],
 ];
 
-export function renderEngineSupportMatrix(): string {
+export function renderEngineSupportMatrix(hostOs: OperatingSystem = currentOs()): string {
   const products = Object.keys(CAPABILITY_PROFILES).sort();
   const adapterProducts = new Set(ADAPTERS.map((a) => a.product));
   const lines: string[] = [];
@@ -66,11 +68,15 @@ export function renderEngineSupportMatrix(): string {
     '',
   );
   lines.push(
-    'No cell in this revision is `Y*`: the profiles were written from specifications and source',
-    'reading, and Phase 4 has not run yet. When a `Y*` appears it must come with a run log in',
-    '`docs/browser-use/BROWSER_COMPATIBILITY_RESULTS.md`.',
+    '`Y*` marks a row this host actually ran. Everything else is read from a specification or source',
+    'and labelled as such — the difference is the point of the table. Each `Y*` below names the probe',
+    'artifact that produced it; the run log is `docs/browser-use/BROWSER_COMPATIBILITY_RESULTS.md`.',
     '',
   );
+  for (const f of VERIFIED) {
+    lines.push(`- \`${f.product} · ${f.capability} · ${f.os}\` — ${f.browserVersion} → \`${f.evidence}\``);
+  }
+  lines.push('');
 
   lines.push(`## Products (${products.length})`, '');
   lines.push('| product | engine | protocols | adapter | detection candidates |');
@@ -93,8 +99,10 @@ export function renderEngineSupportMatrix(): string {
   lines.push('| --- |' + products.map(() => ' --- ').join('|') + '|');
   for (const capability of ALL_CAPABILITIES) {
     const cells = products.map((product) => {
-      const answer = CAPABILITY_PROFILES[product].answers.find((a) => a.capability === capability);
-      return `\`${answer ? STATUS_GLYPH[answer.status] : '?'}\``;
+      const base = CAPABILITY_PROFILES[product].answers.find((a) => a.capability === capability);
+      if (!base) return '`?`';
+      const answer = effectiveAnswer(product, capability, base, hostOs);
+      return `\`${STATUS_GLYPH[answer.status]}\``;
     });
     lines.push(`| \`${capability}\` | ${cells.join(' | ')} |`);
   }
@@ -119,7 +127,12 @@ export function renderEngineSupportMatrix(): string {
   lines.push('## Counts', '', '| status | answers |', '| --- | ---: |');
   const counts = new Map<CapabilityStatus, number>();
   for (const product of products) {
-    for (const a of CAPABILITY_PROFILES[product].answers) counts.set(a.status, (counts.get(a.status) ?? 0) + 1);
+    for (const base of CAPABILITY_PROFILES[product].answers) {
+      // Count what the table actually shows, not what the profiles alone would say — otherwise the
+      // totals contradict the grid two lines above them.
+      const a = effectiveAnswer(product, base.capability, base, hostOs);
+      counts.set(a.status, (counts.get(a.status) ?? 0) + 1);
+    }
   }
   for (const status of Object.keys(STATUS_GLYPH) as CapabilityStatus[]) {
     lines.push(`| \`${status}\` | ${counts.get(status) ?? 0} |`);

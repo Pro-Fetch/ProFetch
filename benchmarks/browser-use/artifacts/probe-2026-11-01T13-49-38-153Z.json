@@ -1,0 +1,91 @@
+{
+  "os": "windows",
+  "started": 1793540974242,
+  "ms": 3911,
+  "results": [
+    {
+      "product": "chrome",
+      "step": "launch",
+      "ok": true,
+      "detail": "chrome.exe · profile=pro-fetch-chrome",
+      "ms": 952
+    },
+    {
+      "product": "chrome",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 101
+    },
+    {
+      "product": "chrome",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 22
+    },
+    {
+      "product": "chrome",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 102
+    },
+    {
+      "product": "chrome",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 22
+    },
+    {
+      "product": "chrome",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 224
+    },
+    {
+      "product": "edge",
+      "step": "launch",
+      "ok": true,
+      "detail": "msedge.exe · profile=pro-fetch-edge",
+      "ms": 528
+    },
+    {
+      "product": "edge",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 174
+    },
+    {
+      "product": "edge",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 8
+    },
+    {
+      "product": "edge",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 77
+    },
+    {
+      "product": "edge",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 10
+    },
+    {
+      "product": "edge",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 340
+    }
+  ]
+}

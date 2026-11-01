@@ -7,9 +7,20 @@ Legend: `Y*` verified on this machine · `p` partially verified (read from a spe
 source, not run here) · `d` detected but untested · `N` unsupported by the protocol ·
 `E` blocked by this environment · `?` unknown, deliberately not guessed.
 
-No cell in this revision is `Y*`: the profiles were written from specifications and source
-reading, and Phase 4 has not run yet. When a `Y*` appears it must come with a run log in
-`docs/browser-use/BROWSER_COMPATIBILITY_RESULTS.md`.
+`Y*` marks a row this host actually ran. Everything else is read from a specification or source
+and labelled as such — the difference is the point of the table. Each `Y*` below names the probe
+artifact that produced it; the run log is `docs/browser-use/BROWSER_COMPATIBILITY_RESULTS.md`.
+
+- `chrome · launch · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `chrome · navigate · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `chrome · domRead · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `chrome · boundingGeometry · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `chrome · accessibilityTree · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `edge · launch · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `edge · navigate · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `edge · domRead · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `edge · boundingGeometry · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
+- `edge · accessibilityTree · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T13-49-38-153Z.json`
 
 ## Products (24)
 
@@ -44,15 +55,15 @@ reading, and Phase 4 has not run yet. When a `Y*` appears it must come with a ru
 
 | capability | android-chrome | android-firefox | arc | brave | chrome | chrome-beta | chrome-canary | chrome-dev | chromium | edge | edge-beta | edge-canary | edge-dev | firefox | firefox-developer | firefox-esr | firefox-nightly | ios-safari | opera | opera-gx | safari | samsung-internet | vivaldi | webkit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `launch` | `p` | `E` | `?` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `E` |
+| `launch` | `p` | `E` | `?` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `E` |
 | `attachToRunning` | `p` | `?` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `p` | `p` | `N` | `p` | `p` | `?` |
 | `inspectTabs` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `controlTabs` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `navigate` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `domRead` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `accessibilityTree` | `p` | `N` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `N` | `N` | `N` | `N` | `p` | `p` | `N` | `p` | `p` | `N` |
+| `navigate` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `domRead` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `accessibilityTree` | `p` | `N` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `N` | `N` | `N` | `N` | `N` | `p` | `p` | `N` | `p` | `p` | `N` |
 | `computedStyles` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `boundingGeometry` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `boundingGeometry` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `hitTesting` | `?` | `N` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `N` | `N` | `N` | `N` | `N` | `?` | `?` | `N` | `?` | `?` | `N` |
 | `screenshotViewport` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `screenshotElement` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `E` | `?` | `?` | `E` | `?` | `?` | `p` |
@@ -98,8 +109,8 @@ Each of these is a protocol fact, not a to-do item. A row that reads `N` here do
 | status | answers |
 | --- | ---: |
 | `VERIFIED_NATIVE` | 0 |
-| `VERIFIED_MANAGED` | 0 |
-| `PARTIALLY_VERIFIED` | 565 |
+| `VERIFIED_MANAGED` | 10 |
+| `PARTIALLY_VERIFIED` | 555 |
 | `DETECTED_NOT_TESTED` | 0 |
 | `UNSUPPORTED` | 49 |
 | `BLOCKED_BY_ENVIRONMENT` | 52 |

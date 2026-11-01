@@ -65,7 +65,7 @@
     "pro_synthesize"
   ],
   "testFiles": 76,
-  "testCount": 1348,
+  "testCount": 1350,
   "coverageComposites": {
     "pro_workspace_ops": {
       "categories": [
