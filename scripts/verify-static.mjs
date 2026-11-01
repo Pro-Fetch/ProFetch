@@ -140,6 +140,29 @@ try {
     else if (found[1] !== String(count))
       failures.push(`README category '${category}': states ${found[1]}, manifest says ${count}`);
   }
+  // The same numbers are repeated in the files an agent reads before it edits anything, and every one of
+  // them had drifted: AGENTS.md still described `smart` (11), `minimal` (73), `standard` (178) and
+  // `full` (672), CONTRIBUTING.md said 672 tools, and ARCHITECTURE.md's pipeline line said 672/42 and
+  // 999 tests. Guarded the same way as the README - the pattern must be present, so the sentence cannot
+  // be deleted to make the check pass.
+  const proseCounts = [
+    ['AGENTS.md', /`smart` \((\d+) meta-tool\)/, countManifest.profiles?.smart],
+    ['AGENTS.md', /`minimal` \((\d+)\)/, countManifest.profiles?.minimal],
+    ['AGENTS.md', /`standard` \((\d+)\)/, countManifest.profiles?.standard],
+    ['AGENTS.md', /`full` \((\d+)\)/, countManifest.total],
+    ['CONTRIBUTING.md', /: (\d+) tools, (\d+) categories/, countManifest.total, 1],
+    ['CONTRIBUTING.md', /: (\d+) tools, (\d+) categories/, countManifest.categoryCount, 2],
+    ['docs/ARCHITECTURE.md', /verify:registry` \((\d+)\/(\d+),/, countManifest.total, 1],
+    ['docs/ARCHITECTURE.md', /verify:registry` \((\d+)\/(\d+),/, countManifest.categoryCount, 2],
+    ['docs/ARCHITECTURE.md', /`test` \((\d+)\)/, countManifest.testCount],
+  ];
+  for (const [file, pattern, expected, group = 1] of proseCounts) {
+    const text = await read(file).catch(() => '');
+    const found = pattern.exec(text);
+    if (!found) failures.push(`${file} no longer states ${pattern.source}`);
+    else if (found[group] !== String(expected))
+      failures.push(`${file}: states ${found[group]}, manifest says ${expected}`);
+  }
   // The smart-profile tool list now lives in `src/core/profile.ts`; `loader.ts` re-exports it.
   // The Smart System contract: the profile must expose the batch executor, the intent mapper and
   // the single-tool escape hatch, so a client that caps its tool budget still reaches everything.
