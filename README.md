@@ -1,21 +1,33 @@
-<img src="docs/assets/pro-fetch-chip.png" alt="pro-fetch" width="84" height="84" align="left" hspace="24" vspace="10">
+<h1 align="center">
+  <a href="https://github.com/Pro-Fetch/Pro-Fetch">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.png">
+      <img alt="pro-fetch — 673 MCP tools, 42 categories, one gate" src="docs/assets/cover-light.png" width="860">
+    </picture>
+  </a>
+</h1>
 
-# pro-fetch
+<p align="center">
+  <b>673 MCP tools in one stdio server.</b> Fetch, crawl, extract, convert, OCR, web and academic
+  search, deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV
+  and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12
+  meta-tools that reach all 673, so a client with a small context window loses nothing except
+  schema bytes.
+</p>
 
-**673 MCP tools in one stdio server.** Fetch, crawl, extract, convert, OCR, web and academic search,
-deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV and SBOM,
-Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12 meta-tools that reach
-all 673, so a client with a small context window loses nothing except schema bytes.
+<p align="center">
+  <a href="https://www.npmjs.com/package/pro-fetch"><img alt="npm" src="https://img.shields.io/npm/v/pro-fetch?label=npm&logo=npm"></a>
+  <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
+  <a href="./LICENSE"><img alt="license" src="https://img.shields.io/npm/l/pro-fetch?color=blue"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1231%20passing-success?logo=vitest"></a>
+  <a href="https://github.com/Pro-Fetch/Pro-Fetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
+</p>
 
-[![npm](https://img.shields.io/npm/v/pro-fetch?label=npm&logo=npm)](https://www.npmjs.com/package/pro-fetch)
-[![node](https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/pro-fetch?color=blue)](./LICENSE)
-[![tests](https://img.shields.io/badge/tests-1231%20passing-success?logo=vitest)](./)
-[![CI](https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions)](https://github.com/Pro-Fetch/ProFetch/actions)
-
-**Two minutes, no voiceover** — [watch the film](docs/assets/pro-fetch-film.mp4).
-
-[![The pro-fetch film: 673 tools behind one gate](docs/assets/film-poster.jpg)](docs/assets/pro-fetch-film.mp4)
+<p align="center">
+  <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4"><img alt="The pro-fetch film: 673 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
+  <br>
+  <b>Two minutes, scored, no voiceover</b> — <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4">watch the film</a>.
+</p>
 
 ---
 
