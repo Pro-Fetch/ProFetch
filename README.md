@@ -1,5 +1,5 @@
 <h1 align="center">
-  <a href="https://github.com/Pro-Fetch/Pro-Fetch">
+  <a href="https://github.com/Pro-Fetch/ProFetch">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.png">
       <img alt="pro-fetch — 673 MCP tools, 42 categories, one gate" src="docs/assets/cover-light.png" width="860">
@@ -20,7 +20,7 @@
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1231%20passing-success?logo=vitest"></a>
-  <a href="https://github.com/Pro-Fetch/Pro-Fetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
+  <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
 <p align="center">

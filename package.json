@@ -18,11 +18,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Pro-Fetch/Pro-Fetch.git"
+    "url": "git+https://github.com/Pro-Fetch/ProFetch.git"
   },
-  "homepage": "https://github.com/Pro-Fetch/Pro-Fetch#readme",
+  "homepage": "https://github.com/Pro-Fetch/ProFetch#readme",
   "bugs": {
-    "url": "https://github.com/Pro-Fetch/Pro-Fetch/issues"
+    "url": "https://github.com/Pro-Fetch/ProFetch/issues"
   },
   "engines": {
     "node": ">=22.13.0"

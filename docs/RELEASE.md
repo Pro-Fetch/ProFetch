@@ -41,6 +41,6 @@ npm deprecate pro-fetch-mcp "renamed: use pro-fetch"
 ## What this does not do
 
 - No publish. `npm login` is the maintainer's own account operation, and nothing here touches it.
-- No GitHub Release. `origin` points at `Pro-Fetch/Pro-Fetch`, `main` is pushed and `v1.0.0` is tagged;
+- No GitHub Release. `origin` points at `Pro-Fetch/ProFetch`, `main` is pushed and `v1.0.0` is tagged;
   publishing release notes is a separate step in the web UI.
 - No provenance attestation (`--provenance` needs CI OIDC; the workflow does not configure it).
