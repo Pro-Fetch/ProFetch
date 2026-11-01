@@ -39,7 +39,14 @@ export default defineConfig({
     // being reported as a failing test. Measured: the same file passes 25/25 when run alone. Only the
     // wall-clock allowance moved; an assertion that actually fails still fails the build.
     testTimeout: 60_000,
-    hookTimeout: 30_000,
+    // 60s here too, for the same reason and with the same limit on what it can excuse. Measured during
+    // the 1.0.0 publish attempt: `tests/qr-reed-solomon.test.ts` and `tests/sql-lexer.test.ts` failed as
+    // *suites* — `Error: Hook timed out in 30000ms` — because their `beforeAll` imports `src/loader.js`,
+    // which boots all 673 tools inside that fork, and 70 forks doing that at once on a busy machine is
+    // slower than 30 seconds. Both files pass 173/173 in 21s when run alone. A slow boot was being
+    // reported as a broken product; only the wall-clock allowance moved, and a hook that throws still
+    // fails the build.
+    hookTimeout: 60_000,
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'lcov'],
