@@ -5,6 +5,20 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
+### Added
+
+- **Brend: chayon.** `docs/assets/` ichida tanlangan belgi — toza siluet
+  (`pro-fetch-scorpion-white.png` va `pro-fetch-scorpion-black.png`, shaffof fonli) va README
+  uchun tayyor chip (`pro-fetch-chip.png`: qora yumaloq plastinka + oq chayon). Chip qasddan
+  PNG: yalang'och qora belgi GitHub va npm'ning qorong'i rejimida ko'rinmay qoladi, plastinka esa
+  ikkala rejimda ham o'qiladi.
+- **Film.** `docs/assets/pro-fetch-film.mp4` — 120 soniya, 1920x1080, 30 fps, ovozsiz; README
+  tepasida poster orqali havola qilingan. Sahnalar: muammo → bitta buyruq → 673 katak 12 taga
+  siqiladi → bitta round trip → breadth → profillar → uchta REFUSED → MAX → dalilsiz "done" rad
+  etiladi → adapterlar → o'lchangan raqamlar → nom. Ekrandagi har bir son repoda o'lchanadigan
+  son; ovozsiz, chunki u sound-off avtomatik o'ynatish uchun qilingan.
+
+
 ## [1.0.0] - 2026-10-31
 
 Birinchi barqaror release: nom, kontrakt va tekshirilganlik darajasi o'zgarmas deb e'lon qilinadi.

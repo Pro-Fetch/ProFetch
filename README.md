@@ -1,22 +1,29 @@
-<img src="docs/assets/pro-fetch-chip.svg" alt="pro-fetch" width="76" height="67" align="left" hspace="22" vspace="8">
+<img src="docs/assets/pro-fetch-chip.png" alt="pro-fetch" width="84" height="84" align="left" hspace="24" vspace="10">
 
 # pro-fetch
 
-673 MCP tools in one stdio server: fetch, crawl, extract, convert, OCR, web and academic search, deep
-research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV and SBOM,
-Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12 meta-tools that reach all
-673, so a client with a small context window loses nothing except schema bytes.
+**673 MCP tools in one stdio server.** Fetch, crawl, extract, convert, OCR, web and academic search,
+deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV and SBOM,
+Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12 meta-tools that reach
+all 673, so a client with a small context window loses nothing except schema bytes.
 
 [![npm](https://img.shields.io/npm/v/pro-fetch?label=npm&logo=npm)](https://www.npmjs.com/package/pro-fetch)
 [![node](https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js)](https://nodejs.org)
 [![license](https://img.shields.io/npm/l/pro-fetch?color=blue)](./LICENSE)
 [![tests](https://img.shields.io/badge/tests-1231%20passing-success?logo=vitest)](./)
+[![CI](https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions)](https://github.com/Pro-Fetch/ProFetch/actions)
 
-<br>
-
-**52 seconds, no voiceover** — [watch the film](docs/assets/pro-fetch-film.mp4).
+**Two minutes, no voiceover** — [watch the film](docs/assets/pro-fetch-film.mp4).
 
 [![The pro-fetch film: 673 tools behind one gate](docs/assets/film-poster.jpg)](docs/assets/pro-fetch-film.mp4)
+
+---
+
+- [Run it](#run-it) · [What answers which job](#what-answers-which-job) · [Profiles](#profiles) ·
+  [Access control](#access-control) · [One round trip](#one-round-trip-instead-of-three) ·
+  [The workflow gate](#the-workflow-gate) · [Limits](#limits-that-do-not-move) ·
+  [Simple and MAX](#simple-and-max-mode) · [Optional binaries](#optional-binaries) ·
+  [Verification](#verification) · [Categories](#categories)
 
 ## Run it
 
@@ -39,26 +46,35 @@ npx -y pro-fetch
 Copy-ready file: [`mcp.example.json`](./mcp.example.json). Node 22.13 or newer, required by
 `pdfjs-dist@6`; everything else is optional and degrades with a named error.
 
+Every call, direct or composed, crosses the same gate:
+
+```text
+client ──> dispatch() ──> permission policy ──> SSRF / sandbox / annotation checks ──> 673 handlers
+                ▲
+     12 meta-tools in the default profile reach the same gate,
+     with the same policy applied to every call inside a batch.
+```
+
 Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, generic MCP — live in
 [`adapters/`](./adapters/README.md). They are generated from the same text
 `pro_fetch_workflow {action:"introduce"}` serves, and a test fails if the two drift.
 
-## What you ask for, and what answers
+## What answers which job
 
-| Job                                                    | One call                   |
-| ------------------------------------------------------ | -------------------------- |
-| any URL → clean structured data (page, PDF, CSV, feed)  | `pro_fetch_ingest`         |
-| every relevant extraction out of one page              | `pro_audit_page`           |
-| a topic researched, cited, verified                    | `pro_research_deep`        |
-| a repository explained                                 | `pro_repo_audit`           |
-| a pull request reviewed                                | `pro_pr_review`            |
-| a site crawled and described                           | `pro_site_scan`            |
-| a dataset loaded, profiled, transformed                | `pro_data_pipeline`        |
-| N independent calls in one round trip                  | `pro_capability_call`      |
-| many results collapsed into one answer                 | `pro_synthesize`           |
-| the catalog searched in plain language                 | `pro_capability_map`       |
-| a multi-step task planned, gated, evidenced            | `pro_fetch_workflow`       |
-| any of the 673 by exact name                           | `pro_fetch_tool_execute`   |
+| Job                                                    | One call                 |
+| ------------------------------------------------------ | ------------------------ |
+| any URL → clean structured data (page, PDF, CSV, feed)  | `pro_fetch_ingest`       |
+| every relevant extraction out of one page              | `pro_audit_page`         |
+| a topic researched, cited, verified                    | `pro_research_deep`      |
+| a repository explained                                 | `pro_repo_audit`         |
+| a pull request reviewed                                | `pro_pr_review`          |
+| a site crawled and described                           | `pro_site_scan`          |
+| a dataset loaded, profiled, transformed                | `pro_data_pipeline`      |
+| N independent calls in one round trip                  | `pro_capability_call`    |
+| many results collapsed into one answer                 | `pro_synthesize`         |
+| the catalog searched in plain language                 | `pro_capability_map`     |
+| a multi-step task planned, gated, evidenced            | `pro_fetch_workflow`     |
+| any of the 673 by exact name                           | `pro_fetch_tool_execute` |
 
 ## Profiles
 
@@ -73,8 +89,8 @@ Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, gen
 
 `pro_fetch_profile_switch` changes it at runtime and takes effect on the next request.
 `PRO_FETCH_PROFILE_CEILING` pins a maximum the switch may not pass; unset by default, because the
-operator's instruction is what should govern. Set it when the server is shared and the model must stay
-inside a smaller surface whatever it asks for.
+operator's instruction is what should govern. Set it when the server is shared and the model must
+stay inside a smaller surface whatever it asks for.
 
 ## Access control
 
@@ -150,15 +166,15 @@ into `introduce` as `enforced` and `not_guaranteed` rather than glossed over.
 
 ## Simple and MAX mode
 
-`PRO_FETCH_MODE` selects how much capacity one batch may use. Simple is the default and behaves exactly
-as the versions before the option existed.
+`PRO_FETCH_MODE` selects how much capacity one batch may use. Simple is the default and behaves
+exactly as the versions before the option existed.
 
-|                                   | simple _(default)_ | MAX                              |
-| --------------------------------- | ------------------ | -------------------------------- |
-| calls per `pro_capability_call`   | 5 000              | 9 999 999 999                    |
-| concurrency: total / network / cat | 64 / 64 / 16      | 512 each                         |
-| a large batch runs                | one batch          | chunks of `PRO_FETCH_BATCH_CHUNK` (1000) |
-| self-serve ceiling                | —                  | `PRO_FETCH_MAX_SELF_SERVE` (99 999), then it asks |
+|                                    | simple _(default)_ | MAX                                      |
+| ---------------------------------- | ------------------ | ---------------------------------------- |
+| calls per `pro_capability_call`    | 5 000              | 9 999 999 999                            |
+| concurrency: total / network / cat | 64 / 64 / 16       | 512 each                                 |
+| a large batch runs                 | one batch          | chunks of `PRO_FETCH_BATCH_CHUNK` (1000) |
+| self-serve ceiling                 | —                  | `PRO_FETCH_MAX_SELF_SERVE` (99 999), then it asks |
 
 The model can also pick per batch, which is usually the right place for the decision:
 
@@ -169,24 +185,23 @@ The model can also pick per batch, which is usually the right place for the deci
 `mode` on a call lifts that batch's ceiling only. Concurrency semaphores are built at start-up and a
 handler runs after, so `PRO_FETCH_MODE=max` remains the only way to raise those; the two are
 deliberately not interchangeable. Above the self-serve line the tool refuses and says so, because
-"read everything in this project" can mean four hundred requests or four hundred thousand, and only the
-person asking knows which was meant — the caller re-sends with `confirm_large_batch: true`.
+"read everything in this project" can mean four hundred requests or four hundred thousand, and only
+the person asking knows which was meant — the caller re-sends with `confirm_large_batch: true`.
 
-MAX raises capacity and nothing else. None of the limits in the section above are capacity, so none of
-them move; `tests/mode.test.ts` asserts the security probes **with MAX switched on**, so a change that
-routes a containment limit through the mode fails the suite instead of shipping quietly. One capacity
-number is also held down in MAX: `PRO_FETCH_MAX_PER_HOST_CONCURRENCY` stays at 8 by default and 512 at
-most, because it limits requests to somebody else's server, where an unbounded batch is a denial of
-service.
+MAX raises capacity and nothing else. None of the limits above are capacity, so none of them move;
+`tests/mode.test.ts` asserts the security probes **with MAX switched on**, so a change that routes a
+containment limit through the mode fails the suite instead of shipping quietly. One capacity number
+is also held down in MAX: `PRO_FETCH_MAX_PER_HOST_CONCURRENCY` stays at 8 by default and 512 at most,
+because it limits requests to somebody else's server, where an unbounded batch is a denial of service.
 
 ## Optional binaries
 
-| Missing                                   | What you get instead                                        |
-| ----------------------------------------- | ----------------------------------------------------------- |
-| `sharp`, `@napi-rs/canvas`, `tesseract.js` | those media tools fail individually, the rest is unaffected |
-| `git`, `docker`, `kubectl`, `psql`, `redis-cli` | `COMMAND_NOT_FOUND` with the exact command named      |
-| Playwright browsers                       | the browser pack asks for `npx playwright install --with-deps chromium` |
-| install scripts (`--ignore-scripts`)      | SQLite tools answer `SQLITE_UNAVAILABLE` with `npm rebuild better-sqlite3` |
+| Missing                                       | What you get instead                                        |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `sharp`, `@napi-rs/canvas`, `tesseract.js`    | those media tools fail individually, the rest is unaffected |
+| `git`, `docker`, `kubectl`, `psql`, `redis-cli` | `COMMAND_NOT_FOUND` with the exact command named            |
+| Playwright browsers                           | the browser pack asks for `npx playwright install --with-deps chromium` |
+| install scripts (`--ignore-scripts`)          | SQLite tools answer `SQLITE_UNAVAILABLE` with `npm rebuild better-sqlite3` |
 
 SQLite needs no system binary — it uses the bundled `better-sqlite3` driver, and the `sqlite3` CLI is
 only a fallback. On Windows, npm tools invoke `npm-cli.js` through `process.execPath`, so `npm audit`,
@@ -207,10 +222,10 @@ npm run check
 | `verify:package`             | the published tarball (570 files) has its shebang and `files` allowlist, and zero credentials or source files |
 | `audit:schema` _(on demand)_ | schemas against the code behind them — 0 dead properties, 0 unread required arguments              |
 
-All 673 input schemas reject properties they do not declare. The MCP protocol itself was exercised live
-against `dist/server.js` over stdio: `initialize`, `tools/list` (673 unique under `full`, 12 under
-`smart`, every schema `type: "object"`), `tools/call` for each advertised smart tool, hidden tools
-refused, clean JSON-RPC on stdout.
+All 673 input schemas reject properties they do not declare. The MCP protocol itself was exercised
+live against `dist/server.js` over stdio: `initialize`, `tools/list` (673 unique under `full`, 12
+under `smart`, every schema `type: "object"`), `tools/call` for each advertised smart tool, hidden
+tools refused, clean JSON-RPC on stdout.
 
 ## Categories
 
@@ -236,5 +251,10 @@ point, `dispatch()` gate, composites, profiles, MAX mode — is
 | `units` 5                        | `binary` 4                      | `geo_data` 4                     |
 | `chess` 4                        | `color` 3                       | `phonetics` 3                    |
 
-MIT · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
-[Release procedure](docs/RELEASE.md)
+---
+
+<p>
+  <img src="docs/assets/pro-fetch-scorpion-black.png" alt="pro-fetch" width="34" height="34" align="left" hspace="12">
+  <b>pro-fetch</b> · MIT · <a href="CHANGELOG.md">Changelog</a> · <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="SECURITY.md">Security</a> · <a href="docs/RELEASE.md">Release procedure</a>
+</p>
