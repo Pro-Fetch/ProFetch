@@ -5,6 +5,8 @@
 * text=auto eol=lf
 
 # Never rewrite line endings inside binary assets.
+*.mp4 binary
+*.webm binary
 *.png binary
 *.jpg binary
 *.jpeg binary

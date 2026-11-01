@@ -1,3 +1,5 @@
+<img src="docs/assets/pro-fetch-chip.svg" alt="pro-fetch" width="76" height="67" align="left" hspace="22" vspace="8">
+
 # pro-fetch
 
 673 MCP tools in one stdio server: fetch, crawl, extract, convert, OCR, web and academic search, deep
@@ -9,6 +11,12 @@ Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12 me
 [![node](https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js)](https://nodejs.org)
 [![license](https://img.shields.io/npm/l/pro-fetch?color=blue)](./LICENSE)
 [![tests](https://img.shields.io/badge/tests-1231%20passing-success?logo=vitest)](./)
+
+<br>
+
+**52 seconds, no voiceover** — [watch the film](docs/assets/pro-fetch-film.mp4).
+
+[![The pro-fetch film: 673 tools behind one gate](docs/assets/film-poster.jpg)](docs/assets/pro-fetch-film.mp4)
 
 ## Run it
 
