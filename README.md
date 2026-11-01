@@ -18,15 +18,15 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/pro-fetch"><img alt="npm" src="https://img.shields.io/npm/v/pro-fetch?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
-  <a href="./LICENSE"><img alt="license" src="https://img.shields.io/npm/l/pro-fetch?color=blue"></a>
+  <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1231%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/Pro-Fetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4"><img alt="The pro-fetch film: 673 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
+  <a href="https://hvs8fgak.qwenwork.page/"><img alt="The pro-fetch film: 673 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
   <br>
-  <b>Two minutes, silent, no voiceover</b> — <a href="https://github.com/Pro-Fetch/Pro-Fetch/blob/main/docs/assets/pro-fetch-film.mp4">watch the film</a>.
+  <b>Two minutes, silent, no voiceover</b> — <a href="https://hvs8fgak.qwenwork.page/">watch the film</a>.
 </p>
 
 ---
