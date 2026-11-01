@@ -113,7 +113,11 @@ function syncReadmeBadges(reportedFiles, reportedTests) {
     {
       file: 'README.md',
       // `tests-<n>%20passing` inside a shields.io badge URL.
-      pattern: /(\[\!\[tests\]\(https:\/\/img\.shields\.io\/badge\/tests-)(\d+)(\s*%20passing)/,
+      // Two shapes are accepted: the markdown image form, and the HTML <img> form a centred
+      // header uses. The README moved to the second layout, after which this pattern matched zero
+      // times and the syncer refused to update the badge — a guard that quietly stops guarding is
+      // worse than one that fails, because the number keeps drifting while looking maintained.
+      pattern: /((?:\[\!\[tests\]\(|src=\")https:\/\/img\.shields\.io\/badge\/tests-)(\d+)(\s*%20passing)/,
       replacement: (_whole, before, _old, after) => `${before}${reportedTests}${after}`,
       what: 'badge',
     },
