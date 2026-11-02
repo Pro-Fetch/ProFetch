@@ -262,3 +262,37 @@ the measuring half; the test proves the refusing half.
 
 Matrix counts are unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`): crossing a frame
 boundary is not a protocol capability, it is Phase 6 work, and it moved `P6-06` from TESTED to VERIFIED.
+
+---
+
+## Run 7 — 2026-11-02T15:01:32Z — Windows, annotation that survives a diff
+
+Artifact: `benchmarks/browser-use/artifacts/probe-2026-11-02T15-01-32-740Z.json`
+56/56 steps passed on Chrome 156.0.8078.74 and Edge 156.0.4314.58 in 10184 ms.
+
+| step       | what it proves                                                                                                                                                                                                                                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `annotate` | the interactable element's DOM box was mapped into the real capture and drawn with an outline plus its outline index as pixels; 927 writes produced 839 changed pixels, **0 of them outside the drawn box**, the button's own blue survived at the box centre, and the capture that was handed to the painter was byte-for-byte unchanged |
+
+The "0 outside" number is the point. Painting into a pixel buffer is one multiplication and one addition
+away from writing last-row pixels at the start of the next row, which looks like a drawing glitch and is
+actually a corrupted image. The painter clips every write on both axes, and the step checks the diff
+against the boxes rather than trusting the arithmetic.
+
+Annotating with pixels — rather than only emitting SVG markup — is what lets a vision model be shown the
+same index the text outline was given. Text needed a font rasterizer, so the digits are a 3×5 bitmap: enough
+to put `12` on a box with no dependency, and small enough to be checked pixel by pixel in a test.
+
+### What run 7 caught in its own painter
+
+The label's dark background plate was drawn with padding that reached back over the box outline, so the
+corner of the box came out dark grey instead of cyan. The step failed on both browsers, and the failure is
+committed: `probe-2026-11-02T15-00-34-161Z.json` records 54/56 with
+`the outline at 40,40 is 8,8,8,255, not the annotation cyan`. The plate's padding now stops at the inner
+edge of the outline — the label may sit inside the box it names but never on top of it, because the outline
+is the part a reader uses to find the element.
+
+Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`): annotation is Phase 6
+capability work, not a protocol row. `P6-08` moved from TESTED to VERIFIED with this run. Still unproven
+live: full-page composition across frames, touch input, mobile-UA emulation, web sockets, persistence
+across relaunch, and everything that needs a browser this host cannot run.

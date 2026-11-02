@@ -244,6 +244,156 @@ export function solidRgba(width: number, height: number, rgba: [number, number, 
 }
 
 /**
+ * Annotating a capture with pixels, not just markup.
+ *
+ * A model that is shown a screenshot needs the same index the outline gave it, drawn where the element
+ * is. Doing that with text would mean a font rasterizer, so the digits are a 3x5 bitmap — enough to put
+ * `12` on a box with no dependency, and small enough to be sure of by eye.
+ *
+ * Every write is bounds-checked on both axes. Adding `y * width + x` to an offset that ran past the row
+ * end paints last-row pixels at the start of the next row, which looks like a drawing glitch and is
+ * actually a corrupted image, so clipping is the whole implementation choice here.
+ */
+const DIGIT_FONT: Record<string, readonly string[]> = {
+  '0': ['111', '101', '101', '101', '111'],
+  '1': ['010', '110', '010', '010', '111'],
+  '2': ['111', '001', '111', '100', '111'],
+  '3': ['111', '001', '111', '001', '111'],
+  '4': ['101', '101', '111', '001', '001'],
+  '5': ['111', '100', '111', '001', '111'],
+  '6': ['111', '100', '111', '101', '111'],
+  '7': ['111', '001', '010', '010', '010'],
+  '8': ['111', '101', '111', '101', '111'],
+  '9': ['111', '101', '111', '001', '111'],
+};
+
+export type Rgba = [number, number, number, number];
+
+function putPixel(image: RgbaImage, x: number, y: number, colour: Rgba): boolean {
+  if (x < 0 || y < 0 || x >= image.width || y >= image.height) return false;
+  const o = (y * image.width + x) * 4;
+  image.data[o] = colour[0];
+  image.data[o + 1] = colour[1];
+  image.data[o + 2] = colour[2];
+  image.data[o + 3] = 255;
+  return true;
+}
+
+/** Draw `text` with the bitmap digits. Characters outside 0-9 are skipped and counted. */
+export function drawDigits(
+  image: RgbaImage,
+  x: number,
+  y: number,
+  text: string,
+  colour: Rgba,
+  scale = 1,
+): { painted: number; skipped: number } {
+  let painted = 0;
+  let skipped = 0;
+  let cursor = x;
+  for (const ch of text) {
+    const glyph = DIGIT_FONT[ch];
+    if (!glyph) {
+      skipped++;
+      cursor += 3 * scale + scale;
+      continue;
+    }
+    for (let row = 0; row < glyph.length; row++) {
+      for (let col = 0; col < glyph[row].length; col++) {
+        if (glyph[row][col] !== '1') continue;
+        for (let sy = 0; sy < scale; sy++) {
+          for (let sx = 0; sx < scale; sx++) {
+            if (putPixel(image, cursor + col * scale + sx, y + row * scale + sy, colour)) painted++;
+          }
+        }
+      }
+    }
+    cursor += 3 * scale + scale;
+  }
+  return { painted, skipped };
+}
+
+export interface AnnotationSpec {
+  /** Where the element is, in the image's own pixel space. */
+  rect: { x: number; y: number; width: number; height: number };
+  /** The index the outline gave this element, drawn on top of it. */
+  index: number;
+  /** Box outline colour. Opaque; the interior is never touched. */
+  colour?: Rgba;
+}
+
+export interface PaintedAnnotation {
+  image: RgbaImage;
+  /** Pixels written by the annotation, so a caller can check the change is the annotation and nothing else. */
+  painted: number;
+  boxes: number;
+  /** Labels that could not be drawn because they fell outside the image. */
+  labelsOutside: number;
+}
+
+/**
+ * Draw the outline and the index for each annotation onto a **copy** of the image.
+ *
+ * The source is never mutated: a caller keeps comparing the capture it took against the capture it took,
+ * and an annotated image that quietly replaced it would poison every later diff.
+ */
+export function paintAnnotation(
+  source: RgbaImage,
+  annotations: AnnotationSpec[],
+  options: { thickness?: number; labelScale?: number } = {},
+): PaintedAnnotation {
+  assertRgba(source, 'annotation target');
+  const image: RgbaImage = { width: source.width, height: source.height, data: source.data.slice() };
+  const thickness = Math.max(1, options.thickness ?? 2);
+  const scale = Math.max(1, options.labelScale ?? 2);
+  const defaultColour: Rgba = [0, 229, 255, 255];
+  const dark: Rgba = [8, 8, 8, 255];
+  let painted = 0;
+  let boxes = 0;
+  let labelsOutside = 0;
+
+  for (const annotation of annotations) {
+    const colour = annotation.colour ?? defaultColour;
+    const { x, y, width, height } = annotation.rect;
+    if (width <= 0 || height <= 0) continue;
+    boxes++;
+    // Four strips, bounds-checked, so a box hanging off the edge of a capture draws the part that is there.
+    for (let t = 0; t < thickness; t++) {
+      for (let px = x; px < x + width; px++) {
+        if (putPixel(image, px, y + t, colour)) painted++;
+        if (putPixel(image, px, y + height - 1 - t, colour)) painted++;
+      }
+      for (let py = y; py < y + height; py++) {
+        if (putPixel(image, x + t, py, colour)) painted++;
+        if (putPixel(image, x + width - 1 - t, py, colour)) painted++;
+      }
+    }
+    const label = String(annotation.index);
+    const labelX = x + thickness + 1;
+    const labelY = y + thickness + 1;
+    const glyphW = label.length * (3 * scale + scale);
+    const glyphH = 5 * scale;
+    if (labelX + glyphW > image.width || labelY + glyphH > image.height) {
+      labelsOutside++;
+      continue;
+    }
+    // A dark plate behind the digits, because cyan on a bright button is unreadable and unreadable
+    // annotation is decoration. Its padding stops at the outline: the box edge is what tells a reader
+    // where the element is, so the label may sit inside it but never on top of it.
+    const plateX = Math.max(labelX - scale, x + thickness);
+    const plateY = Math.max(labelY - scale, y + thickness);
+    for (let py = plateY; py < labelY + glyphH + scale; py++) {
+      for (let px = plateX; px < labelX + glyphW; px++) {
+        if (putPixel(image, px, py, dark)) painted++;
+      }
+    }
+    painted += drawDigits(image, labelX, labelY, label, [255, 255, 255, 255], scale).painted;
+  }
+
+  return { image, painted, boxes, labelsOutside };
+}
+
+/**
  * A text answer about a visual change.
  *
  * Phrased for a decision: did it change, how much, where, and what could not be compared. The raw numbers

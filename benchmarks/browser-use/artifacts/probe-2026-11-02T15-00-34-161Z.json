@@ -1,0 +1,399 @@
+{
+  "os": "windows",
+  "started": 1793631622304,
+  "ms": 11857,
+  "results": [
+    {
+      "product": "chrome",
+      "step": "launch",
+      "ok": true,
+      "detail": "chrome.exe · profile=pro-fetch-chrome",
+      "ms": 1044
+    },
+    {
+      "product": "chrome",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 75
+    },
+    {
+      "product": "chrome",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 5
+    },
+    {
+      "product": "chrome",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 59
+    },
+    {
+      "product": "chrome",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 18
+    },
+    {
+      "product": "chrome",
+      "step": "perceive",
+      "ok": true,
+      "detail": "4 nodes, 1 outlined, button \"Press me\" identity=05b23d4f",
+      "ms": 11
+    },
+    {
+      "product": "chrome",
+      "step": "stale-detection",
+      "ok": true,
+      "detail": "ID_RECYCLED: node id pf-2 now belongs to \"button\" — the original element is gone and clicking this id would hit s",
+      "ms": 10
+    },
+    {
+      "product": "chrome",
+      "step": "obstruction",
+      "ok": true,
+      "detail": "covered button not interactable; conflicts: hit-test at the centre returns a different element",
+      "ms": 19
+    },
+    {
+      "product": "chrome",
+      "step": "group",
+      "ok": true,
+      "detail": "3 groups [list, form, navigation], list repeats 3, every group evidenced",
+      "ms": 76
+    },
+    {
+      "product": "chrome",
+      "step": "world-model",
+      "ok": true,
+      "detail": "v3: label change relabelled (CHANGED), navigation voided 2 identities, look-alike button refused",
+      "ms": 44
+    },
+    {
+      "product": "chrome",
+      "step": "screenshot",
+      "ok": true,
+      "detail": "viewport 1280x720 @dpr 1 · full-page 1280x2072 · element 120x32 · blue in box 97%/97%",
+      "ms": 719
+    },
+    {
+      "product": "chrome",
+      "step": "visual-diff",
+      "ok": true,
+      "detail": "3818 of 921600 pixels changed (0.4%), inside the mapped box; identical captures diff to 0",
+      "ms": 311
+    },
+    {
+      "product": "chrome",
+      "step": "coordinates",
+      "ok": true,
+      "detail": "centre verified; scroll drift 0,-400 refused; covered point: the point lands on button \"Buy\", which is not interactable: ",
+      "ms": 31
+    },
+    {
+      "product": "chrome",
+      "step": "input",
+      "ok": true,
+      "detail": "focus via 96.5,18.5 typed \"hello\"; Enter logged \"enter:hello\"; click at 201.9,18.5 reached the button",
+      "ms": 166
+    },
+    {
+      "product": "chrome",
+      "step": "console",
+      "ok": true,
+      "detail": "2 message(s): log:pf-probe-log, warning:pf-probe-warn",
+      "ms": 223
+    },
+    {
+      "product": "chrome",
+      "step": "network",
+      "ok": true,
+      "detail": "2 request(s) and 2 response(s) observed; https://probe.invalid/probe.png served from memory (95 byte PNG, naturalWidth 4), nothing resolved on the network",
+      "ms": 184
+    },
+    {
+      "product": "chrome",
+      "step": "dialogs",
+      "ok": true,
+      "detail": "alert:pf-alert, confirm:pf-confirm — accepted; page saw confirm=true",
+      "ms": 190
+    },
+    {
+      "product": "chrome",
+      "step": "downloads",
+      "ok": true,
+      "detail": "\"probe.txt\" received and read back (15 bytes) through the browser's own download path",
+      "ms": 407
+    },
+    {
+      "product": "chrome",
+      "step": "uploads",
+      "ok": true,
+      "detail": "setInputFiles delivered upload-me.txt:14 to the page's change handler",
+      "ms": 94
+    },
+    {
+      "product": "chrome",
+      "step": "cookies",
+      "ok": true,
+      "detail": "jar held pf_probe, pf_second; after clearCookies: pf_second",
+      "ms": 64
+    },
+    {
+      "product": "chrome",
+      "step": "storage",
+      "ok": true,
+      "detail": "state file carried 1 key(s) for https://probe.invalid; page reads local=\"value\" session=\"temp\"",
+      "ms": 107
+    },
+    {
+      "product": "chrome",
+      "step": "tabs",
+      "ok": true,
+      "detail": "2 → 4 tabs [, st, tab-a, tab-b], closed one → 3, driver still alive",
+      "ms": 146
+    },
+    {
+      "product": "chrome",
+      "step": "viewport",
+      "ok": true,
+      "detail": "375x667 emulated, capture 375x667, button at 40,40; restored to 1280x720",
+      "ms": 119
+    },
+    {
+      "product": "chrome",
+      "step": "device-scale",
+      "ok": true,
+      "detail": "dpr 2: 800x600 css → 1600x1200 image; box maps to 80,80 240x64 with 97% blue",
+      "ms": 789
+    },
+    {
+      "product": "chrome",
+      "step": "attach-native",
+      "ok": true,
+      "detail": "attached over CDP at http://127.0.0.1:9333 (browser 156.0.8078.74), read \"native attach\" on the second connection; managed session still responds with title \"shot\"; public endpoint refused: Public attach endpoints are never permitted:",
+      "ms": 544
+    },
+    {
+      "product": "chrome",
+      "step": "frames",
+      "ok": true,
+      "detail": "2 frames (main>0@60,0); frame main>0 at 60,0; lifted box 100,40 120x32 is 96% blue; boundaries: iframe main>0 (about:srcdoc)",
+      "ms": 95
+    },
+    {
+      "product": "chrome",
+      "step": "annotate",
+      "ok": false,
+      "detail": "the outline at 40,40 is 8,8,8,255, not the annotation cyan",
+      "ms": 261
+    },
+    {
+      "product": "chrome",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 302
+    },
+    {
+      "product": "edge",
+      "step": "launch",
+      "ok": true,
+      "detail": "msedge.exe · profile=pro-fetch-edge",
+      "ms": 535
+    },
+    {
+      "product": "edge",
+      "step": "navigate",
+      "ok": true,
+      "detail": "title=probe",
+      "ms": 122
+    },
+    {
+      "product": "edge",
+      "step": "read",
+      "ok": true,
+      "detail": "DOM read \"pro-fetch probe\"",
+      "ms": 4
+    },
+    {
+      "product": "edge",
+      "step": "geometry",
+      "ok": true,
+      "detail": "button 50x21 @ 8,80",
+      "ms": 47
+    },
+    {
+      "product": "edge",
+      "step": "accessibility",
+      "ok": true,
+      "detail": "ariaSnapshot: - button \"Press me\": Press",
+      "ms": 7
+    },
+    {
+      "product": "edge",
+      "step": "perceive",
+      "ok": true,
+      "detail": "4 nodes, 1 outlined, button \"Press me\" identity=05b23d4f",
+      "ms": 6
+    },
+    {
+      "product": "edge",
+      "step": "stale-detection",
+      "ok": true,
+      "detail": "ID_RECYCLED: node id pf-2 now belongs to \"button\" — the original element is gone and clicking this id would hit s",
+      "ms": 7
+    },
+    {
+      "product": "edge",
+      "step": "obstruction",
+      "ok": true,
+      "detail": "covered button not interactable; conflicts: hit-test at the centre returns a different element",
+      "ms": 8
+    },
+    {
+      "product": "edge",
+      "step": "group",
+      "ok": true,
+      "detail": "3 groups [list, form, navigation], list repeats 3, every group evidenced",
+      "ms": 25
+    },
+    {
+      "product": "edge",
+      "step": "world-model",
+      "ok": true,
+      "detail": "v3: label change relabelled (CHANGED), navigation voided 2 identities, look-alike button refused",
+      "ms": 50
+    },
+    {
+      "product": "edge",
+      "step": "screenshot",
+      "ok": true,
+      "detail": "viewport 1280x720 @dpr 1 · full-page 1280x2072 · element 120x32 · blue in box 97%/97%",
+      "ms": 369
+    },
+    {
+      "product": "edge",
+      "step": "visual-diff",
+      "ok": true,
+      "detail": "3818 of 921600 pixels changed (0.4%), inside the mapped box; identical captures diff to 0",
+      "ms": 187
+    },
+    {
+      "product": "edge",
+      "step": "coordinates",
+      "ok": true,
+      "detail": "centre verified; scroll drift 0,-400 refused; covered point: the point lands on button \"Buy\", which is not interactable: ",
+      "ms": 13
+    },
+    {
+      "product": "edge",
+      "step": "input",
+      "ok": true,
+      "detail": "focus via 96.5,18.5 typed \"hello\"; Enter logged \"enter:hello\"; click at 201.9,18.5 reached the button",
+      "ms": 78
+    },
+    {
+      "product": "edge",
+      "step": "console",
+      "ok": true,
+      "detail": "2 message(s): log:pf-probe-log, warning:pf-probe-warn",
+      "ms": 208
+    },
+    {
+      "product": "edge",
+      "step": "network",
+      "ok": true,
+      "detail": "2 request(s) and 2 response(s) observed; https://probe.invalid/probe.png served from memory (95 byte PNG, naturalWidth 4), nothing resolved on the network",
+      "ms": 121
+    },
+    {
+      "product": "edge",
+      "step": "dialogs",
+      "ok": true,
+      "detail": "alert:pf-alert, confirm:pf-confirm — accepted; page saw confirm=true",
+      "ms": 174
+    },
+    {
+      "product": "edge",
+      "step": "downloads",
+      "ok": true,
+      "detail": "\"probe.txt\" received and read back (15 bytes) through the browser's own download path",
+      "ms": 266
+    },
+    {
+      "product": "edge",
+      "step": "uploads",
+      "ok": true,
+      "detail": "setInputFiles delivered upload-me.txt:14 to the page's change handler",
+      "ms": 38
+    },
+    {
+      "product": "edge",
+      "step": "cookies",
+      "ok": true,
+      "detail": "jar held pf_probe, pf_second; after clearCookies: pf_second",
+      "ms": 49
+    },
+    {
+      "product": "edge",
+      "step": "storage",
+      "ok": true,
+      "detail": "state file carried 1 key(s) for https://probe.invalid; page reads local=\"value\" session=\"temp\"",
+      "ms": 84
+    },
+    {
+      "product": "edge",
+      "step": "tabs",
+      "ok": true,
+      "detail": "3 → 5 tabs [, st, Загрузки, tab-a, tab-b], closed one → 4, driver still alive",
+      "ms": 178
+    },
+    {
+      "product": "edge",
+      "step": "viewport",
+      "ok": true,
+      "detail": "375x667 emulated, capture 375x667, button at 40,40; restored to 1280x720",
+      "ms": 123
+    },
+    {
+      "product": "edge",
+      "step": "device-scale",
+      "ok": true,
+      "detail": "dpr 2: 800x600 css → 1600x1200 image; box maps to 80,80 240x64 with 97% blue",
+      "ms": 768
+    },
+    {
+      "product": "edge",
+      "step": "attach-native",
+      "ok": true,
+      "detail": "attached over CDP at http://127.0.0.1:9334 (browser 156.0.4314.58), read \"native attach\" on the second connection; managed session still responds with title \"shot\"; public endpoint refused: Public attach endpoints are never permitted:",
+      "ms": 579
+    },
+    {
+      "product": "edge",
+      "step": "frames",
+      "ok": true,
+      "detail": "2 frames (main>0@60,0); frame main>0 at 60,0; lifted box 100,40 120x32 is 96% blue; boundaries: iframe main>0 (about:srcdoc)",
+      "ms": 121
+    },
+    {
+      "product": "edge",
+      "step": "annotate",
+      "ok": false,
+      "detail": "the outline at 40,40 is 8,8,8,255, not the annotation cyan",
+      "ms": 250
+    },
+    {
+      "product": "edge",
+      "step": "close",
+      "ok": true,
+      "detail": "closed",
+      "ms": 351
+    }
+  ]
+}

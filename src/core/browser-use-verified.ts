@@ -24,7 +24,7 @@ import type {
  * The probe artifact every entry below points at. Regenerate with `npm run probe:browser-use`, then
  * update this constant together with `RUN_DATE` and the versions — a fact and its evidence age together.
  */
-const ARTIFACT = 'probe-2026-11-02T14-40-03-890Z.json';
+const ARTIFACT = 'probe-2026-11-02T15-01-32-740Z.json';
 export const RUN_EVIDENCE = 'benchmarks/browser-use/artifacts/' + ARTIFACT;
 const RUN_DATE = '2026-11-02';
 const RUN_OS: OperatingSystem = 'windows';

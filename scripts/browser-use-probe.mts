@@ -51,6 +51,7 @@ interface ProbeResult {
     | 'device-scale'
     | 'attach-native'
     | 'frames'
+    | 'annotate'
     | 'close';
   ok: boolean;
   detail: string;
@@ -946,6 +947,85 @@ for (const entry of registry.entries) {
     if (!inside.boundaries.some((b) => b.startsWith('iframe ')))
       throw new Error('the node crossed a frame boundary but records none');
     return `${layer.describeFrames(collected)}; frame ${inside.frameId} at ${Math.round(offset.x)},${Math.round(offset.y)}; lifted box ${mapped.x},${mapped.y} ${mapped.width}x${mapped.height} is ${Math.round(ratio * 100)}% blue; boundaries: ${inside.boundaries.join(' + ')}`;
+  });
+
+  await step(product, 'annotate', async () => {
+    const coords = await import('../src/core/browser-use-coordinates.js');
+    const visual = await import('../src/core/browser-use-visual.js');
+    await page.goto('about:blank');
+    await page.setContent(SHOT_FIXTURE, { waitUntil: 'domcontentloaded' });
+    const meta = await page.evaluate(() => ({
+      w: window.innerWidth,
+      h: window.innerHeight,
+      dpr: window.devicePixelRatio,
+    }));
+    const shot = await grabViewport();
+    const snapshot = snap('ann-1', await page.evaluate(COLLECTOR_SCRIPT));
+    const targets = snapshot.nodes.filter((n: any) => n.interactable);
+    if (!targets.length) throw new Error('nothing interactable to annotate on a page with a button');
+    const geometry = {
+      kind: 'viewport' as const,
+      deviceScaleFactor: meta.dpr,
+      image: { width: shot.width, height: shot.height },
+      scroll: { x: 0, y: 0 },
+    };
+    const specs = targets.map((n: any, i: number) => ({
+      rect: coords.boxInScreenshot(n.rect, geometry),
+      index: i + 1,
+    }));
+    const sourceBefore = shot.data.slice();
+    const painted = visual.paintAnnotation(shot, specs, { thickness: 2, labelScale: 3 });
+    if (painted.boxes !== specs.length)
+      throw new Error(`${specs.length} annotations asked for, ${painted.boxes} boxes drawn`);
+    if (painted.painted === 0) throw new Error('annotation reported drawing nothing');
+    if ([...shot.data].some((v, i) => v !== sourceBefore[i]))
+      throw new Error('paintAnnotation wrote into the capture it was given');
+
+    const at = (image: any, x: number, y: number): number[] => {
+      const o = (y * image.width + x) * 4;
+      return [image.data[o], image.data[o + 1], image.data[o + 2], image.data[o + 3]];
+    };
+    const first = specs[0].rect;
+    const corner = at(painted.image, first.x, first.y);
+    if (corner[0] !== 0 || corner[1] !== 229 || corner[2] !== 255) {
+      throw new Error(`the outline at ${first.x},${first.y} is ${corner.join(',')}, not the annotation cyan`);
+    }
+    // The element has to stay readable under its own annotation, or the picture stops being evidence.
+    const centre = coords.centreOf(first);
+    const insidePixel = at(painted.image, Math.round(centre.x), Math.round(first.y + first.height / 2));
+    const blueInside = insidePixel[2] > 150 && insidePixel[0] < 120;
+    if (!blueInside) throw new Error(`the middle of the annotated button reads ${insidePixel.join(',')}`);
+
+    const d = visual.diffRgba(shot, painted.image, { channelTolerance: 0 });
+    if (d.changedPixels === 0) throw new Error('the annotated image is byte-identical to the capture');
+    if (d.changedPixels > painted.painted) {
+      throw new Error(
+        `the diff found ${d.changedPixels} changed pixels but the annotation wrote ${painted.painted} — something outside the annotation moved`,
+      );
+    }
+    // Every changed pixel must sit inside one of the drawn boxes: an annotation that paints elsewhere is
+    // a bug that will silently mislead a vision model.
+    const inSomeBox = (x: number, y: number): boolean =>
+      specs.some(
+        (s) =>
+          x >= s.rect.x - 4 &&
+          x <= s.rect.x + s.rect.width + 4 &&
+          y >= s.rect.y - 4 &&
+          y <= s.rect.y + s.rect.height + 4,
+      );
+    let outside = 0;
+    for (let i = 0; i < d.width * d.height; i++) {
+      const o = i * 4;
+      if (
+        shot.data[o] === painted.image.data[o] &&
+        shot.data[o + 1] === painted.image.data[o + 1] &&
+        shot.data[o + 2] === painted.image.data[o + 2]
+      )
+        continue;
+      if (!inSomeBox(i % d.width, Math.floor(i / d.width))) outside++;
+    }
+    if (outside > 0) throw new Error(`${outside} pixel(s) were painted outside every annotated box`);
+    return `${painted.boxes} box(es) annotated, ${painted.painted} pixels written, diff found ${d.changedPixels} changed and ${outside} outside the boxes, button blue intact at ${Math.round(centre.x)},${Math.round(first.y + first.height / 2)}`;
   });
 
   await step(product, 'close', async () => {

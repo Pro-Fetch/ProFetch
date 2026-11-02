@@ -93,6 +93,7 @@ describe('the support matrix cannot drift from the profiles', () => {
       'device-scale',
       'attach-native',
       'frames',
+      'annotate',
       'close',
     ];
     for (const path of artifacts) {
@@ -131,6 +132,9 @@ describe('the support matrix cannot drift from the profiles', () => {
         expect(detailOf(product, 'frames')).toMatch(/main>0@\d+,\d+/);
         expect(detailOf(product, 'frames')).toMatch(/lifted box [\d,]+ \d+x\d+ is \d+% blue/);
         expect(detailOf(product, 'frames')).toMatch(/boundaries: iframe /);
+        expect(detailOf(product, 'annotate')).toMatch(/pixels written/);
+        expect(detailOf(product, 'annotate')).toMatch(/0 outside the boxes/);
+        expect(detailOf(product, 'annotate')).toMatch(/button blue intact/);
       }
     }
   });

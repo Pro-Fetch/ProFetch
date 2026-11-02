@@ -4,6 +4,8 @@ import {
   cropRgba,
   describeDiff,
   diffRgba,
+  drawDigits,
+  paintAnnotation,
   pixelCount,
   solidRgba,
   type RgbaImage,
@@ -160,5 +162,95 @@ describe('cropping', () => {
     expect(() => cropRgba(img, { x: 2, y: 2, width: 4, height: 4 })).toThrow(/does not fit a 4x4 image/);
     expect(() => cropRgba(img, { x: -1, y: 0, width: 2, height: 2 })).toThrow(/does not fit/);
     expect(() => cropRgba(img, { x: 0, y: 0, width: 0, height: 2 })).toThrow(/does not fit/);
+  });
+});
+
+describe('annotation', () => {
+  const at = (img: RgbaImage, x: number, y: number): number[] => {
+    const o = (y * img.width + x) * 4;
+    return [img.data[o], img.data[o + 1], img.data[o + 2], img.data[o + 3]];
+  };
+
+  it('draws the outline where the box is and leaves the interior alone', () => {
+    const base = solidRgba(20, 20, [128, 128, 128, 255]);
+    const painted = paintAnnotation(base, [{ rect: { x: 2, y: 2, width: 10, height: 10 }, index: 1 }], {
+      thickness: 1,
+      labelScale: 1,
+    });
+    expect(painted.boxes).toBe(1);
+    expect(painted.painted).toBeGreaterThan(0);
+    expect(at(painted.image, 2, 2)).toEqual([0, 229, 255, 255]);
+    expect(at(painted.image, 11, 2)).toEqual([0, 229, 255, 255]);
+    expect(at(painted.image, 2, 11)).toEqual([0, 229, 255, 255]);
+    // The plate behind the digits is deliberate, and the digits sit on top of it; the page's own pixels
+    // must survive everywhere else.
+    expect(at(painted.image, 5, 5)).toEqual([255, 255, 255, 255]);
+    expect(at(painted.image, 3, 5)).toEqual([8, 8, 8, 255]);
+    expect(at(painted.image, 9, 9)).toEqual([128, 128, 128, 255]);
+  });
+
+  it('never writes the source image', () => {
+    const base = solidRgba(12, 12, [10, 20, 30, 255]);
+    const before = base.data.slice();
+    paintAnnotation(base, [{ rect: { x: 1, y: 1, width: 6, height: 6 }, index: 3 }]);
+    expect([...base.data]).toEqual([...before]);
+  });
+
+  it('clips a box that hangs off the capture instead of wrapping into the next row', () => {
+    const base = solidRgba(8, 8, [200, 200, 200, 255]);
+    const painted = paintAnnotation(base, [{ rect: { x: 6, y: 6, width: 8, height: 8 }, index: 1 }], {
+      thickness: 1,
+      labelScale: 1,
+    });
+    expect(at(painted.image, 6, 6)).toEqual([0, 229, 255, 255]);
+    // The row below would receive the overflow if the index arithmetic wrapped: (0,7) stays untouched.
+    expect(at(painted.image, 0, 7)).toEqual([200, 200, 200, 255]);
+    expect(at(painted.image, 1, 7)).toEqual([200, 200, 200, 255]);
+    expect(at(painted.image, 7, 0)).toEqual([200, 200, 200, 255]);
+  });
+
+  it('refuses to label a box that has no room for the digits, and says so', () => {
+    const base = solidRgba(12, 12, [5, 5, 5, 255]);
+    const painted = paintAnnotation(base, [{ rect: { x: 4, y: 4, width: 6, height: 6 }, index: 12 }], {
+      thickness: 1,
+      labelScale: 2,
+    });
+    expect(painted.labelsOutside).toBe(1);
+    expect(painted.boxes).toBe(1);
+  });
+
+  it('draws the digits of the index in white on a dark plate', () => {
+    const img = solidRgba(16, 16, [0, 100, 0, 255]);
+    const drawn = drawDigits(img, 2, 2, '1', [255, 255, 255, 255], 1);
+    // glyph "1": 010 / 110 / 010 / 010 / 111 → eight pixels
+    expect(drawn.painted).toBe(8);
+    expect(at(img, 3, 2)).toEqual([255, 255, 255, 255]);
+    expect(at(img, 2, 2)).toEqual([0, 100, 0, 255]);
+    expect(at(img, 2, 6)).toEqual([255, 255, 255, 255]);
+    expect(at(img, 4, 6)).toEqual([255, 255, 255, 255]);
+    expect(at(img, 2, 3)).toEqual([255, 255, 255, 255]);
+  });
+
+  it('counts characters it cannot draw instead of drawing something arbitrary', () => {
+    const img = solidRgba(24, 8, [1, 1, 1, 255]);
+    const drawn = drawDigits(img, 1, 1, 'a1', [9, 9, 9, 255], 1);
+    expect(drawn.skipped).toBe(1);
+    expect(drawn.painted).toBe(8);
+  });
+
+  it('changes only the annotation pixels, which is what a diff can then prove', () => {
+    const base = make(40, 30, (x, y) =>
+      x > 8 && x < 28 && y > 6 && y < 16 ? [0, 64, 255, 255] : [255, 255, 255, 255],
+    );
+    const painted = paintAnnotation(base, [{ rect: { x: 10, y: 8, width: 16, height: 8 }, index: 2 }], {
+      thickness: 1,
+      labelScale: 1,
+    });
+    const d = diffRgba(base, painted.image, { channelTolerance: 0 });
+    expect(d.comparable).toBe(true);
+    expect(d.changedPixels).toBeLessThanOrEqual(painted.painted);
+    expect(d.boundingBox).toEqual({ x: 10, y: 8, width: 16, height: 8 });
+    // The button interior under the box is still blue, so the annotation did not overwrite the evidence.
+    expect(at(painted.image, 18, 12)).toEqual([0, 64, 255, 255]);
   });
 });
