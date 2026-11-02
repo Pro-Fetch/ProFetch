@@ -52,6 +52,8 @@ interface ProbeResult {
     | 'attach-native'
     | 'frames'
     | 'annotate'
+    | 'scan'
+    | 'state-discovery'
     | 'close';
   ok: boolean;
   detail: string;
@@ -1026,6 +1028,130 @@ for (const entry of registry.entries) {
     }
     if (outside > 0) throw new Error(`${outside} pixel(s) were painted outside every annotated box`);
     return `${painted.boxes} box(es) annotated, ${painted.painted} pixels written, diff found ${d.changedPixels} changed and ${outside} outside the boxes, button blue intact at ${Math.round(centre.x)},${Math.round(first.y + first.height / 2)}`;
+  });
+
+  // --- Phase 7: coverage ledger and safe state discovery ------------------------------
+  await step(product, 'scan', async () => {
+    const cov = await import('../src/core/browser-use-coverage.js');
+    await page.goto('about:blank');
+    await page.setContent(
+      '<!doctype html><title>long</title><style>html,body{margin:0;background:#fff}.band{height:900px;border-top:1px solid #eee}' +
+        '#bottom{display:block;margin:40px;width:160px;height:40px;background:#0040ff;border:0;color:#fff}</style>' +
+        '<div class="band">top</div><div class="band">middle</div><div class="band">lower</div>' +
+        '<button id="bottom">Bottom button</button>',
+      { waitUntil: 'domcontentloaded' },
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    const first = snap('scan-0', await page.evaluate(COLLECTOR_SCRIPT));
+    if (first.nodes.some((n: any) => n.name === 'Bottom button' && n.inViewport)) {
+      throw new Error(
+        'the fixture is short enough to show its bottom button in the first viewport — this scan would prove nothing',
+      );
+    }
+    let ledger = cov.createLedger(first, { contentHeight: height, maxSteps: 20 });
+    const bandsAtStart = ledger.bands.length;
+    let snapshot = first;
+    let guard = 0;
+    while (guard++ < 24) {
+      const plan = cov.planScan(ledger, { maxSteps: 2 });
+      if (!plan.scrolls.length) break;
+      const before = ledger.bands.filter((b) => b.visitedAt !== null).length;
+      for (const y of plan.scrolls) {
+        await page.evaluate((target: number) => window.scrollTo(0, target), y);
+        snapshot = snap(`scan-${guard}-${y}`, await page.evaluate(COLLECTOR_SCRIPT));
+        ledger = cov.recordSnapshot(ledger, snapshot);
+      }
+      const after = ledger.bands.filter((b) => b.visitedAt !== null).length;
+      if (after === before) {
+        throw new Error(
+          `the scan read ${plan.scrolls.join(' , ')} and no band became fully covered (${plan.reason}); gaps: ${ledger.gaps.join(' | ')}`,
+        );
+      }
+    }
+    const ratio = cov.coverageRatio(ledger);
+    if (ratio !== 1)
+      throw new Error(
+        `the scan stopped at ${Math.round((ratio ?? 0) * 100)}% band coverage; gaps: ${ledger.gaps.join(' | ')}`,
+      );
+    if (cov.complete(ledger) !== true)
+      throw new Error(`bands are full but the ledger says incomplete: ${ledger.gaps.join('; ')}`);
+    if (!snapshot.nodes.some((n: any) => n.name === 'Bottom button' && n.inViewport)) {
+      throw new Error('the ledger claims full band coverage while the bottom button was never inside a read viewport');
+    }
+    const visitedBands = ledger.bands.filter((b) => b.visitedAt !== null).length;
+    if (visitedBands < 2)
+      throw new Error(`the scan visited ${visitedBands} band(s) on a ${height}px page — it did not move`);
+    if (ledger.budget.stepsSpent < 2)
+      throw new Error(`the scan spent ${ledger.budget.stepsSpent} read(s) for ${bandsAtStart} bands`);
+    const described = cov.describeLedger(ledger, 2000).text;
+    if (/never visited/.test(described))
+      throw new Error(`describeLedger still reports an unvisited band:\n${described}`);
+    return `${visitedBands}/${bandsAtStart} bands of ${height}px covered in ${ledger.budget.stepsSpent} reads, ${ledger.identities.size} identities known, bottom button entered the viewport only after scrolling; complete=${cov.complete(ledger)}`;
+  });
+
+  await step(product, 'state-discovery', async () => {
+    const cov = await import('../src/core/browser-use-coverage.js');
+    await page.goto('about:blank');
+    await page.setContent(
+      '<!doctype html><title>disclosure</title><details id="d"><summary>Shipping options</summary><p id="p">Free returns within 30 days</p></details>',
+      { waitUntil: 'domcontentloaded' },
+    );
+    const closed = snap('sd-1', await page.evaluate(COLLECTOR_SCRIPT));
+    const panelIn = (s: any): number =>
+      s.nodes.filter((n: any) => n.tag === 'p' && /Free returns/.test(n.text || '')).length;
+    if (panelIn(closed) !== 0) {
+      throw new Error(
+        `the panel element was collected while the disclosure was closed (${panelIn(closed)} node(s)) — the collector is not hiding it`,
+      );
+    }
+    const summary = closed.nodes.find((n: any) => n.tag === 'summary');
+    const details = closed.nodes.find((n: any) => n.tag === 'details');
+    if (!summary || !details) throw new Error(`no summary/details pair in the snapshot (${closed.nodes.length} nodes)`);
+    if (details.state.expanded !== false)
+      throw new Error(
+        `a closed <details> reported expanded=${String(details.state.expanded)} — the collector is not reading open`,
+      );
+
+    const candidates = cov.revealCandidates(closed);
+    const offered = candidates.find((c) => c.identity === details.identity);
+    if (!offered) {
+      throw new Error(
+        `a visible closed disclosure was not offered: ${candidates.map((c) => `${c.label}/${c.safety}`).join(', ') || 'no candidates'}`,
+      );
+    }
+    if (offered.safety !== 'SAFE_REVERSIBLE' || offered.restore !== 'collapse it again') {
+      throw new Error(`the closed disclosure was classified ${offered.safety}: ${offered.reason}`);
+    }
+
+    await page.evaluate(() => {
+      (document.getElementById('d') as HTMLDetailsElement).open = true;
+    });
+    const open = snap('sd-2', await page.evaluate(COLLECTOR_SCRIPT));
+    if (panelIn(open) !== 1)
+      throw new Error(`expanding the disclosure produced ${panelIn(open)} panel node(s), expected 1`);
+    const summaryAfter = open.nodes.find((n: any) => n.tag === 'summary');
+    if (!summaryAfter || summaryAfter.identity !== summary.identity) {
+      throw new Error(
+        'the summary changed identity across a toggle — its lifetime token did not survive, so targets would go stale for no reason',
+      );
+    }
+
+    await page.evaluate(() => {
+      (document.getElementById('d') as HTMLDetailsElement).open = false;
+    });
+    const restored = snap('sd-3', await page.evaluate(COLLECTOR_SCRIPT));
+    if (panelIn(restored) !== 0)
+      throw new Error(
+        `the reveal was not reversible: ${panelIn(restored)} panel node(s) still collected after closing`,
+      );
+    const stillOffered = cov.revealCandidates(restored).find((c) => c.identity === details.identity);
+    if (stillOffered?.safety !== 'SAFE_REVERSIBLE') {
+      throw new Error(
+        'after closing, the disclosure stopped being an offered candidate — a later scan would forget it can be opened',
+      );
+    }
+    return `${offered.kind}/${offered.safety}: panel appeared then disappeared, summary identity ${summary.identity} stable across both toggles`;
   });
 
   await step(product, 'close', async () => {

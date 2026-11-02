@@ -296,3 +296,45 @@ Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`)
 capability work, not a protocol row. `P6-08` moved from TESTED to VERIFIED with this run. Still unproven
 live: full-page composition across frames, touch input, mobile-UA emulation, web sockets, persistence
 across relaunch, and everything that needs a browser this host cannot run.
+
+---
+
+## Run 8 — 2026-11-02T15:42:06Z — Windows, coverage measured and a state revealed
+
+Artifact: `benchmarks/browser-use/artifacts/probe-2026-11-02T15-42-06-835Z.json`
+60/60 steps passed on Chrome 156.0.8078.74 and Edge 156.0.4314.58 in 15200 ms.
+
+| step              | what it proves                                                                                                                                                                                                                                                                                        |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scan`            | a 2823 px page was read band by band until the ledger reported **4/4 bands fully covered in 4 reads**, `complete=true`, and the button at the bottom entered a viewport — it was not inside the first one, which is what makes the claim about coverage rather than about luck                        |
+| `state-discovery` | a closed `<details>` was offered as `expand/SAFE_REVERSIBLE`, opening it put the panel element into the snapshot, closing it took the element out again, and the summary kept the same identity (`dc05b903`, identical on both browsers) across both toggles because its lifetime token never changed |
+
+### Two bugs the scan step found in the ledger
+
+**Overlap was being called coverage.** A band was marked visited as soon as any viewport touched it, so a
+four-band page reached "100% covered" after two reads that between them had never brought the last screen of
+elements into view — the bottom button was still 1123 px below the fold while the ledger said the page was
+done. Bands now record the page range that has actually been inside a viewport, and a band counts as visited
+only when that range reaches both its edges.
+
+**Planned scrolls could aim at the wrong band.** Targets were snapped to a stride grid, and a snapped value
+can sit where a _neighbouring_ band starts: the scan then re-planned the same position forever and the
+iteration guard, not the coverage, ended the run. Each step is now aimed at the top of the band it is
+supposed to finish, clamped to the page's real maximum scroll (`contentHeight - viewportHeight`), because a
+target past that is silently clamped by the browser and the band's top edge never arrives. The step also
+fails loudly if a pass leaves the visited count unchanged, rather than spinning.
+
+### Why the disclosure is a discovery and not a re-read
+
+Chromium hides a closed `<details>` through the `::details-content` pseudo-element, which leaves the panel's
+own children with a real `getBoundingClientRect()` and a computed style of `visible`. The collector was
+therefore reporting content that paints nothing, and "the panel appeared when I opened it" would have been
+false the moment the element had merely been off-screen. Content inside a closed disclosure is now skipped
+(the summary excepted), so the panel is absent from the closed snapshot, present in the open one, and absent
+again after closing. `expanded` is also only reported where an expansion state genuinely exists — a `details`
+element's `open`, or a real `aria-expanded` — instead of every element arriving with `expanded: false`.
+
+Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`): coverage and disclosure
+behaviour are engine-level work, not protocol rows. Still unverified live: full-page composition across
+frames, touch input, mobile-UA emulation, web sockets, persistence across a relaunch, and every browser this
+host cannot run.

@@ -115,6 +115,11 @@ export const COLLECTOR_SCRIPT = `(() => {
     if (rect.width === 0 && rect.height === 0) continue;
     const style = getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+    // A closed <details> hides its content through the ::details-content pseudo-element, which leaves the
+    // children with a real rect and a "visible" computed style while painting nothing. Skipping them here
+    // is what makes their appearance after an expansion a discovery rather than a re-read.
+    const closedDetails = el.closest ? el.closest('details:not([open])') : null;
+    if (closedDetails && el !== closedDetails && !(el.tagName === 'SUMMARY' && el.parentElement === closedDetails)) continue;
 
     const id = 'pf-' + (++ordinal);
     el.setAttribute('data-pf-id', id);
@@ -144,7 +149,12 @@ export const COLLECTOR_SCRIPT = `(() => {
       disabled: el.disabled === true || el.getAttribute('aria-disabled') === 'true',
       checked: el.checked === true || el.getAttribute('aria-checked') === 'true',
       selected: el.selected === true || el.getAttribute('aria-selected') === 'true',
-      expanded: el.getAttribute('aria-expanded') === 'true',
+      expanded:
+        el.tagName === 'DETAILS'
+          ? el.open === true
+          : el.hasAttribute('aria-expanded')
+            ? el.getAttribute('aria-expanded') === 'true'
+            : undefined,
       rect: { x: Math.round(rect.left * 100) / 100, y: Math.round(rect.top * 100) / 100,
               width: Math.round(rect.width * 100) / 100, height: Math.round(rect.height * 100) / 100 },
       inViewport: onScreen,

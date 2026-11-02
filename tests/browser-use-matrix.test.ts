@@ -94,6 +94,8 @@ describe('the support matrix cannot drift from the profiles', () => {
       'attach-native',
       'frames',
       'annotate',
+      'scan',
+      'state-discovery',
       'close',
     ];
     for (const path of artifacts) {
@@ -135,6 +137,12 @@ describe('the support matrix cannot drift from the profiles', () => {
         expect(detailOf(product, 'annotate')).toMatch(/pixels written/);
         expect(detailOf(product, 'annotate')).toMatch(/0 outside the boxes/);
         expect(detailOf(product, 'annotate')).toMatch(/button blue intact/);
+        expect(detailOf(product, 'scan')).toMatch(/(\d+)\/\1 bands of \d+px covered/);
+        expect(detailOf(product, 'scan')).toMatch(/complete=true/);
+        expect(detailOf(product, 'state-discovery')).toMatch(
+          /expand\/SAFE_REVERSIBLE: panel appeared then disappeared/,
+        );
+        expect(detailOf(product, 'state-discovery')).toMatch(/summary identity \w{8} stable across both toggles/);
       }
     }
   });
