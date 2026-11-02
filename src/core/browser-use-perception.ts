@@ -79,6 +79,8 @@ export interface PerceivedNode {
   role: string;
   name: string;
   text: string;
+  /** A control's own value — what it holds, not what it is called. */
+  value: string;
   placeholder: string;
   href: string;
   rect: Rect;
@@ -177,6 +179,7 @@ export function mergeVisibility(node: RawNode): { visible: boolean; conflicts: s
   if (node.ariaHidden && hasArea && node.styleVisible) conflicts.push('aria-hidden on an element that occupies space');
   if (!node.hitTestSelf && hasArea && node.styleVisible)
     conflicts.push('hit-test at the centre returns a different element');
+  if (node.disabled && hasArea) conflicts.push('the element is disabled');
 
   const visible = node.styleVisible && hasArea && !node.ariaHidden;
   const interactable =
@@ -206,6 +209,7 @@ export function perceiveNode(node: RawNode, options: BuildOptions): PerceivedNod
     role: node.role ?? '',
     name: node.name ?? '',
     text: (node.text ?? '').replace(/\s+/g, ' ').trim(),
+    value: node.value ?? '',
     rect: node.rect,
     placeholder: node.placeholder ?? '',
     href: node.href ?? '',

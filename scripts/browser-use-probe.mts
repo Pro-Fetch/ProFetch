@@ -55,6 +55,7 @@ interface ProbeResult {
     | 'scan'
     | 'state-discovery'
     | 'health'
+    | 'action'
     | 'close';
   ok: boolean;
   detail: string;
@@ -1250,6 +1251,131 @@ for (const entry of registry.entries) {
     const described = health.describeDiagnosis(broken, 2000).text;
     if (!described.includes('BLOCKING')) throw new Error('describeDiagnosis did not lead with the blocking findings');
     return `${broken.blocking} blocking / ${broken.degraded} degraded / ${broken.notice} notice on the broken page; rescue ${record.status} then reverted; clean page ${clean.blocking} blocking (${clean.findings.length} finding(s))`;
+  });
+
+  await step(product, 'action', async () => {
+    const actions = await import('../src/core/browser-use-actions.js');
+    const world = await import('../src/core/browser-use-world.js');
+    await page.goto('about:blank');
+    await page.setContent(
+      '<!doctype html><html lang="en"><head><title>form</title></head><body style="margin:0">' +
+        '<label for="q">Coupon</label><input id="q" name="q">' +
+        '<button id="add" style="width:140px;height:36px;display:block;margin-top:8px">Add to cart</button>' +
+        '<label for="gift">Gift wrap</label><input id="gift" type="checkbox" style="width:24px;height:24px;display:block">' +
+        '<button id="del" style="width:140px;height:36px;display:block;margin-top:8px">Delete account</button>' +
+        '</body></html>',
+      { waitUntil: 'domcontentloaded' },
+    );
+    let model = world.createWorldModel(snap('act-1', await page.evaluate(COLLECTOR_SCRIPT)), { tabId: product });
+
+    const target = (name: string) => {
+      const node = model.latest.nodes.find((n: any) => n.name === name);
+      if (!node) throw new Error(`no element named "${name}" in the snapshot (${model.latest.nodes.length} nodes)`);
+      return { identity: node.identity, backendId: node.backendId, token: node.token, rect: node.rect };
+    };
+    /** The only part that touches the browser. A policy refusal must be able to prevent this counter. */
+    let executed = 0;
+    const execute = async (action: any, p: any): Promise<void> => {
+      executed++;
+      if (action.kind === 'type') {
+        await page.mouse.click(p.point!.x, p.point!.y);
+        await page.keyboard.type(String(action.value));
+      } else if (action.kind === 'click' || action.kind === 'check') {
+        await page.mouse.click(p.point!.x, p.point!.y);
+      } else throw new Error(`this step does not drive ${action.kind}`);
+      await page.waitForTimeout(40);
+    };
+    const reread = async (id: string) => {
+      const next = snap(id, await page.evaluate(COLLECTOR_SCRIPT));
+      model = world.applySnapshot(model, next, { tabId: product }).model;
+      return next;
+    };
+
+    // 1. typing, verified by reading the control's own value back out of the page.
+    const before1 = model.latest;
+    const typeAction = { kind: 'type' as const, target: target('Coupon'), value: 'SAVE20' };
+    const typed = await actions.performAction(typeAction, model, before1, execute);
+    if (typed.outcome.status !== 'EXECUTED_UNVERIFIED')
+      throw new Error(`the type action did not execute: ${typed.outcome.status} — ${typed.outcome.reason}`);
+    const after1 = await reread('act-2');
+    const v1 = actions.verifyAction(typeAction, before1, after1, typeAction.target.identity);
+    if (v1.status !== 'VERIFIED') throw new Error(`typing was not verified: ${v1.evidence}`);
+    const valueRead = after1.nodes.find((n: any) => n.name === 'Coupon')?.value;
+    if (valueRead !== 'SAVE20') throw new Error(`the page holds "${valueRead}", not SAVE20`);
+
+    // 2. a click whose only effect is that the button changes its own words.
+    const before2 = model.latest;
+    const addClick = { kind: 'click' as const, target: target('Add to cart') };
+    const preAdd = actions.preflight(addClick, model, before2);
+    if (preAdd.decision !== 'ALLOW') throw new Error(`the add click was refused before it ran: ${preAdd.reason}`);
+    await execute(addClick, preAdd);
+    await page.evaluate(() => {
+      const b = document.getElementById('add')!;
+      b.textContent = 'In cart';
+    });
+    const after2 = await reread('act-3');
+    const v2 = actions.verifyAction(addClick, before2, after2, addClick.target.identity);
+    if (v2.status !== 'VERIFIED')
+      throw new Error(`a click that relabelled its own button was not verified: ${v2.evidence}`);
+    if (!/same DOM node \(token/.test(v2.evidence))
+      throw new Error(`the click was verified without matching the node: ${v2.evidence}`);
+
+    // 3. a checkbox, verified by the state flag rather than by the absence of an error.
+    const before3 = model.latest;
+    const checkAction = { kind: 'check' as const, target: target('Gift wrap'), value: true };
+    const checked = await actions.performAction(checkAction, model, before3, execute);
+    if (checked.outcome.status !== 'EXECUTED_UNVERIFIED')
+      throw new Error(`the check was refused: ${checked.outcome.reason}`);
+    const after3 = await reread('act-4');
+    const v3 = actions.verifyAction(checkAction, before3, after3, checkAction.target.identity);
+    if (v3.status !== 'VERIFIED') throw new Error(`the checkbox did not change: ${v3.evidence}`);
+
+    // 4. a destructive control is refused before the executor is reached.
+    const executedBefore = executed;
+    const del = await actions.performAction(
+      { kind: 'click', target: target('Delete account') },
+      model,
+      model.latest,
+      execute,
+    );
+    if (del.outcome.status !== 'REFUSED') throw new Error(`a destructive label was not refused: ${del.outcome.status}`);
+    if (!/Delete account/.test(del.outcome.reason))
+      throw new Error(`the refusal did not name the label: ${del.outcome.reason}`);
+    if (executed !== executedBefore)
+      throw new Error('the executor ran for a refused action — the refusal is decoration');
+    const stillThere = await page.evaluate(() => document.getElementById('del')?.textContent ?? '');
+    if (stillThere !== 'Delete account') throw new Error('the refused control changed anyway');
+
+    // 5. a live reference to an element that is then replaced by a look-alike must stop, not aim at the
+    // replacement. The reference is taken here, while it is still current — reusing the one from step 2
+    // would prove nothing, because that identity already changed when the button relabelled itself.
+    const liveRef = target('In cart');
+    const beforeReplace = model.latest;
+    if (!beforeReplace.nodes.some((n: any) => n.identity === liveRef.identity)) {
+      throw new Error('the reference taken for the replacement test was already stale — this proves nothing');
+    }
+    await page.evaluate(() => {
+      const old = document.getElementById('add')!;
+      const fresh = document.createElement('button');
+      fresh.id = 'add';
+      fresh.style.cssText = 'width:140px;height:36px;display:block';
+      fresh.textContent = 'Add to cart';
+      old.replaceWith(fresh);
+    });
+    await reread('act-5');
+    const lookAlike = model.latest.nodes.find((n: any) => n.name === 'Add to cart');
+    if (!lookAlike)
+      throw new Error('the replacement element is not in the fresh read, so the dangerous case was never set up');
+    if (lookAlike.identity === liveRef.identity)
+      throw new Error('the replacement shares the original identity — the token is not distinguishing them');
+    const stale = await actions.performAction({ kind: 'click', target: liveRef }, model, model.latest, execute);
+    if (stale.outcome.status !== 'REFUSED')
+      throw new Error(`a replaced element was clicked anyway: ${stale.outcome.status} — ${stale.outcome.reason}`);
+    if (!/GONE|REPLACED|ID_RECYCLED|CHANGED|NAVIGATED/.test(stale.outcome.reason)) {
+      throw new Error(`the refusal did not name a staleness class: ${stale.outcome.reason}`);
+    }
+    if (executed !== executedBefore) throw new Error('the executor ran for a stale reference');
+    return `typed "SAVE20" and read it back; click verified by the same token now reading "In cart"; checkbox verified; "Delete account" refused without executing; replaced element refused as ${stale.outcome.reason.split(':')[0]} while a look-alike sat at its place`;
   });
 
   await step(product, 'close', async () => {

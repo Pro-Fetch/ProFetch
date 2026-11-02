@@ -373,3 +373,32 @@ Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`)
 engine-level analysis, not a protocol capability. Unverified live still: full-page composition across frames,
 touch input, mobile-UA emulation, web sockets, persistence across relaunch, and every browser this host
 cannot run.
+
+---
+
+## Run 10 — 2026-11-02T16:35:53Z — Windows, the action engine, driven end to end
+
+Artifact: `benchmarks/browser-use/artifacts/probe-2026-11-02T16-35-53-977Z.json`
+64/64 steps passed on Chrome 156.0.8078.74 and Edge 156.0.4314.58 in 20456 ms.
+
+| step     | what it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action` | five real actions through preflight → injected executor → independent verification: typing `SAVE20` into a labelled field and **reading the value back out of the page**; clicking a button whose only effect is that it changes its own words, verified by the **same node token** now reading "In cart"; checking a box, verified by its `checked` state; `"Delete account"` refused with the executor never reached (and the control confirmed untouched afterwards); and a live reference refused after the element was replaced by a look-alike, reported as `ID_RECYCLED` |
+
+The last case is the one the whole design exists for. The replaced button had the same tag, id, words and
+box, and the collector's traversal ordinal came back identical — so a reference keyed on that id would have
+clicked the new element and reported success. The refusal came from the lifetime token, not from the words.
+
+### What run 10 caught in its own step
+
+The stale-reference case initially reused the target from the earlier click — and that identity had already
+changed when the button relabelled itself, so the "refusal after replacement" was refusing something that was
+stale two steps earlier. The step passed and proved nothing, again. It now takes a _fresh_ live reference,
+asserts that the reference was current before the replacement, asserts that the look-alike exists afterwards
+under a **different** identity, and only then claims the refusal was about replacement. A guard that fails
+when its own fixture has stopped testing the case is worth more than a green run.
+
+Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`): acting on a page is not a
+protocol capability row — the capabilities it stands on (`inputPointer`, `inputKeyboard`, `hitTesting`,
+`domRead`, `boundingGeometry`) are each verified separately above. Unverified live: touch input, mobile-UA
+emulation, web sockets, persistence across a relaunch, and every browser this host cannot run.

@@ -97,6 +97,7 @@ describe('the support matrix cannot drift from the profiles', () => {
       'scan',
       'state-discovery',
       'health',
+      'action',
       'close',
     ];
     for (const path of artifacts) {
@@ -147,6 +148,13 @@ describe('the support matrix cannot drift from the profiles', () => {
         expect(detailOf(product, 'health')).toMatch(/rescue FIXED_VERIFIED then reverted/);
         expect(detailOf(product, 'health')).toMatch(/clean page 0 blocking/);
         expect(detailOf(product, 'health')).toMatch(/\d blocking \/ \d degraded \/ \d notice on the broken page/);
+        expect(detailOf(product, 'action')).toMatch(/typed "SAVE20" and read it back/);
+        expect(detailOf(product, 'action')).toMatch(/click verified by the same token now reading "In cart"/);
+        expect(detailOf(product, 'action')).toMatch(/checkbox verified/);
+        expect(detailOf(product, 'action')).toMatch(/"Delete account" refused without executing/);
+        expect(detailOf(product, 'action')).toMatch(
+          /replaced element refused as \w+ while a look-alike sat at its place/,
+        );
       }
     }
   });
