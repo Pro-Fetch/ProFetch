@@ -19,7 +19,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1489%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1503%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -230,7 +230,7 @@ npm run check
 | ---------------------------- | -------------------------------------------------------------------------------------------------- |
 | `verify:static`              | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest |
 | `verify:registry`            | boots the real registry: **673 tools / 42 categories / all four profile counts**, every tool has a schema and a handler |
-| `test`                       | **1489 tests** across 83 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
+| `test`                       | **1503 tests** across 84 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
 | `verify:package`             | the published tarball (570 files) has its shebang and `files` allowlist, and zero credentials or source files |
 | `audit:schema` _(on demand)_ | schemas against the code behind them — 0 dead properties, 0 unread required arguments              |
 

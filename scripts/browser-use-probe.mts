@@ -54,6 +54,7 @@ interface ProbeResult {
     | 'annotate'
     | 'scan'
     | 'state-discovery'
+    | 'health'
     | 'close';
   ok: boolean;
   detail: string;
@@ -1152,6 +1153,103 @@ for (const entry of registry.entries) {
       );
     }
     return `${offered.kind}/${offered.safety}: panel appeared then disappeared, summary identity ${summary.identity} stable across both toggles`;
+  });
+
+  await step(product, 'health', async () => {
+    const health = await import('../src/core/browser-use-health.js');
+    await page.goto('about:blank');
+    await page.setContent(
+      '<!doctype html><html><head><title>broken</title></head><body style="margin:0">' +
+        '<style>.clip{overflow:hidden;height:20px;width:200px}#tiny{width:8px;height:8px}</style>' +
+        // A button inside a clipped box: it has a real rect, its centre lands on the clipping container,
+        // so the element is interactive and visible but unreachable — the case a click would silently miss.
+        '<div class="clip"><button id="hidden" style="margin-top:40px;width:160px;height:40px">Pay now</button></div>' +
+        '<button id="tiny" style="width:8px;height:8px" aria-label="Tiny target"></button>' +
+        '<button id="unnamed"></button>' +
+        '<input id="field">' +
+        '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' +
+        '</body></html>',
+      { waitUntil: 'domcontentloaded' },
+    );
+    const meta = await page.evaluate(health.PAGE_META_SCRIPT);
+    const snapshot = snap('health-1', await page.evaluate(COLLECTOR_SCRIPT));
+    const broken = health.diagnose(snapshot, meta);
+    const kinds = broken.findings.map((f) => f.kind);
+    for (const expected of [
+      'unreachable-interactables',
+      'unnamed-controls',
+      'tiny-targets',
+      'unlabelled-fields',
+      'images-without-alt',
+      'no-lang',
+    ]) {
+      if (!kinds.includes(expected))
+        throw new Error(`the broken fixture did not produce ${expected}: got ${kinds.join(', ') || 'nothing'}`);
+    }
+    if (broken.blocking < 3) throw new Error(`a page this broken reported only ${broken.blocking} blocking finding(s)`);
+
+    // A temporary local visual rescue: one style rule, in this browser only, undone afterwards.
+    await page.evaluate(() => {
+      const s = document.createElement('style');
+      s.id = 'pf-rescue';
+      s.textContent = '.clip{overflow:visible !important;height:auto !important}';
+      document.head.appendChild(s);
+    });
+    const afterRescue = snap('health-2', await page.evaluate(COLLECTOR_SCRIPT));
+    const fixed = health.diagnose(afterRescue, await page.evaluate(health.PAGE_META_SCRIPT));
+    const stillUnreachable = fixed.findings.find((f) => f.kind === 'unreachable-interactables');
+    const record = health.rescueRecord({
+      finding: 'unreachable-interactables',
+      status: stillUnreachable ? 'FIX_FAILED' : 'FIXED_VERIFIED',
+      detail: stillUnreachable
+        ? `overflow un-clipped but ${stillUnreachable.count} element(s) still unreachable`
+        : 'overflow made visible locally; a re-read found the button hittable',
+      appliedAt: afterRescue.capturedAt,
+      verifiedAt: stillUnreachable ? null : afterRescue.capturedAt,
+    });
+    if (record.status !== 'FIXED_VERIFIED')
+      throw new Error(`the rescue did not verify: ${record.status} — ${record.detail}`);
+    const payAfter = afterRescue.nodes.find((n: any) => n.name === 'Pay now');
+    if (!payAfter || !payAfter.interactable)
+      throw new Error('the re-read could not act on the un-clipped button it claimed to have fixed');
+
+    await page.evaluate(() => document.getElementById('pf-rescue')?.remove());
+    const reverted = snap('health-3', await page.evaluate(COLLECTOR_SCRIPT));
+    const back = health.diagnose(reverted, await page.evaluate(health.PAGE_META_SCRIPT));
+    const againUnreachable = back.findings.find((f) => f.kind === 'unreachable-interactables');
+    if (!againUnreachable)
+      throw new Error('the finding stayed away after the style was removed — so it was never about the clip');
+    const revertedRecord = health.rescueRecord({
+      finding: 'unreachable-interactables',
+      status: 'FIXED_VERIFIED',
+      detail: 'style removed; the page is back as the site wrote it',
+      appliedAt: afterRescue.capturedAt,
+      revertedAt: reverted.capturedAt,
+      verifiedAt: reverted.capturedAt,
+    });
+    if (revertedRecord.revertedAt === null) throw new Error('a revert that was not timestamped is not a revert');
+
+    // The other direction: a clean page must not light up, or every finding above is decoration.
+    await page.setContent(
+      '<!doctype html><html lang="en"><head><title>clean</title><meta name="viewport" content="width=device-width"></head>' +
+        '<body style="margin:0"><label for="q">Search</label><input id="q" name="q">' +
+        '<button id="ok" style="width:120px;height:40px">Continue</button>' +
+        '<img alt="a red square" src="data:image/gif;base64,R0lGODlhAQABAAAAACw="></body></html>',
+      { waitUntil: 'domcontentloaded' },
+    );
+    const cleanSnap = snap('health-4', await page.evaluate(COLLECTOR_SCRIPT));
+    const clean = health.diagnose(cleanSnap, await page.evaluate(health.PAGE_META_SCRIPT));
+    if (clean.blocking !== 0) {
+      throw new Error(
+        `a clean page reported ${clean.blocking} blocking finding(s): ${clean.findings
+          .filter((f) => f.severity === 'BLOCKING')
+          .map((f) => `${f.kind}: ${f.evidence}`)
+          .join(' | ')}`,
+      );
+    }
+    const described = health.describeDiagnosis(broken, 2000).text;
+    if (!described.includes('BLOCKING')) throw new Error('describeDiagnosis did not lead with the blocking findings');
+    return `${broken.blocking} blocking / ${broken.degraded} degraded / ${broken.notice} notice on the broken page; rescue ${record.status} then reverted; clean page ${clean.blocking} blocking (${clean.findings.length} finding(s))`;
   });
 
   await step(product, 'close', async () => {

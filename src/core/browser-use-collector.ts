@@ -53,6 +53,13 @@ export const COLLECTOR_SCRIPT = `(() => {
       const text = byId.split(/\\s+/).map((id) => document.getElementById(id)?.textContent ?? '').join(' ').trim();
       if (text) return { name: text, from: 'aria-labelledby' };
     }
+    // Native label association: el.labels covers both <label for=id> and a wrapping <label>, so a
+    // correctly labelled field must not arrive nameless because the collector only knew aria attributes.
+    const labels = el.labels;
+    if (labels && labels.length) {
+      const joined = Array.prototype.slice.call(labels).map((l) => (l.textContent || '').trim()).join(' ').replace(/\\s+/g, ' ').trim();
+      if (joined) return { name: joined, from: 'label' };
+    }
     const content = (el.textContent ?? '').replace(/\\s+/g, ' ').trim();
     if (content) return { name: content, from: 'content' };
     for (const attr of ['alt', 'title', 'placeholder']) {

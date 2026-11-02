@@ -338,3 +338,38 @@ Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`)
 behaviour are engine-level work, not protocol rows. Still unverified live: full-page composition across
 frames, touch input, mobile-UA emulation, web sockets, persistence across a relaunch, and every browser this
 host cannot run.
+
+---
+
+## Run 9 — 2026-11-02T16:08:33Z — Windows, health findings and one verified rescue
+
+Artifact: `benchmarks/browser-use/artifacts/probe-2026-11-02T16-08-33-303Z.json`
+62/62 steps passed on Chrome 156.0.8078.74 and Edge 156.0.4314.58 in 17908 ms.
+
+| step     | what it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `health` | a deliberately broken page (a button clipped by `overflow:hidden`, a nameless control, an 8×8 target, an unlabelled field, an image with no `alt`, no `lang`) produced **3 blocking, 4 degraded** findings; one local style rule un-clipped the button and a re-read found it hittable — `FIXED_VERIFIED` — after which the rule was removed and the finding came back, proving the rescue was temporary and the page was left as its author wrote it; a clean page then produced **0 blocking** findings |
+
+The rescue is the part this project has to be careful about. The engine may change the presentation of the
+page it is reading, in this browser, for this read — and must then undo it and prove the undo. A status of
+`FIXED_VERIFIED` is only reachable when something re-read the page afterwards; `rescueRecord` downgrades a
+claimed-verified fix with no verification timestamp to `APPLIED_UNVERIFIED` rather than trusting the caller,
+and `probe-…15-00-34` (run 7) is the precedent for committing a run that shows a claim being wrong.
+
+### What the clean fixture caught in the collector
+
+The first version of this step failed on the _good_ page: `<label for="q">Search</label><input id="q"> was
+reported as an unlabelled field with no accessible name. The collector resolved `aria-label`,
+`aria-labelledby`, text content, `alt`, `title`, `placeholder`and`href`, and never looked at native label
+association at all. That is not a page defect — it is the engine blaming a correct document for its own gap,
+and every finding downstream would inherit the mistake. `labelFor`now uses the element's own`labels`list,
+which covers both a`for=`association and a wrapping`<label>`, so a labelled field arrives named and the
+`unlabelled-fields` finding fires only when the label really is missing.
+
+Finding that required the check to run in both directions: a diagnostics suite that only ever inspects broken
+pages will pass while measuring nothing.
+
+Matrix counts unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`): health diagnostics are
+engine-level analysis, not a protocol capability. Unverified live still: full-page composition across frames,
+touch input, mobile-UA emulation, web sockets, persistence across relaunch, and every browser this host
+cannot run.
