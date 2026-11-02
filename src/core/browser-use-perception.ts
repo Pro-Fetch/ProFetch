@@ -336,11 +336,33 @@ export function serializeOutline(snapshot: Snapshot, options: OutlineOptions = {
       : '';
   return { text: header + body + tail, lines: out.length, omitted, truncated: omitted > 0 };
 }
+export interface RelabelledNode {
+  /** The identity the caller was shown. */
+  from: string;
+  /** The identity that replaces it — same element, different words. */
+  to: string;
+  /** Which of `name` / `text` / `role` moved. */
+  fields: string[];
+  fromLabel: string;
+  toLabel: string;
+  node: PerceivedNode;
+}
+
 export interface NodeDiff {
   added: PerceivedNode[];
   removed: PerceivedNode[];
   moved: Array<{ identity: string; from: Rect; to: Rect }>;
   changed: Array<{ identity: string; fields: string[] }>;
+  /**
+   * Same DOM node, different words. Without this a label change is reported as one element dying and
+   * another being born, which is true of the identities and useless as a description of the page.
+   */
+  relabelled: RelabelledNode[];
+}
+
+/** The DOM node this report is about, keyed by what it *is* rather than by what it currently says. */
+function lifetimeKey(n: PerceivedNode): string {
+  return `${n.frameId}|${n.path}|${n.token}`;
 }
 
 /**
@@ -353,16 +375,48 @@ export interface NodeDiff {
 export function diffSnapshots(before: Snapshot, after: Snapshot): NodeDiff {
   const b = new Map(before.nodes.map((n) => [n.identity, n]));
   const a = new Map(after.nodes.map((n) => [n.identity, n]));
-  const diff: NodeDiff = { added: [], removed: [], moved: [], changed: [] };
-  for (const [identity, node] of a) if (!b.has(identity)) diff.added.push(node);
-  for (const [identity, node] of b) if (!a.has(identity)) diff.removed.push(node);
+  const diff: NodeDiff = { added: [], removed: [], moved: [], changed: [], relabelled: [] };
+
+  // Pair removals with additions that share a node-lifetime key before either is reported. The key is
+  // frame + path + lifetime token: a token is bound to one DOM node, so a pair can only be the same
+  // element re-labelled, never two different elements that happen to look alike.
+  const byLifetime = new Map<string, PerceivedNode>();
+  for (const node of a.values()) {
+    const key = lifetimeKey(node);
+    if (!b.has(node.identity)) byLifetime.set(key, node);
+  }
+  const pairedOut = new Set<string>();
+  const pairedIn = new Set<string>();
+  for (const gone of b.values()) {
+    if (a.has(gone.identity)) continue;
+    const match = byLifetime.get(lifetimeKey(gone));
+    if (!match || pairedIn.has(match.identity)) continue;
+    const fields: string[] = [];
+    if (gone.role !== match.role) fields.push('role');
+    if (gone.name !== match.name) fields.push('name');
+    if (gone.text !== match.text) fields.push('text');
+    if (!fields.length) continue;
+    diff.relabelled.push({
+      from: gone.identity,
+      to: match.identity,
+      fields,
+      fromLabel: gone.name || gone.text || gone.role || gone.tag,
+      toLabel: match.name || match.text || match.role || match.tag,
+      node: match,
+    });
+    pairedOut.add(gone.identity);
+    pairedIn.add(match.identity);
+  }
+
+  for (const [identity, node] of a) if (!b.has(identity) && !pairedIn.has(identity)) diff.added.push(node);
+  for (const [identity, node] of b) if (!a.has(identity) && !pairedOut.has(identity)) diff.removed.push(node);
   for (const [identity, now] of a) {
     const was = b.get(identity);
     if (!was) continue;
     if (!sameBox(was.rect, now.rect)) diff.moved.push({ identity, from: was.rect, to: now.rect });
     const fields: string[] = [];
-    if (was.name !== now.name) fields.push('name');
-    if (was.text !== now.text) fields.push('text');
+    // `name` and `text` are deliberately not compared here: they are part of the identity hash, so two
+    // nodes that share an identity cannot differ in either. A label move surfaces as `relabelled`.
     if (was.visible !== now.visible) fields.push('visible');
     if (was.interactable !== now.interactable) fields.push('interactable');
     if (JSON.stringify(was.state) !== JSON.stringify(now.state)) fields.push('state');

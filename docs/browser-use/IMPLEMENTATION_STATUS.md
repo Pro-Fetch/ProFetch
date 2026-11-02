@@ -4,6 +4,33 @@ Living tracker for `docs/browser-use/` work. Statuses: `NOT_STARTED · IN_PROGRE
 TESTED · VERIFIED · BLOCKED`. A task is `TESTED` only when tests exist and pass; `VERIFIED` only when
 the evidence is reproducible by someone else. Nothing in this file is rounded up.
 
+## Checkpoint — 2026-11-02, after Phase 5 and most of Phase 4
+
+|                     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phases complete     | 5 of 13; Phase 4 has one host's worth of rows left (touch, mobile-UA emulation, web sockets, persistence) and no other OS                                                                                                                                                                                                                                                                                                                                                  |
+| Verified by running | 52 probe steps × 2 browsers (Chrome 156.0.8078.74, Edge 156.0.4314.58) across 25 step kinds: launch, navigate, DOM read, evaluate, geometry, AX, perception, stale detection, obstruction, grouping, world model, viewport/element/full-page capture, visual diff, coordinates, pointer and keyboard input, console, interception and network events, dialogs, downloads, uploads, cookies, storage state, tabs, viewport emulation, 2× pixel ratio, native CDP attachment |
+| Offline tests       | 215 across eleven `tests/browser-use-*.test.ts` files plus `spa-render-ssrf`, about 2 seconds                                                                                                                                                                                                                                                                                                                                                                              |
+| Matrix              | 50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?` — every `Y*` names the probe step that produced it                                                                                                                                                                                                                                                                                                                                                                  |
+| Evidence is checked | verified facts cite a step; a test opens the JSON and fails if that step is missing or `ok: false`; a second test requires every step a driven browser ran to have passed, and pins the wording of the claims it depends on                                                                                                                                                                                                                                                |
+| Not yet verified    | touch input, device emulation with a mobile UA, web sockets, persistence across a relaunch, **every Firefox / Safari / WebKit / mobile / non-Windows row**                                                                                                                                                                                                                                                                                                                 |
+| Artifact            | `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Run log             | `docs/browser-use/BROWSER_COMPATIBILITY_RESULTS.md` runs 1–5                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+What Phase 5 established, each item with a live run behind it: identity is a structural fingerprint
+**plus** a node-lifetime token, because structure alone cannot tell a replaced element from the original
+(`ID_RECYCLED`, both browsers); a covered element is not interactable and says which conflict made it so;
+grouping a real DOM yields `[list, form, navigation]` with evidence for every group; and the world model
+re-labels a renamed element instead of reporting a death and a birth, then refuses every identity of the
+previous document after a real navigation to a page whose button looks identical.
+
+Run 4 was the first probe step to navigate anywhere; run 5 added the rest of the protocol surface. What
+Phase 4 now claims is deliberately narrow: these things worked **on Windows, on Chromium products, in a
+managed launch, with no network involved**. Device emulation is claimed only as viewport geometry plus
+pixel ratio — a mobile user agent and touch were never driven, so those cells stay `p`. `attachToRunning`
+is verified as a loopback CDP connection to a browser this project started itself, not as attachment to a
+browser somebody else left running, and the same step shows a public endpoint being refused.
+
 ## Checkpoint — 2026-11-01, during Phase 4
 
 |                     |                                                                                                                                                   |
@@ -59,17 +86,63 @@ because unit tests never touch a browser — which is the argument for the probe
 | P2-07 | Benchmark feasibility on this machine               | VERIFIED                         | §4; BrowserGym core feasible, WebArena/VisualWebArena/WorkArena are not                                    |
 | P2-08 | Open questions left open rather than guessed        | VERIFIED                         | §6                                                                                                         |
 
-## Phase 3 — Registry, adapter contract, protocols — IN_PROGRESS
+## Phase 3 — Registry, adapter contract, protocols — VERIFIED
 
-| ID    | Task                                                                                                                                                      | Status      | Notes                                                 |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------- |
-| P3-01 | Core types: product, engine, channel, protocol, capability, mode                                                                                          | IN_PROGRESS | `src/core/browser_use/types.ts`                       |
-| P3-02 | Adapter contract (§3.4 of the brief): identify, version, discover executable, launch, attach, tabs, lifecycle, capabilities, normalize, validate, cleanup | NOT_STARTED | must be one interface, not a per-browser copy         |
-| P3-03 | Capability-aware connection resolver (managed vs native, protocol selection)                                                                              | NOT_STARTED | the survey says no single protocol covers the need    |
-| P3-04 | Browser registry: detect installed products, versions, channels, OS, protocols                                                                            | NOT_STARTED | Windows-first, but the detection table must be per-OS |
-| P3-05 | Capability profile per product, with `UNSUPPORTED` distinct from `UNKNOWN`                                                                                | NOT_STARTED | BiDi-without-AX is the concrete case                  |
-| P3-06 | Unit tests for detection + selection, offline                                                                                                             | NOT_STARTED | no test may require a browser to be installed         |
-| P3-07 | `ENGINE_SUPPORT_MATRIX.md`                                                                                                                                | NOT_STARTED |                                                       |
+| ID    | Task                                                                                            | Status   | Files / evidence                                                                                          |
+| ----- | ----------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| P3-01 | Core types: product, engine, channel, protocol, capability, status, evidence class              | VERIFIED | `src/core/browser-use-contract.ts`                                                                        |
+| P3-02 | Adapter contract (§3.4): one interface, per-product launch plans rather than a copy per browser | VERIFIED | `src/core/browser-use-adapters.ts` — 20 adapters, `browser-use-adapters.test.ts`                          |
+| P3-03 | Capability-aware connection resolver (managed vs native, protocol selection, never conflated)   | VERIFIED | `src/core/browser-use-registry.ts` `selectBrowser`, `browser-use-registry.test.ts`                        |
+| P3-04 | Browser registry: 21 products, per-OS executable candidates, version reading                    | VERIFIED | `src/core/browser-use-detect.ts`, `browser-use-detect.test.ts`; live `detect` step, runs 1–4              |
+| P3-05 | Capability profile per product, with `UNSUPPORTED` distinct from `UNKNOWN`                      | VERIFIED | `src/core/browser-use-capabilities.ts` — 24 profiles × 30 capabilities, `supports()` refuses on `UNKNOWN` |
+| P3-06 | Offline tests for detection + selection that require no installed browser                       | VERIFIED | injected `exists` / `which` / `readVersion`; 174 tests, ~2 s                                              |
+| P3-07 | `ENGINE_SUPPORT_MATRIX.md`                                                                      | VERIFIED | generated by `npm run gen:browser-matrix`; `browser-use-matrix.test.ts` compares it byte for byte         |
+| P3-08 | Attach endpoint validation: loopback allowed, private needs opt-in, public never                | VERIFIED | `validateAttachEndpoint` in `browser-use-registry.ts`                                                     |
+
+## Phase 4 — Live compatibility — IN_PROGRESS (one host)
+
+| ID    | Task                                                                                                                                                | Status      | Evidence                                                                                                                |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| P4-01 | A probe that can be re-run by anyone                                                                                                                | VERIFIED    | `scripts/browser-use-probe.mts` (`npm run probe:browser-use`)                                                           |
+| P4-02 | Launch, navigate, DOM read, evaluate, geometry, AX                                                                                                  | VERIFIED    | runs 1–5, Chrome 156 and Edge 156 on Windows                                                                            |
+| P4-03 | Hit testing (a covered element is not interactable)                                                                                                 | VERIFIED    | `obstruction` step from run 2 on; its wording is pinned by a test                                                       |
+| P4-04 | Verified facts must name the step that proves them                                                                                                  | VERIFIED    | `browser-use-verified.ts` `probeStep`; tests open the JSON                                                              |
+| P4-05 | Screenshots (viewport, element, full page) and visual diff                                                                                          | VERIFIED    | `screenshot`, `visual-diff` steps, run 5                                                                                |
+| P4-06 | Pointer and keyboard input, console, interception and network events, dialogs, downloads, uploads, cookies, storage state, tabs, viewport emulation | VERIFIED    | `input`, `console`, `network`, `dialogs`, `downloads`, `uploads`, `cookies`, `storage`, `tabs`, `viewport` steps, run 5 |
+| P4-07 | Native attachment to a running browser                                                                                                              | VERIFIED    | `attach-native`: `connectOverCDP` on a loopback endpoint, public endpoint refused in the same step                      |
+| P4-08 | Touch input, device emulation with a mobile UA                                                                                                      | NOT_STARTED | never driven; `device-scale` proves pixel ratio, not a phone                                                            |
+| P4-09 | Web sockets, persistence across a relaunch                                                                                                          | NOT_STARTED | `websockets` is `N` by protocol; persistence is genuinely unproven                                                      |
+| P4-10 | macOS / Linux / Firefox / Safari / mobile rows                                                                                                      | BLOCKED     | not installable or launchable from this host; recorded as blocked, not skipped                                          |
+
+## Phase 5 — Perception, object intelligence, world model — VERIFIED
+
+| ID    | Task                                                                          | Status   | Evidence                                                                                                           |
+| ----- | ----------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| P5-01 | One snapshot from DOM + AX + style + geometry + hit-test, each signal sourced | VERIFIED | `browser-use-perception.ts`, `perceive` step in runs 2–4                                                           |
+| P5-02 | Identity that survives a replacement (structural hash + node-lifetime token)  | VERIFIED | `stale-detection` step: `ID_RECYCLED` on Chrome and Edge; first version of this failed the probe and was rewritten |
+| P5-03 | Conservative visibility with the conflict named                               | VERIFIED | `obstruction` step, `conflicts` on the node                                                                        |
+| P5-04 | A budgeted outline that reports what it dropped                               | VERIFIED | `serializeOutline`, `browser-use-perception.test.ts`                                                               |
+| P5-05 | Object intelligence: group by structure, label only on evidence               | VERIFIED | `browser-use-objects.ts`; `group` step on a live shop fixture (run 3)                                              |
+| P5-06 | World model: versioned per tab, immutable updates, incremental diff           | VERIFIED | `browser-use-world.ts`, `browser-use-world.test.ts` (23 tests)                                                     |
+| P5-07 | A re-label is the same element with new words, not death and birth            | VERIFIED | `relabelled` in `diffSnapshots`; probe `world-model` step, both browsers                                           |
+| P5-08 | Navigation voids the previous document, even for a look-alike element         | VERIFIED | `world-model` step navigates to a `data:` document (run 4)                                                         |
+| P5-09 | Coverage: budget omissions, frames, scrolled region, unknown height as a gap  | VERIFIED | `Coverage` + `gaps`, tested offline                                                                                |
+| P5-10 | Bounds that count what they drop (history, identities, transitions)           | VERIFIED | `browser-use-world.test.ts` bounds suite; eviction is reported in the delta                                        |
+| P5-11 | Mutation-proved guards (no vacuous green)                                     | VERIFIED | each of P5-02/07/08 was re-broken deliberately and the suite failed as predicted                                   |
+
+## Phase 6 — Coordinates and visual intelligence — IMPLEMENTED, partially VERIFIED
+
+| ID    | Task                                                                         | Status      | Evidence                                                                                  |
+| ----- | ---------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| P6-01 | Named coordinate spaces: CSS viewport, CSS page, device image, element-local | VERIFIED    | `browser-use-coordinates.ts`; 27 offline tests, arithmetic exact                          |
+| P6-02 | Viewport ↔ page conversion with the scroll offset, outward rounding at scale | VERIFIED    | `cssToDevice` tests; `screenshot` step maps a DOM box to 97% blue                         |
+| P6-03 | Three capture origins handled separately (viewport, full page, element)      | VERIFIED    | `boxInScreenshot`; all three driven against live captures in run 5                        |
+| P6-04 | Device pixel ratio 2 mapping                                                 | VERIFIED    | `device-scale` step: 800x600 CSS → 1600x1200 image, button still on its box               |
+| P6-05 | Hit-test revalidation before acting, with reported drift                     | VERIFIED    | `coordinates` step: a remembered point refused after a 400 px scroll and under an overlay |
+| P6-06 | Frame offsets: refuse to guess an unmeasured one                             | TESTED      | `toTopFrame` returns null, mutation-proved; the collector does not yet measure offsets    |
+| P6-07 | Pixel diff over raw RGBA with tolerance, bounding box and a region grid      | VERIFIED    | `browser-use-visual.ts`, 14 tests; `visual-diff` step on real captures                    |
+| P6-08 | Screenshot annotation overlay as SVG (index, clamped labels, escaped text)   | TESTED      | `annotationOverlay` + offline tests; not yet drawn onto a live capture                    |
+| P6-09 | Full-page stitching and per-frame screenshot offsets                         | NOT_STARTED | needs the frame-offset measurement in P6-06 first                                         |
 
 ## Decisions carried into the design, with the evidence behind each
 

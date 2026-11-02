@@ -41,6 +41,96 @@ describe('the support matrix cannot drift from the profiles', () => {
     expect(VERIFIED.length).toBeGreaterThan(0);
   });
 
+  it('only cites probe steps that passed in the artifact it names', () => {
+    // The paragraph above stops a fact losing its file; this stops a fact losing its *meaning*. A run
+    // log is a list of steps, and `ok: false` is a step that did not work. Pointing at a file without
+    // checking the step inside it is how "we verified Chrome" survives a Chrome row that failed.
+    const byArtifact = new Map<string, any>();
+    for (const f of VERIFIED) {
+      expect(existsSync(f.evidence), `missing artifact ${f.evidence}`).toBe(true);
+      if (!byArtifact.has(f.evidence)) byArtifact.set(f.evidence, JSON.parse(readFileSync(f.evidence, 'utf8')));
+      const run = byArtifact.get(f.evidence);
+      const step = (run.results as any[]).find((r) => r.product === f.product && r.step === f.probeStep);
+      expect(
+        step,
+        `${f.evidence} has no "${f.probeStep}" step for ${f.product} — the fact cites a step that never ran`,
+      ).toBeTruthy();
+      expect(step.ok, `${f.product}.${f.capability} cites ${f.probeStep}, which failed: ${step.detail}`).toBe(true);
+    }
+  });
+
+  it('holds the claims the status document makes', () => {
+    // The prose says: identity refuses a recycled element id, an overlay is seen through, a real DOM
+    // groups, the model re-labels and navigates, and screenshots, input, console, network, dialogs,
+    // downloads, uploads, cookies, storage, tabs, emulation and native attachment were driven. Here
+    // those sentences are data, so a status change nobody noticed breaks a test instead of a reader.
+    const artifacts = [...new Set(VERIFIED.map((f) => f.evidence))];
+    expect(artifacts.length).toBeGreaterThan(0);
+    const REQUIRED = [
+      'launch',
+      'navigate',
+      'read',
+      'geometry',
+      'accessibility',
+      'perceive',
+      'stale-detection',
+      'obstruction',
+      'group',
+      'world-model',
+      'screenshot',
+      'visual-diff',
+      'coordinates',
+      'input',
+      'console',
+      'network',
+      'dialogs',
+      'downloads',
+      'uploads',
+      'cookies',
+      'storage',
+      'tabs',
+      'viewport',
+      'device-scale',
+      'attach-native',
+      'close',
+    ];
+    for (const path of artifacts) {
+      const run = JSON.parse(readFileSync(path, 'utf8')) as {
+        results: Array<{ product: string; step: string; ok: boolean; detail: string }>;
+      };
+      const all = [...new Set(run.results.map((r) => r.product))];
+      expect(all.length, `${path} records no browser`).toBeGreaterThan(0);
+      // A product that never launched has one honest failure and no steps to check. Demanding the rest
+      // would turn "Safari cannot run on this host" into a missing-step error, which is a different claim.
+      const driven = all.filter((product) =>
+        run.results.some((r) => r.product === product && r.step === 'launch' && r.ok),
+      );
+      expect(driven.length, `${path} has no browser that launched`).toBeGreaterThan(0);
+      const detailOf = (product: string, step: string): string =>
+        run.results.find((r) => r.product === product && r.step === step)!.detail;
+      for (const product of driven) {
+        for (const step of REQUIRED) {
+          const found = run.results.find((r) => r.product === product && r.step === step);
+          expect(found, `${product}: ${step} never ran, so the claim about it is unsupported`).toBeTruthy();
+          expect(found!.ok, `${product}.${step} failed: ${found!.detail}`).toBe(true);
+        }
+        expect(detailOf(product, 'stale-detection')).toMatch(/ID_RECYCLED/);
+        expect(detailOf(product, 'obstruction')).toMatch(/hit-test at the centre returns a different element/);
+        expect(detailOf(product, 'group')).toMatch(/groups \[list, form, navigation\]/);
+        expect(detailOf(product, 'group')).toMatch(/every group evidenced/);
+        expect(detailOf(product, 'world-model')).toMatch(/label change relabelled \(CHANGED\)/);
+        expect(detailOf(product, 'world-model')).toMatch(/navigation voided \d+ identities/);
+        expect(detailOf(product, 'world-model')).toMatch(/look-alike button refused/);
+        expect(detailOf(product, 'screenshot')).toMatch(/blue in box \d+%\/\d+%/);
+        expect(detailOf(product, 'visual-diff')).toMatch(/inside the mapped box/);
+        expect(detailOf(product, 'coordinates')).toMatch(/refused/);
+        expect(detailOf(product, 'input')).toMatch(/Enter logged "enter:hello"/);
+        expect(detailOf(product, 'network')).toMatch(/nothing resolved on the network/);
+        expect(detailOf(product, 'attach-native')).toMatch(/attached over CDP/);
+      }
+    }
+  });
+
   it('keeps the profiles themselves free of verified statuses', () => {
     // A run is a fact about a host, so it belongs in the overlay — not baked into a profile, where it
     // would travel to a Linux box and be quoted as though it had been checked there.

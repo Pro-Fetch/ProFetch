@@ -118,7 +118,13 @@ export interface ManagedSession {
  */
 export async function launchManaged(
   product: string,
-  options: { headless?: boolean; dataRoot: string; debuggingPort?: number; extraArgs?: string[] } = { dataRoot: '.' },
+  options: {
+    headless?: boolean;
+    dataRoot: string;
+    debuggingPort?: number;
+    extraArgs?: string[];
+    deviceScaleFactor?: number;
+  } = { dataRoot: '.' },
 ): Promise<{ ok: true; session: ManagedSession } | { ok: false; reason: string }> {
   const adapter = adapterFor(product);
   if (!adapter) return { ok: false, reason: `No adapter for "${product}".` };
@@ -162,6 +168,9 @@ export async function launchManaged(
       headless: options.headless ?? true,
       args,
       timeout: 45_000,
+      // Emulated, not pretended: the host's own ratio is untouched, and a caller that needs to know the
+      // physical display can read `window.devicePixelRatio` before asking for either.
+      ...(options.deviceScaleFactor ? { deviceScaleFactor: options.deviceScaleFactor } : {}),
     } as never);
     const browser = context.browser();
     return {

@@ -11,18 +11,56 @@ source, not run here) · `d` detected but untested · `N` unsupported by the pro
 and labelled as such — the difference is the point of the table. Each `Y*` below names the probe
 artifact that produced it; the run log is `docs/browser-use/BROWSER_COMPATIBILITY_RESULTS.md`.
 
-- `chrome · launch · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `chrome · navigate · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `chrome · domRead · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `chrome · boundingGeometry · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `chrome · accessibilityTree · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `edge · launch · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `edge · navigate · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `edge · domRead · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `edge · boundingGeometry · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `edge · accessibilityTree · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `chrome · hitTesting · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
-- `edge · hitTesting · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-01T15-41-32-746Z.json`
+- `chrome · launch · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · navigate · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · domRead · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · scriptEvaluate · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · boundingGeometry · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · accessibilityTree · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · hitTesting · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · screenshotViewport · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · screenshotElement · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · screenshotFullPage · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · inputPointer · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · inputKeyboard · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · consoleEvents · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · networkInterception · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · networkEvents · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · dialogs · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · downloads · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · uploads · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · cookies · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · storageState · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · inspectTabs · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · controlTabs · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · multiSession · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · viewportEmulation · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `chrome · attachToRunning · windows` — 156.0.8078.74 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · launch · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · navigate · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · domRead · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · scriptEvaluate · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · boundingGeometry · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · accessibilityTree · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · hitTesting · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · screenshotViewport · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · screenshotElement · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · screenshotFullPage · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · inputPointer · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · inputKeyboard · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · consoleEvents · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · networkInterception · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · networkEvents · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · dialogs · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · downloads · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · uploads · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · cookies · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · storageState · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · inspectTabs · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · controlTabs · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · multiSession · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · viewportEmulation · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
+- `edge · attachToRunning · windows` — 156.0.4314.58 → `benchmarks/browser-use/artifacts/probe-2026-11-02T14-16-09-767Z.json`
 
 ## Products (24)
 
@@ -58,34 +96,34 @@ artifact that produced it; the run log is `docs/browser-use/BROWSER_COMPATIBILIT
 | capability | android-chrome | android-firefox | arc | brave | chrome | chrome-beta | chrome-canary | chrome-dev | chromium | edge | edge-beta | edge-canary | edge-dev | firefox | firefox-developer | firefox-esr | firefox-nightly | ios-safari | opera | opera-gx | safari | samsung-internet | vivaldi | webkit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `launch` | `p` | `E` | `?` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `E` |
-| `attachToRunning` | `p` | `?` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `p` | `p` | `N` | `p` | `p` | `?` |
-| `inspectTabs` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `controlTabs` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `attachToRunning` | `p` | `?` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `p` | `p` | `N` | `p` | `p` | `?` |
+| `inspectTabs` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `controlTabs` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `navigate` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `domRead` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `accessibilityTree` | `p` | `N` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `N` | `N` | `N` | `N` | `N` | `p` | `p` | `N` | `p` | `p` | `N` |
 | `computedStyles` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `boundingGeometry` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `hitTesting` | `?` | `N` | `?` | `?` | `Y*` | `?` | `?` | `?` | `?` | `Y*` | `?` | `?` | `?` | `N` | `N` | `N` | `N` | `N` | `?` | `?` | `N` | `?` | `?` | `N` |
-| `screenshotViewport` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `screenshotElement` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `E` | `?` | `?` | `E` | `?` | `?` | `p` |
-| `screenshotFullPage` | `p` | `N` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `N` | `N` | `N` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `inputPointer` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `inputKeyboard` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `screenshotViewport` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `screenshotElement` | `?` | `?` | `?` | `?` | `Y*` | `?` | `?` | `?` | `?` | `Y*` | `?` | `?` | `?` | `?` | `?` | `?` | `?` | `E` | `?` | `?` | `E` | `?` | `?` | `p` |
+| `screenshotFullPage` | `p` | `N` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `N` | `N` | `N` | `N` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `inputPointer` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `inputKeyboard` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `inputTouch` | `p` | `?` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `?` | `?` | `?` | `?` | `E` | `p` | `p` | `E` | `p` | `p` | `?` |
-| `networkInterception` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `p` | `p` | `N` | `p` | `p` | `p` |
-| `networkEvents` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `consoleEvents` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `scriptEvaluate` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `cookies` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `storageState` | `?` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `?` | `p` | `p` |
-| `dialogs` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `downloads` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
-| `uploads` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `networkInterception` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `N` | `p` | `p` | `N` | `p` | `p` | `p` |
+| `networkEvents` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `consoleEvents` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `scriptEvaluate` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `cookies` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `storageState` | `?` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `?` | `p` | `p` |
+| `dialogs` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `downloads` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `uploads` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `websockets` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` | `N` |
-| `viewportEmulation` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `viewportEmulation` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `deviceEmulation` | `p` | `?` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `?` | `?` | `?` | `?` | `E` | `p` | `p` | `E` | `p` | `p` | `?` |
-| `multiSession` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
+| `multiSession` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `Y*` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 | `persistence` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `p` | `E` | `p` | `p` | `E` | `p` | `p` | `p` |
 
 ## Why the refusals are what they are
@@ -111,11 +149,11 @@ Each of these is a protocol fact, not a to-do item. A row that reads `N` here do
 | status | answers |
 | --- | ---: |
 | `VERIFIED_NATIVE` | 0 |
-| `VERIFIED_MANAGED` | 12 |
-| `PARTIALLY_VERIFIED` | 555 |
+| `VERIFIED_MANAGED` | 50 |
+| `PARTIALLY_VERIFIED` | 519 |
 | `DETECTED_NOT_TESTED` | 0 |
 | `UNSUPPORTED` | 49 |
 | `BLOCKED_BY_ENVIRONMENT` | 52 |
-| `UNKNOWN` | 52 |
+| `UNKNOWN` | 50 |
 
 Total answers: 24 products × 30 capabilities.
