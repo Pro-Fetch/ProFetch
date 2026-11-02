@@ -92,6 +92,7 @@ describe('the support matrix cannot drift from the profiles', () => {
       'viewport',
       'device-scale',
       'attach-native',
+      'frames',
       'close',
     ];
     for (const path of artifacts) {
@@ -127,6 +128,9 @@ describe('the support matrix cannot drift from the profiles', () => {
         expect(detailOf(product, 'input')).toMatch(/Enter logged "enter:hello"/);
         expect(detailOf(product, 'network')).toMatch(/nothing resolved on the network/);
         expect(detailOf(product, 'attach-native')).toMatch(/attached over CDP/);
+        expect(detailOf(product, 'frames')).toMatch(/main>0@\d+,\d+/);
+        expect(detailOf(product, 'frames')).toMatch(/lifted box [\d,]+ \d+x\d+ is \d+% blue/);
+        expect(detailOf(product, 'frames')).toMatch(/boundaries: iframe /);
       }
     }
   });

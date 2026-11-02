@@ -50,6 +50,7 @@ interface ProbeResult {
     | 'viewport'
     | 'device-scale'
     | 'attach-native'
+    | 'frames'
     | 'close';
   ok: boolean;
   detail: string;
@@ -869,6 +870,82 @@ for (const entry of registry.entries) {
       if (attached) await attached.close().catch(() => {});
       await (r.session.browser as any).close().catch(() => {});
     }
+  });
+
+  await step(product, 'frames', async () => {
+    const layer = await import('../src/core/browser-use-frames.js');
+    const coords = await import('../src/core/browser-use-coordinates.js');
+    const visual = await import('../src/core/browser-use-visual.js');
+    // A `srcdoc` frame inherits the parent's origin, so its position is measurable from inside. The
+    // cross-origin refusal that this cannot exercise is covered offline in browser-use-frames.test.ts.
+    const INNER =
+      '<!doctype html><html><body style="margin:0;background:#ffffff">' +
+      '<button id="b" style="display:block;margin:40px 0 0 40px;width:120px;height:32px;background:#0040ff;border:0;color:#fff">Inside</button>' +
+      '</body></html>';
+    await page.goto('about:blank');
+    await page.setContent(
+      '<!doctype html><title>frames</title><body style="margin:0;background:#ffffff">' +
+        `<iframe id="f" srcdoc="${INNER.replace(/"/g, '&quot;')}" style="display:block;margin:0 0 0 60px;width:320px;height:220px;border:0"></iframe>` +
+        '</body>',
+      { waitUntil: 'domcontentloaded' },
+    );
+    const collected = await layer.collectAllFrames(
+      page,
+      async (frame: any) => {
+        const r = await frame.evaluate(COLLECTOR_SCRIPT);
+        return { nodes: r.nodes, url: r.url, title: r.title };
+      },
+      async (frame: any) => {
+        try {
+          return await frame.evaluate(layer.HOP_SCRIPT);
+        } catch (error) {
+          return { ok: false, reason: String((error as Error).message).slice(0, 80) };
+        }
+      },
+    );
+
+    const nested = collected.frames.filter((f) => f.parentFrameId);
+    if (!nested.length) throw new Error('the srcdoc iframe never appeared among the page frames');
+    const inside = collected.nodes.find((n) => n.name === 'Inside');
+    if (!inside)
+      throw new Error(
+        `no node from inside the frame; ${collected.nodes.length} collected, ${collected.unlifted.length} unlifted: ${collected.warnings.join(' | ')}`,
+      );
+    if (inside.frameId === 'main')
+      throw new Error('a node from the iframe kept the top frame id — the collection rewrote nothing');
+    const offset = collected.offsets.get(inside.frameId);
+    if (!offset)
+      throw new Error(
+        `the iframe offset could not be measured: ${collected.warnings.join(' | ') || 'no reason given'}`,
+      );
+    if (Math.abs(offset.x - 60) > 2 || Math.abs(offset.y) > 2) {
+      throw new Error(`the frame was placed at 60,0 and reported ${offset.x},${offset.y}`);
+    }
+    // The lifted box has to be where the pixels are, or the lift is arithmetic with no meaning.
+    const shot = await grabViewport();
+    const meta = await page.evaluate(() => ({
+      w: window.innerWidth,
+      h: window.innerHeight,
+      dpr: window.devicePixelRatio,
+    }));
+    const mapped = coords.boxInScreenshot(inside.rect, {
+      kind: 'viewport',
+      deviceScaleFactor: meta.dpr,
+      image: { width: shot.width, height: shot.height },
+      scroll: { x: 0, y: 0 },
+    });
+    const crop = visual.cropRgba(shot, mapped);
+    let blue = 0;
+    for (let i = 0; i < crop.data.length; i += 4) if (crop.data[i + 2] > 180 && crop.data[i] < 90) blue++;
+    const ratio = blue / (crop.width * crop.height);
+    if (ratio < 0.6) {
+      throw new Error(
+        `the lifted box ${mapped.x},${mapped.y} ${mapped.width}x${mapped.height} was only ${Math.round(ratio * 100)}% button blue`,
+      );
+    }
+    if (!inside.boundaries.some((b) => b.startsWith('iframe ')))
+      throw new Error('the node crossed a frame boundary but records none');
+    return `${layer.describeFrames(collected)}; frame ${inside.frameId} at ${Math.round(offset.x)},${Math.round(offset.y)}; lifted box ${mapped.x},${mapped.y} ${mapped.width}x${mapped.height} is ${Math.round(ratio * 100)}% blue; boundaries: ${inside.boundaries.join(' + ')}`;
   });
 
   await step(product, 'close', async () => {

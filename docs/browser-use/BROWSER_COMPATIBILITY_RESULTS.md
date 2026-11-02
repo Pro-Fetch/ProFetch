@@ -236,3 +236,29 @@ Matrix after run 5: **50 `VERIFIED_MANAGED`**, 519 `PARTIALLY_VERIFIED`, 49 `UNS
 52 `BLOCKED_BY_ENVIRONMENT`, 50 `UNKNOWN`. Still unverified: touch input, device emulation with a mobile
 UA, web sockets, persistence across a relaunch, and every Firefox / Safari / WebKit / mobile / non-Windows
 path.
+
+---
+
+## Run 6 — 2026-11-02T14:40:03Z — Windows, coordinates across a frame boundary
+
+Artifact: `benchmarks/browser-use/artifacts/probe-2026-11-02T14-40-03-890Z.json`
+54/54 steps passed on Chrome 156.0.8078.74 and Edge 156.0.4314.58 in 19845 ms. One new step.
+
+| step     | what it proves                                                                                                                                                                                                                                                                                                                                                                          |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frames` | a `srcdoc` iframe placed at 60,0 was found among the page frames, given the id `main>0`, measured its own offset from inside (`60,0`), and the button inside it — reported by the collector at `10,40` in the frame's viewport — lifted to `100,40 120x32`, a box that came back **96% button blue** from a real capture; the node carries `iframe main>0 (about:srcdoc)` as a boundary |
+
+This closes the hole the frame module was written around. Until now the collector reported every node with
+`frameId: 'main'`, which meant an iframe's contents were silently presented as if they belonged to the top
+document — coordinates included. A click computed from those numbers lands in the parent, at whatever is
+sitting at the iframe's inner offset. `collectAllFrames` now walks `page.frames()`, measures each hop, and
+either lifts a node's box or refuses to, naming the frame in `unlifted` with the reason.
+
+The refusal path cannot be produced from a local fixture: `srcdoc` inherits the parent's origin by design,
+so a probe that only uses local documents will never see a real cross-origin frame. That case is tested
+offline instead, with an injected frame whose `frameElement` read throws — the offset comes back `null`, the
+whole subtree above it becomes unresolvable, and its nodes are reported rather than dropped. Run 6 proves
+the measuring half; the test proves the refusing half.
+
+Matrix counts are unchanged (50 `VERIFIED_MANAGED`, 519 `p`, 49 `N`, 52 `E`, 50 `?`): crossing a frame
+boundary is not a protocol capability, it is Phase 6 work, and it moved `P6-06` from TESTED to VERIFIED.
