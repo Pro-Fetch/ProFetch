@@ -63,12 +63,51 @@ describe('the pack is registered and gated', () => {
   const tools = allTools().filter((t) => t.category === 'browser_use');
 
   it('registers a tool per capability area, each with a description worth reading', () => {
-    expect(tools.length).toBeGreaterThanOrEqual(13);
+    expect(tools.length).toBeGreaterThanOrEqual(40);
     expect(new Set(tools.map((t) => t.name)).size).toBe(tools.length);
     for (const tool of tools) {
       expect(tool.name.startsWith('pro_browser_use_')).toBe(true);
       expect(tool.description.length).toBeGreaterThan(60);
       expect(tool.inputSchema).toBeTruthy();
+    }
+  });
+
+  it('diffs two injected reads and calls a relabel what it is', async () => {
+    const node = (name: string) =>
+      JSON.stringify([
+        {
+          backendId: '1',
+          token: 't1',
+          tag: 'button',
+          role: 'button',
+          name,
+          text: name,
+          rect: { x: 0, y: 0, width: 100, height: 30 },
+          inViewport: true,
+          styleVisible: true,
+          hitTestSelf: true,
+          obstructed: false,
+          depth: 2,
+          interactive: true,
+          boundaries: [],
+        },
+      ]);
+    const result = payload(
+      await callTool('pro_browser_use_diff_lists', { before: node('Add to cart'), after: node('In cart') }),
+    );
+    expect(result.counts).toMatchObject({ added: 0, removed: 0, relabelled: 1 });
+    expect((result.relabelled as string[])[0]).toBe('Add to cart → In cart');
+  });
+
+  it('does not run page script unless the operator allows it', async () => {
+    const was = process.env.PRO_FETCH_ALLOW_JS;
+    delete process.env.PRO_FETCH_ALLOW_JS;
+    try {
+      const result = await callTool('pro_browser_use_evaluate', { session_id: 'bu-x', expression: '1+1' });
+      expect(result.isError).toBe(true);
+      expect(text(result)).toMatch(/ALLOW_JS/i);
+    } finally {
+      if (was !== undefined) process.env.PRO_FETCH_ALLOW_JS = was;
     }
   });
 

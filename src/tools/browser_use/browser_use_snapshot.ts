@@ -1,5 +1,5 @@
 import { defineTool } from '../../core/tool.js';
-import { jsonBlock, fail, md } from '../../core/format.js';
+import { jsonBlock, fail } from '../../core/format.js';
 import { refresh, requireSession, SessionError } from '../../core/browser-use-session.js';
 import { serializeOutline } from '../../core/browser-use-perception.js';
 import { groupObjects } from '../../core/browser-use-objects.js';
@@ -92,7 +92,7 @@ export default defineTool({
         })),
         coverage: session.ledger ? describeLedger(session.ledger, 900).text : undefined,
         identities_known: knownIdentities(session.model).length,
-        outline: input.outline === false ? undefined : md(outline.text, 8000).content,
+        outline: input.outline === false ? undefined : outline.text,
       });
     } catch (error) {
       if (error instanceof SessionError) return fail(`${error.message}${error.hint ? ` — ${error.hint}` : ''}`);

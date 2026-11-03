@@ -15,11 +15,11 @@
 
 ## 2. Reestr va profil
 
-- **`src/core/tool.ts`** — `defineTool()` va `allTools()`: barcha 707 tool shu yerdagi registrga tushadi. Har tool: `name`, `category`, `description`, `inputSchema`, `handler`.
+- **`src/core/tool.ts`** — `defineTool()` va `allTools()`: barcha 713 tool shu yerdagi registrga tushadi. Har tool: `name`, `category`, `description`, `inputSchema`, `handler`.
 - **`src/router.ts`** — `listTools(profile)` va markaziy `dispatch()`.
-- **`src/core/profile.ts`** — nechta schema modelga ko'rinadi: `minimal` (74) · `standard` (179) · `smart` (12 meta) · `full` (707). **Profil — ko'rinish, xavfsizlik chegarasi EMAS.**
+- **`src/core/profile.ts`** — nechta schema modelga ko'rinadi: `minimal` (74) · `standard` (179) · `smart` (12 meta) · `full` (713). **Profil — ko'rinish, xavfsizlik chegarasi EMAS.**
 
-`smart` rejimida modelga faqat 12 meta-tool ko'rinadi, ammo ular orqali barcha 707 tanga yetib boriladi.
+`smart` rejimida modelga faqat 12 meta-tool ko'rinadi, ammo ular orqali barcha 713 tanga yetib boriladi.
 
 ## 3. Markaziy darvoza: `dispatch()`
 
@@ -69,7 +69,7 @@ Native bog'liqliklar (`sharp`, `@napi-rs/canvas`, `tesseract.js`, Playwright, gi
 
 ## 10. Test va tekshiruv (`npm run check`)
 
-`verify:static` (struktur invariantlar) · `verify:registry` (707/43, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1566) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`, `npm run audit:schema`.
+`verify:static` (struktur invariantlar) · `verify:registry` (713/43, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1569) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`, `npm run audit:schema`.
 ## 11. Ish-oqimi yadrosi: Bigfoot (`src/core/workflow/`, `src/tools/workflow/`)
 
 Bitta MCP tool (`pro_fetch_workflow`) butun hayot siklini yuritadi — MexaPlan (reja) → SmartToDo

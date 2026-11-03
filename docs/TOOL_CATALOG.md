@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 707 ta tool · 43 ta kategoriya · smart=12, minimal=74, standard=179, full=707
+**Jami:** 713 ta tool · 43 ta kategoriya · smart=12, minimal=74, standard=179, full=713
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -15,7 +15,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 |---|---:|---|
 | `github` | 49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories |
 | `browser` | 41 | Playwright automation: navigate, click, fill, extract, tabs, cookies |
-| `browser_use` | 34 | — |
+| `browser_use` | 40 | — |
 | `convert` | 30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc. |
 | `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
 | `data` | 26 | Load, profile, query, join, transform datasets (tables) |
@@ -159,7 +159,7 @@ _Playwright automation: navigate, click, fill, extract, tabs, cookies_
 - `pro_browser_browser_upload_file` `  ·` — Upload a local file into a file input matched by selector
 - `pro_browser_browser_wait` `  ·` — Wait for a selector navigation or timeout
 
-## browser_use (34)
+## browser_use (40)
 
 - `pro_browser_use_act` `  ·` — Perform one action on an element the session has reported: click, type, press, check, select, hover, focus or scroll. Every action is preflighted (stale identity, covered element, wrong control kind and destructive labels are refused before anything runs) and then verified by re-reading the page.
 - `pro_browser_use_action_preflight` `  ·` — Run the action policy against a node list the caller supplies: does the identity resolve, is the element reachable, does this control take this value, and is the label one this engine will act on without a human? Answers with the reason and the point it would use.
@@ -172,14 +172,20 @@ _Playwright automation: navigate, click, fill, extract, tabs, cookies_
 - `pro_browser_use_capabilities_verified` `  ·` — The verified-facts overlay: which capability rows were run on a real browser, on which OS and version, and the probe artifact and step that prove each one. Rows only read from a specification are excluded by definition.
 - `pro_browser_use_coords_convert` `  ·` — Convert an element rect between CSS viewport, CSS page, device pixels and screenshot pixels, and lift it out of a frame when the offset is known. Use it before clicking by coordinate or before cropping a screenshot.
 - `pro_browser_use_coverage` `  ·` — The coverage ledger for a session: which scroll bands have been seen edge to edge, which frames were read or never produced a node, what the budgets dropped, and what remains unknown. An unread page is not a clean page.
+- `pro_browser_use_diff_lists` `  ·` — Compare two node lists by identity and report added, removed, moved and relabelled elements, with counts. Useful to diff a saved before/after pair without a live session.
 - `pro_browser_use_element_check` `  ·` — Resolve a stored identity against the session’s current model: FRESH, MOVED, CHANGED, GONE, REPLACED, ID_RECYCLED or NAVIGATED, with the reason and — for a relabelled element — the identity to use instead.
+- `pro_browser_use_evaluate` `  ·` — Evaluate a JavaScript expression inside a session page and return the JSON result. Refused unless PRO_FETCH_ALLOW_JS is set: arbitrary script in an authenticated browser session can read tokens, submit forms and exfiltrate, which is a different risk class from every other tool here.
+- `pro_browser_use_extract` `  ·` — Turn the session’s last read into records: repeated groups become rows with their member labels, tables become rows of cells, forms become named fields with current values. No new read of the page, no guess about what the data means.
 - `pro_browser_use_frames` `  ·` — The frames a session read, with the offset measured for each, how many nodes came from it, and the reason when a frame cannot report its own position (a cross-origin frame). Coordinates from an unpositioned frame are refused, not guessed.
 - `pro_browser_use_health_diagnose` `  ·` — Diagnose a page from an injected node list plus document metadata: unnamed controls, unlabelled fields, unreachable interactables, tiny tap targets, missing alt text, no lang, horizontal overflow, duplicate ids, insecure origin. Findings carry evidence and the recovery this engine would attempt.
+- `pro_browser_use_history` `  ·` — The snapshot history and transition log of a session: which versions exist, whether each was a mutation, a scroll, a resize, a fragment change or a navigation, and how many nodes and omissions each read carried.
 - `pro_browser_use_hit_test` `  ·` — Ask the session's latest read what sits at a coordinate: the stack of boxes covering the point, the topmost one, and whether a stored element still owns its own centre after the page moved.
 - `pro_browser_use_navigate` `  ·` — Go to a URL, or step back, forward or reload in an open session. Every target passes the same SSRF guard as the first open, and the result says whether the model treated it as a new document (it should).
 - `pro_browser_use_objects` `  ·` — Group the current snapshot into lists, cards, forms, tables and navigation by structure alone, and report the evidence for each label. Pass an identity to see which groups contain it.
+- `pro_browser_use_outline` `  ·` — Render the last read of a session as a budgeted outline: one line per element, indices the caller can quote, and an explicit count of what the budget left out. Costs no round trip to the page.
 - `pro_browser_use_read` `  ·` — Render the session’s current read as reading-order text, with the index of each element that can be acted on inline. Costs no new read of the page and respects the snapshot budget, so what is missing stays visible as a gap.
 - `pro_browser_use_region` `  ·` — Query the session’s current read by a rectangle or a frame: which elements fall in it, which contain it, and how much of it is covered. This is how a caller asks about a modal, a table, or a region it saw in a screenshot.
+- `pro_browser_use_resize` `  ·` — Set the viewport size and pixel ratio of an open session, then re-read: innerWidth from the page, the size of a fresh capture, and whether geometry moved with it. A layout is only emulated if the numbers agree.
 - `pro_browser_use_reveals` `  ·` — List the reveal candidates in a session's current read — closed disclosures, hidden or off-region controls — each classified as reversible, needing confirmation, or refused, with the undo step named.
 - `pro_browser_use_scan` `  ·` — Scroll a session through the document in planned steps, re-reading at each one, until the coverage ledger has seen every band edge to edge or the budget runs out. Reports what the first screen was hiding.
 - `pro_browser_use_screenshot` `  ·` — Take a viewport, full-page or element screenshot from an open session and return it as base64 PNG, with the geometry needed to map DOM boxes onto its pixels. With annotate=true the interactable elements are outlined and numbered with the same indices the outline used.

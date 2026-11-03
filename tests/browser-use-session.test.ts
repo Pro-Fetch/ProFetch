@@ -187,6 +187,35 @@ describe.skipIf(!LIVE)('a live session', () => {
     expect(list.some((f) => f.frame_id === 'main')).toBe(true);
   });
 
+  it('outlines, reports history, extracts records and resizes with all three numbers agreeing', async () => {
+    const session = await openSession();
+    await callTool('pro_browser_use_snapshot', { session_id: session, outline: false });
+
+    const outline = payload(await callTool('pro_browser_use_outline', { session_id: session }));
+    expect(outline.ok).toBe(true);
+    expect(Number(outline.version)).toBe(2);
+    expect(typeof outline.outline).toBe('string');
+
+    const history = payload(await callTool('pro_browser_use_history', { session_id: session }));
+    expect(history.ok).toBe(true);
+    const entries = history.history as Array<Record<string, unknown>>;
+    expect(entries.length).toBeGreaterThanOrEqual(2);
+    const kinds = (history.transitions as Array<Record<string, unknown>>).map((t) => t.kind);
+    expect(kinds).toContain('INITIAL');
+    // A re-read of an untouched page must not be reported as a navigation.
+    expect(kinds).not.toContain('NAVIGATED');
+
+    const extracted = payload(await callTool('pro_browser_use_extract', { session_id: session }));
+    expect(extracted.ok).toBe(true);
+    expect(Array.isArray(extracted.records)).toBe(true);
+
+    const resized = payload(await callTool('pro_browser_use_resize', { session_id: session, width: 500, height: 800 }));
+    expect(resized.ok).toBe(true);
+    expect(resized.consistent, JSON.stringify(resized)).toBe(true);
+    expect((resized.inner as Record<string, unknown>).width).toBe(500);
+    expect((resized.capture as Record<string, unknown>).width).toBe(500);
+  });
+
   it('refuses a guarded navigation without breaking the session', async () => {
     const session = await openSession();
     const result = payload(

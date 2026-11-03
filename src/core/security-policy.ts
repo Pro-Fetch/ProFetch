@@ -133,7 +133,9 @@ export function assertToolAllowed(tool: ToolDefinition, input: Record<string, un
     assertActionAllowed(actionOf(input), tool.name);
   }
   if (
-    tool.category === 'browser' &&
+    // A policy keyed on a category name has to move when a sibling category is added: `browser_use`
+    // drives a page exactly as `browser` does, and its evaluate tool would have passed this gate silently.
+    (tool.category === 'browser' || tool.category === 'browser_use') &&
     /(?:evaluate|execute|script)/i.test(tool.name) &&
     process.env.PRO_FETCH_ALLOW_JS !== 'true'
   ) {

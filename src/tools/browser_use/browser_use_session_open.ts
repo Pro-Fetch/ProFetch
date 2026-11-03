@@ -1,5 +1,5 @@
 import { defineTool } from '../../core/tool.js';
-import { jsonBlock, fail, md } from '../../core/format.js';
+import { jsonBlock, fail } from '../../core/format.js';
 import { openSession, SessionError, sessionSummary, type OpenOptions } from '../../core/browser-use-session.js';
 import { serializeOutline } from '../../core/browser-use-perception.js';
 import { summarizeModel } from '../../core/browser-use-world.js';
@@ -89,7 +89,7 @@ export default defineTool({
             in_viewport: n.inViewport,
           })),
         interactable_count: session.model.latest.nodes.filter((n) => n.interactable).length,
-        outline: input.outline === false ? undefined : md(outline.text, 4000).content,
+        outline: input.outline === false ? undefined : outline.text,
         model: summary.text,
         note: 'Keep the session_id: every later call reads the model this one started.',
       });

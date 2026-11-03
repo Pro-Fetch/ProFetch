@@ -32,11 +32,17 @@ import browser_use_tabs from './browser_use_tabs.js';
 import browser_use_state_read from './browser_use_state_read.js';
 import browser_use_region from './browser_use_region.js';
 import browser_use_read from './browser_use_read.js';
+import browser_use_outline from './browser_use_outline.js';
+import browser_use_history from './browser_use_history.js';
+import browser_use_resize from './browser_use_resize.js';
+import browser_use_evaluate from './browser_use_evaluate.js';
+import browser_use_diff_lists from './browser_use_diff_lists.js';
+import browser_use_extract from './browser_use_extract.js';
 
 /**
  * The `browser_use` pack: the browser intelligence engine as MCP tools.
  *
- * Thirteen answer without a live page — what is installed, what a protocol can do, whether an endpoint is
+ * Fifteen answer without a live page — what is installed, what a protocol can do, whether an endpoint is
  * allowed, how a box maps between coordinate spaces, whether two images differ, whether a reveal or an
  * action would be permitted, what is wrong with a page from the read you already have. Twenty-one run a
  * session: open a page in a browser chosen by capability, keep a world model and a coverage ledger for it,
@@ -83,4 +89,10 @@ export default [
   browser_use_state_read,
   browser_use_region,
   browser_use_read,
+  browser_use_outline,
+  browser_use_history,
+  browser_use_resize,
+  browser_use_evaluate,
+  browser_use_diff_lists,
+  browser_use_extract,
 ];
