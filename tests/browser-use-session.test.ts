@@ -145,6 +145,16 @@ describe.skipIf(!LIVE)('a live session', () => {
     expect((coverage.bands as Array<Record<string, unknown>>).every((b) => b.visited === true)).toBe(true);
   });
 
+  it('scrolls to the very top when asked for position 0', async () => {
+    const session = await openSession();
+    await callTool('pro_browser_use_scroll', { session_id: session, to_y: 400 });
+    const back = payload(await callTool('pro_browser_use_scroll', { session_id: session, to_y: 0 }));
+    // A numeric helper with a floor of 1 turned this into "scroll to 1px", which is invisible to the eye
+    // and fatal to a page whose top element sits at y 0.
+    expect(back.scroll_y, JSON.stringify(back)).toBe(0);
+    expect(back.ok).toBe(true);
+  });
+
   it('captures the viewport at the size it reports', async () => {
     const session = await openSession();
     const captured = await callTool('pro_browser_use_screenshot', { session_id: session, kind: 'viewport' });

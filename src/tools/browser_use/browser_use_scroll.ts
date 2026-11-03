@@ -27,7 +27,7 @@ export default defineTool({
     try {
       const session = requireSession(optionalStr(input, 'session_id'));
       const identity = optionalStr(input, 'identity');
-      let target: number | null = typeof input.to_y === 'number' ? num(input, 'to_y', 0) : null;
+      let target: number | null = typeof input.to_y === 'number' ? num(input, 'to_y', 0, 0) : null;
       if (target === null && identity) {
         const held = session.model.nodes.get(identity);
         if (!held) return fail(`"${identity}" is not in the model for this tab — check it with element_check`);

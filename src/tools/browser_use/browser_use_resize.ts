@@ -27,8 +27,8 @@ export default defineTool({
   async handler(input) {
     try {
       const session = requireSession(optionalStr(input, 'session_id'));
-      const width = num(input, 'width', 0);
-      const height = num(input, 'height', 0);
+      const width = num(input, 'width', 0, 0);
+      const height = num(input, 'height', 0, 0);
       if (width < 320 || width > 4000 || height < 240 || height > 4000) {
         return fail(`refusing ${width}x${height}: the sane range is 320-4000 wide and 240-4000 tall`);
       }

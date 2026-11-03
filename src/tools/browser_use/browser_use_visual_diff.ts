@@ -37,7 +37,7 @@ export default defineTool({
     const columns = Math.max(1, num(input, 'columns', 4));
     const rows = Math.max(1, num(input, 'rows', 4));
     const result = diffRgba(a.value, b.value, {
-      channelTolerance: num(input, 'channel_tolerance', 16),
+      channelTolerance: num(input, 'channel_tolerance', 16, 0, 255),
       ignoreAlphaOnly: bool(input, 'ignore_alpha_only', true),
       grid: { columns, rows },
     });

@@ -45,7 +45,7 @@ export default defineTool({
     const parsed = meta.value;
 
     let ledger = null;
-    const height = num(input, 'content_height', 0);
+    const height = num(input, 'content_height', 0, 0);
     if (height > 0) {
       ledger = createLedger(built.value.snapshot, { contentHeight: height });
       const positions = parseJsonArray(input.scroll_positions ?? '[]', 'scroll_positions');

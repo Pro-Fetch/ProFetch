@@ -36,7 +36,7 @@ export default defineTool({
       const hasPoint = typeof input.x === 'number' && typeof input.y === 'number';
       if (!hasPoint && !node) return fail('give x and y, or an identity whose centre to test');
       const point = hasPoint
-        ? { x: num(input, 'x', 0), y: num(input, 'y', 0) }
+        ? { x: num(input, 'x', 0, 0), y: num(input, 'y', 0, 0) }
         : { x: node!.rect.x + node!.rect.width / 2, y: node!.rect.y + node!.rect.height / 2 };
       const frameId = optionalStr(input, 'frame_id') ?? node?.frameId ?? 'main';
       const verdict = whatIsAt(snapshot, point, frameId);

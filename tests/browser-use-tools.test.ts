@@ -111,6 +111,53 @@ describe('the pack is registered and gated', () => {
     }
   });
 
+  it('treats a zero-valued argument as the zero it means', async () => {
+    // num() defaults to a floor of 1, which quietly turned content_height: 0 into "a 1px page" and let a
+    // diagnosis claim the page had been fully read. 0 here means "the caller did not say".
+    const nodes = JSON.stringify([
+      {
+        backendId: '1',
+        token: 't1',
+        frameId: 'main',
+        path: 'html>body>a[1]',
+        tag: 'a',
+        role: 'link',
+        name: 'Read more',
+        text: 'Read more',
+        href: '/more',
+        rect: { x: 0, y: 0, width: 100, height: 20 },
+        inViewport: true,
+        styleVisible: true,
+        hitTestSelf: true,
+        obstructed: false,
+        depth: 3,
+        interactive: true,
+        boundaries: [],
+      },
+    ]);
+    const meta = JSON.stringify({
+      title: 'Page',
+      lang: 'en',
+      hasViewportMeta: true,
+      doctype: 'html',
+      horizontalOverflow: 0,
+      duplicateIdCount: 0,
+      images: 0,
+      imagesWithoutAlt: 0,
+      frameCount: 0,
+    });
+    const body = payload(
+      await callTool('pro_browser_use_health_diagnose', {
+        nodes,
+        meta,
+        url: 'https://shop.test/x',
+        content_height: 0,
+      }),
+    );
+    expect(body.pageFullyObserved, JSON.stringify(body)).toBe(false);
+    expect(String(body.skipped)).toMatch(/coverage ledger/);
+  });
+
   it('is invisible to the small profiles and present in full', () => {
     const sample = tools[0]!;
     expect(isToolVisibleInProfile(sample, 'full')).toBe(true);
