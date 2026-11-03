@@ -1,0 +1,12 @@
+name,ms,bytes,ok,assertion,detail
+pro_browser_use_browsers_detect,481.62,876,true,"os + found array",""
+pro_browser_use_diff_lists,4.14,448,true,"a relabel is reported as relabelled, not as add+remove",""
+pro_browser_use_action_preflight,2.42,257,true,"an identity the server never handed out is refused",""
+pro_browser_use_browsers_select,485.01,302,true,"either a selection or a blocker naming what is installed",""
+pro_browser_use_browsers_launch_plan,3.68,891,true,"a plan with an executable and a profile directory",""
+pro_browser_use_browsers_attach_validate,3.55,305,true,"loopback allowed, and the port is parsed out",""
+pro_browser_use_capabilities_matrix,6.97,294,true,"status counts add up to 24 products × 30 capabilities",""
+pro_browser_use_capabilities_check,2.87,802,true,"chrome answers both capabilities with a reason",""
+pro_browser_use_coords_convert,3.16,552,true,"a 100,200 box at dpr 2 lands at 200,40 in the image",""
+pro_browser_use_state_classify,2.45,382,true,"a hover is offered as SAFE_REVERSIBLE",""
+pro_browser_use_health_diagnose,3.69,2347,true,"an unnamed control plus missing alt text produces findings",""

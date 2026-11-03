@@ -58,7 +58,9 @@
     "test:coverage": "node scripts/run-tests.mjs --coverage",
     "verify:package": "npm run build && node scripts/verify-package.mjs",
     "verify:registry": "tsx scripts/verify-registry.mts",
-    "verify:static": "node scripts/verify-static.mjs"
+    "verify:static": "node scripts/verify-static.mjs",
+    "browser-use:bench:mcp": "tsx scripts/browser-use-bench.mts",
+    "browser-use:bench:live": "tsx scripts/browser-use-bench.mts --live"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",

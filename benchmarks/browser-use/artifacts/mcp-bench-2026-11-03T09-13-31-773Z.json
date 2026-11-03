@@ -1,0 +1,189 @@
+{
+  "started": "2026-11-03T09:13:31.773Z",
+  "wall_ms": 4504,
+  "connect_ms": 2483.13,
+  "tools_list_ms": 926.55,
+  "tools_total": 713,
+  "tools_browser_use": 40,
+  "call_names": [
+    "pro_browser_use_browsers_detect",
+    "pro_browser_use_diff_lists",
+    "pro_browser_use_action_preflight",
+    "pro_browser_use_browsers_select",
+    "pro_browser_use_browsers_launch_plan",
+    "pro_browser_use_browsers_attach_validate",
+    "pro_browser_use_capabilities_matrix",
+    "pro_browser_use_capabilities_check",
+    "pro_browser_use_coords_convert",
+    "pro_browser_use_state_classify",
+    "pro_browser_use_health_diagnose",
+    "pro_browser_use_session_open",
+    "pro_browser_use_action_preflight",
+    "pro_browser_use_snapshot",
+    "pro_browser_use_coverage",
+    "pro_browser_use_outline",
+    "pro_browser_use_screenshot",
+    "pro_browser_use_session_close"
+  ],
+  "call_ms_total": 1050.62,
+  "slowest": {
+    "name": "pro_browser_use_browsers_select",
+    "ms": 552.86,
+    "bytes": 302,
+    "isError": false,
+    "assertion": "either a selection or a blocker naming what is installed",
+    "ok": true
+  },
+  "assertions": [
+    {
+      "name": "pro_browser_use_browsers_detect",
+      "ok": true,
+      "ms": 450.98,
+      "bytes": 876,
+      "assertion": "os + found array"
+    },
+    {
+      "name": "pro_browser_use_diff_lists",
+      "ok": true,
+      "ms": 4.16,
+      "bytes": 448,
+      "assertion": "a relabel is reported as relabelled, not as add+remove"
+    },
+    {
+      "name": "pro_browser_use_action_preflight",
+      "ok": true,
+      "ms": 2.94,
+      "bytes": 257,
+      "assertion": "an identity the server never handed out is refused"
+    },
+    {
+      "name": "pro_browser_use_browsers_select",
+      "ok": true,
+      "ms": 552.86,
+      "bytes": 302,
+      "assertion": "either a selection or a blocker naming what is installed"
+    },
+    {
+      "name": "pro_browser_use_browsers_launch_plan",
+      "ok": true,
+      "ms": 3.83,
+      "bytes": 891,
+      "assertion": "a plan with an executable and a profile directory"
+    },
+    {
+      "name": "pro_browser_use_browsers_attach_validate",
+      "ok": true,
+      "ms": 3.82,
+      "bytes": 305,
+      "assertion": "loopback allowed, and the port is parsed out"
+    },
+    {
+      "name": "pro_browser_use_capabilities_matrix",
+      "ok": true,
+      "ms": 6.26,
+      "bytes": 294,
+      "assertion": "status counts add up to 24 products × 30 capabilities"
+    },
+    {
+      "name": "pro_browser_use_capabilities_check",
+      "ok": true,
+      "ms": 3,
+      "bytes": 802,
+      "assertion": "chrome answers both capabilities with a reason"
+    },
+    {
+      "name": "pro_browser_use_coords_convert",
+      "ok": true,
+      "ms": 3.77,
+      "bytes": 552,
+      "assertion": "a 100,200 box at dpr 2 lands at 200,40 in the image"
+    },
+    {
+      "name": "pro_browser_use_state_classify",
+      "ok": true,
+      "ms": 2.39,
+      "bytes": 382,
+      "assertion": "a hover is offered as SAFE_REVERSIBLE"
+    },
+    {
+      "name": "pro_browser_use_health_diagnose",
+      "ok": true,
+      "ms": 4.17,
+      "bytes": 2347,
+      "assertion": "an unnamed control plus missing alt text produces findings"
+    },
+    {
+      "name": "pro_browser_use_session_open",
+      "ok": false,
+      "ms": 2.9,
+      "bytes": 73,
+      "assertion": "a live page opens and reports nodes",
+      "detail": "open said {}"
+    },
+    {
+      "name": "pro_browser_use_action_preflight",
+      "ok": false,
+      "ms": 2.07,
+      "bytes": 257,
+      "assertion": "the identity the server handed out is accepted",
+      "detail": "preflight refused a live identity: {\"ok\":true,\"decision\":\"REFUSE\",\"reason\":\"the identity the caller holds is not in the node list supplied — either the page changed or the reference came from elsewhere\",\"identities_known\":1}"
+    },
+    {
+      "name": "pro_browser_use_snapshot",
+      "ok": false,
+      "ms": 1.45,
+      "bytes": 76,
+      "assertion": "a re-read keeps the document signature and adds no nodes",
+      "detail": "snapshot did not advance the model"
+    },
+    {
+      "name": "pro_browser_use_coverage",
+      "ok": false,
+      "ms": 1.42,
+      "bytes": 76,
+      "assertion": "the ledger states what it has not seen",
+      "detail": "no gaps field"
+    },
+    {
+      "name": "pro_browser_use_outline",
+      "ok": false,
+      "ms": 1.62,
+      "bytes": 75,
+      "assertion": "the outline is text, with its own truncation counts",
+      "detail": "outline was not a string"
+    },
+    {
+      "name": "pro_browser_use_screenshot",
+      "ok": false,
+      "ms": 1.59,
+      "bytes": 78,
+      "assertion": "a capture returns bytes whose size matches the geometry",
+      "detail": "capture missing geometry"
+    },
+    {
+      "name": "pro_browser_use_session_close",
+      "ok": false,
+      "ms": 1.39,
+      "bytes": 32,
+      "assertion": "the session closes and reports itself gone",
+      "detail": "close refused"
+    }
+  ],
+  "failures": [
+    "pro_browser_use_session_open: open said {}",
+    "pro_browser_use_action_preflight: preflight refused a live identity: {\"ok\":true,\"decision\":\"REFUSE\",\"reason\":\"the identity the caller holds is not in the node list supplied — either the page changed or the reference came from elsewhere\",\"identities_known\":1}",
+    "pro_browser_use_snapshot: snapshot did not advance the model",
+    "pro_browser_use_coverage: no gaps field",
+    "pro_browser_use_outline: outline was not a string",
+    "pro_browser_use_screenshot: capture missing geometry",
+    "pro_browser_use_session_close: close refused"
+  ],
+  "live": {
+    "enabled": true
+  },
+  "server": {
+    "entry": "dist/server.js",
+    "sdk": "1.32.1",
+    "transport": "stdio"
+  }
+}

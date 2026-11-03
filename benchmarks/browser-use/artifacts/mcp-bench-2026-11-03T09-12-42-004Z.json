@@ -1,0 +1,118 @@
+{
+  "started": "2026-11-03T09:12:42.004Z",
+  "wall_ms": 4895,
+  "connect_ms": 2681.04,
+  "tools_list_ms": 1169.24,
+  "tools_total": 713,
+  "tools_browser_use": 40,
+  "call_names": [
+    "pro_browser_use_browsers_detect",
+    "pro_browser_use_diff_lists",
+    "pro_browser_use_action_preflight",
+    "pro_browser_use_browsers_select",
+    "pro_browser_use_browsers_launch_plan",
+    "pro_browser_use_browsers_attach_validate",
+    "pro_browser_use_capabilities_matrix",
+    "pro_browser_use_capabilities_check",
+    "pro_browser_use_coords_convert",
+    "pro_browser_use_state_classify",
+    "pro_browser_use_health_diagnose"
+  ],
+  "call_ms_total": 999.56,
+  "slowest": {
+    "name": "pro_browser_use_browsers_select",
+    "ms": 485.01,
+    "bytes": 302,
+    "isError": false,
+    "assertion": "either a selection or a blocker naming what is installed",
+    "ok": true
+  },
+  "assertions": [
+    {
+      "name": "pro_browser_use_browsers_detect",
+      "ok": true,
+      "ms": 481.62,
+      "bytes": 876,
+      "assertion": "os + found array"
+    },
+    {
+      "name": "pro_browser_use_diff_lists",
+      "ok": true,
+      "ms": 4.14,
+      "bytes": 448,
+      "assertion": "a relabel is reported as relabelled, not as add+remove"
+    },
+    {
+      "name": "pro_browser_use_action_preflight",
+      "ok": true,
+      "ms": 2.42,
+      "bytes": 257,
+      "assertion": "an identity the server never handed out is refused"
+    },
+    {
+      "name": "pro_browser_use_browsers_select",
+      "ok": true,
+      "ms": 485.01,
+      "bytes": 302,
+      "assertion": "either a selection or a blocker naming what is installed"
+    },
+    {
+      "name": "pro_browser_use_browsers_launch_plan",
+      "ok": true,
+      "ms": 3.68,
+      "bytes": 891,
+      "assertion": "a plan with an executable and a profile directory"
+    },
+    {
+      "name": "pro_browser_use_browsers_attach_validate",
+      "ok": true,
+      "ms": 3.55,
+      "bytes": 305,
+      "assertion": "loopback allowed, and the port is parsed out"
+    },
+    {
+      "name": "pro_browser_use_capabilities_matrix",
+      "ok": true,
+      "ms": 6.97,
+      "bytes": 294,
+      "assertion": "status counts add up to 24 products × 30 capabilities"
+    },
+    {
+      "name": "pro_browser_use_capabilities_check",
+      "ok": true,
+      "ms": 2.87,
+      "bytes": 802,
+      "assertion": "chrome answers both capabilities with a reason"
+    },
+    {
+      "name": "pro_browser_use_coords_convert",
+      "ok": true,
+      "ms": 3.16,
+      "bytes": 552,
+      "assertion": "a 100,200 box at dpr 2 lands at 200,40 in the image"
+    },
+    {
+      "name": "pro_browser_use_state_classify",
+      "ok": true,
+      "ms": 2.45,
+      "bytes": 382,
+      "assertion": "a hover is offered as SAFE_REVERSIBLE"
+    },
+    {
+      "name": "pro_browser_use_health_diagnose",
+      "ok": true,
+      "ms": 3.69,
+      "bytes": 2347,
+      "assertion": "an unnamed control plus missing alt text produces findings"
+    }
+  ],
+  "failures": [],
+  "live": {
+    "enabled": false
+  },
+  "server": {
+    "entry": "dist/server.js",
+    "sdk": "1.32.1",
+    "transport": "stdio"
+  }
+}
