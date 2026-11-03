@@ -38,21 +38,27 @@ import browser_use_resize from './browser_use_resize.js';
 import browser_use_evaluate from './browser_use_evaluate.js';
 import browser_use_diff_lists from './browser_use_diff_lists.js';
 import browser_use_extract from './browser_use_extract.js';
+import browser_use_elements from './browser_use_elements.js';
+import browser_use_words from './browser_use_words.js';
+import browser_use_download from './browser_use_download.js';
+import browser_use_upload from './browser_use_upload.js';
 
 /**
  * The `browser_use` pack: the browser intelligence engine as MCP tools.
  *
- * Fifteen answer without a live page — what is installed, what a protocol can do, whether an endpoint is
+ * Sixteen answer without a live page — what is installed, what a protocol can do, whether an endpoint is
  * allowed, how a box maps between coordinate spaces, whether two images differ, whether a reveal or an
- * action would be permitted, what is wrong with a page from the read you already have. Twenty-one run a
+ * action would be permitted, what is wrong with a page from the read you already have. Twenty-eight run a
  * session: open a page in a browser chosen by capability, keep a world model and a coverage ledger for it,
- * read the whole document band by band, capture and annotate it, cross frames, check whether a stored
- * element is still that element, act with preflight and independent verification, and close it.
+ * read the whole document band by band, list every element with its coordinates or every word with its box,
+ * capture and annotate it down to the last element, cross frames, check whether a stored element is still
+ * that element, act with preflight and independent verification, take a file the page offers or hand one
+ * over, and close it.
  *
- * Three tools in the pack change anything (`act`, `navigate`, `scroll`, `wait`, `scan` move the page
- * without sending data; only `act` and `navigate` can leave it). That asymmetry is the point: reading is
- * cheap, acting is a distinct decision with a recorded reason, and success is only claimed when a later
- * read of the page agrees.
+ * Six tools in the pack change anything — `act`, `navigate`, `scroll`, `wait` and `scan` move the page,
+ * `download` writes a file, `upload` sends bytes to a site — and the rest are reads. That asymmetry is the
+ * point: reading is cheap, acting is a distinct decision with a recorded reason, and success is only claimed
+ * when a later read of the page (or the saved bytes) agrees.
  */
 export default [
   browser_use_browsers_detect,
@@ -95,4 +101,8 @@ export default [
   browser_use_evaluate,
   browser_use_diff_lists,
   browser_use_extract,
+  browser_use_elements,
+  browser_use_words,
+  browser_use_download,
+  browser_use_upload,
 ];

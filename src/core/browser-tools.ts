@@ -182,8 +182,16 @@ async function persistState(session: Session): Promise<void> {
 
 function getSession(id: string): Session {
   const session = sessions.get(id);
-  if (!session) throw new Error(`Browser session '${id}' yo'q. Avval browser_open ishlating.`);
-  return session;
+  if (session) return session;
+  // Two engines keep session maps in this process, and their ids are not interchangeable. An id with the
+  // browser_use shape reaching this family is the confusing case: the old message told the caller to open a
+  // browser, when the actual mistake was calling the wrong tool.
+  if (id.startsWith('bu-'))
+    throw new Error(
+      `Browser session '${id}' yo'q. Bu "bu-" oldinli id browser_use dvigatelining sessiyasi — ` +
+        `u faqat pro_browser_use_* tool'larida ishlaydi, pro_browser_* emas.`,
+    );
+  throw new Error(`Browser session '${id}' yo'q. Avval browser_open ishlating.`);
 }
 
 async function saveScreenshot(session: Session, input: Input, fullPage = false): Promise<string> {

@@ -231,6 +231,55 @@ describe('annotation', () => {
     expect(at(img, 2, 3)).toEqual([255, 255, 255, 255]);
   });
 
+  it('draws commas and minus signs, because a coordinate line is made of them', () => {
+    // The coordinate line was the reason the font grew past 0-9. A comma that silently became a blank gap
+    // would read as "400 568", which is two numbers rather than one position.
+    const img = solidRgba(16, 8, [0, 0, 0, 255]);
+    const comma = drawDigits(img, 1, 1, ',', [255, 255, 255, 255], 1);
+    expect(comma.skipped).toBe(0);
+    expect(comma.painted).toBe(2);
+    const minus = drawDigits(img, 6, 1, '-', [255, 255, 255, 255], 1);
+    expect(minus.skipped).toBe(0);
+    expect(minus.painted).toBe(3);
+    const dot = drawDigits(img, 11, 1, '.', [255, 255, 255, 255], 1);
+    expect(dot.skipped).toBe(0);
+    expect(dot.painted).toBe(3);
+  });
+
+  it('draws a coordinate line under the index, in yellow so it is not confused with the number', () => {
+    const base = solidRgba(80, 60, [255, 255, 255, 255]);
+    const painted = paintAnnotation(
+      base,
+      [{ rect: { x: 2, y: 2, width: 40, height: 40 }, index: 7, label: '2,2,40,40' }],
+      { thickness: 1, labelScale: 1 },
+    );
+    expect(painted.boxes).toBe(1);
+    let yellow = 0;
+    for (let y = 0; y < 60; y++) {
+      for (let x = 0; x < 80; x++) {
+        if (
+          at(painted.image, x, y)[0] === 255 &&
+          at(painted.image, x, y)[1] === 255 &&
+          at(painted.image, x, y)[2] === 0
+        )
+          yellow++;
+      }
+    }
+    expect(yellow).toBeGreaterThan(10);
+  });
+
+  it('skips a coordinate line that would be cut off, rather than drawing half a number', () => {
+    // "568,6" is not a partial coordinate, it is a wrong one. The whole line is dropped and counted.
+    const base = solidRgba(30, 30, [250, 250, 250, 255]);
+    const painted = paintAnnotation(
+      base,
+      [{ rect: { x: 2, y: 2, width: 20, height: 20 }, index: 1, label: '2,2,20,20' }],
+      { thickness: 1, labelScale: 2 },
+    );
+    expect(painted.labelsOutside).toBe(1);
+    expect(painted.boxes).toBe(1);
+  });
+
   it('counts characters it cannot draw instead of drawing something arbitrary', () => {
     const img = solidRgba(24, 8, [1, 1, 1, 255]);
     const drawn = drawDigits(img, 1, 1, 'a1', [9, 9, 9, 255], 1);

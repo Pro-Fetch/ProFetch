@@ -246,15 +246,16 @@ export function solidRgba(width: number, height: number, rgba: [number, number, 
 /**
  * Annotating a capture with pixels, not just markup.
  *
- * A model that is shown a screenshot needs the same index the outline gave it, drawn where the element
- * is. Doing that with text would mean a font rasterizer, so the digits are a 3x5 bitmap — enough to put
- * `12` on a box with no dependency, and small enough to be sure of by eye.
+ * A model shown a screenshot needs the same index the outline gave it, drawn where the element is, and
+ * often the element's coordinates too. Text would mean a font rasterizer, so the glyphs are a 3×5 bitmap:
+ * digits plus comma, period and minus — enough to draw `400 · 568,640` with no dependency, and small
+ * enough to check by eye. Anything outside that set is skipped and counted rather than approximated.
  *
  * Every write is bounds-checked on both axes. Adding `y * width + x` to an offset that ran past the row
  * end paints last-row pixels at the start of the next row, which looks like a drawing glitch and is
  * actually a corrupted image, so clipping is the whole implementation choice here.
  */
-const DIGIT_FONT: Record<string, readonly string[]> = {
+const GLYPH_FONT: Record<string, readonly string[]> = {
   '0': ['111', '101', '101', '101', '111'],
   '1': ['010', '110', '010', '010', '111'],
   '2': ['111', '001', '111', '100', '111'],
@@ -265,6 +266,9 @@ const DIGIT_FONT: Record<string, readonly string[]> = {
   '7': ['111', '001', '010', '010', '010'],
   '8': ['111', '101', '111', '101', '111'],
   '9': ['111', '101', '111', '001', '111'],
+  ',': ['000', '000', '000', '010', '100'],
+  '.': ['000', '000', '000', '000', '111'],
+  '-': ['000', '000', '111', '000', '000'],
 };
 
 export type Rgba = [number, number, number, number];
@@ -279,7 +283,7 @@ function putPixel(image: RgbaImage, x: number, y: number, colour: Rgba): boolean
   return true;
 }
 
-/** Draw `text` with the bitmap digits. Characters outside 0-9 are skipped and counted. */
+/** Draw `text` with the bitmap glyphs. Characters outside the supported set are skipped and counted. */
 export function drawDigits(
   image: RgbaImage,
   x: number,
@@ -292,7 +296,7 @@ export function drawDigits(
   let skipped = 0;
   let cursor = x;
   for (const ch of text) {
-    const glyph = DIGIT_FONT[ch];
+    const glyph = GLYPH_FONT[ch];
     if (!glyph) {
       skipped++;
       cursor += 3 * scale + scale;
@@ -318,6 +322,11 @@ export interface AnnotationSpec {
   rect: { x: number; y: number; width: number; height: number };
   /** The index the outline gave this element, drawn on top of it. */
   index: number;
+  /**
+   * A second line under the index — normally `x,y,w,h` in image pixels. Restricted to the bitmap charset
+   * (digits, comma, period, minus); other characters are skipped and counted, never approximated.
+   */
+  label?: string;
   /** Box outline colour. Opaque; the interior is never touched. */
   colour?: Rgba;
 }
@@ -388,6 +397,23 @@ export function paintAnnotation(
       }
     }
     painted += drawDigits(image, labelX, labelY, label, [255, 255, 255, 255], scale).painted;
+
+    // The coordinate line sits under the index, on its own plate. If it would not fit, it is skipped
+    // entirely rather than cut off: a truncated "568,6" is a wrong coordinate, not a partial one.
+    if (annotation.label) {
+      const coordY = labelY + glyphH + scale + 1;
+      const coordW = annotation.label.length * (3 * scale + scale);
+      if (labelX + coordW <= image.width && coordY + glyphH <= image.height) {
+        for (let py = coordY - scale; py < coordY + glyphH + scale; py++) {
+          for (let px = plateX; px < labelX + coordW; px++) {
+            if (putPixel(image, px, py, dark)) painted++;
+          }
+        }
+        painted += drawDigits(image, labelX, coordY, annotation.label, [255, 255, 0, 255], scale).painted;
+      } else {
+        labelsOutside++;
+      }
+    }
   }
 
   return { image, painted, boxes, labelsOutside };

@@ -12,13 +12,15 @@
  * produces it, and frame offsets are measured rather than assumed.
  */
 
-import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { assertSafeUrl, UrlSecurityError } from './ssrf-guard.js';
 import { COLLECTOR_SCRIPT } from './browser-use-collector.js';
+import { WORD_SCRIPT, type WordReport } from './browser-use-words.js';
 import { buildSnapshot, type Snapshot } from './browser-use-perception.js';
 import { applySnapshot, createWorldModel, type WorldModel } from './browser-use-world.js';
 import { collectAllFrames, type FrameCollection } from './browser-use-frames.js';
@@ -45,6 +47,23 @@ export interface BrowserUseSession {
   ownsProfile: boolean;
 }
 
+/** A browser download the session was told about, before it is saved anywhere. */
+export interface DownloadHandle {
+  suggestedFilename(): string;
+  /** The address the bytes came from — provenance, not decoration. */
+  url(): string;
+  cancel(): Promise<void>;
+  saveAs(target: string): Promise<string>;
+  path(): Promise<string | null>;
+}
+
+/** A file handed to a control as bytes the caller already holds, so no local path is ever read. */
+export interface FilePayload {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+}
+
 interface LiveHandles {
   context: {
     pages(): Array<LiveHandles['page']>;
@@ -67,6 +86,8 @@ interface LiveHandles {
     mouse: { click(x: number, y: number): Promise<void>; move(x: number, y: number): Promise<void> };
     keyboard: { type(text: string): Promise<void>; press(key: string): Promise<void> };
     waitForTimeout(ms: number): Promise<void>;
+    waitForEvent(event: 'download', options?: { timeout?: number }): Promise<DownloadHandle>;
+    setInputFiles(selector: string, files: FilePayload | FilePayload[], options?: { timeout?: number }): Promise<void>;
   };
 }
 
@@ -81,7 +102,10 @@ export class SessionError extends Error {
     message: string,
     readonly hint: string = '',
   ) {
-    super(message);
+    // The hint is part of the message, on purpose. Every tool in this pack answers a failure with
+    // `fail(error.message)`, so a hint that lived only on a second field was written for a reader who never
+    // saw it — including the one that tells a caller their session id came from the other engine.
+    super(hint ? `${message} — ${hint}` : message);
     this.name = 'SessionError';
   }
 }
@@ -251,14 +275,20 @@ export function requireSession(id: string | undefined): BrowserUseSession {
     );
   }
   const session = getSession(id);
-  if (!session) {
-    const known = sessionIds();
-    throw new SessionError(
-      `no session "${id}"`,
-      known.length ? `open sessions: ${known.join(', ')}` : 'no session is currently open',
-    );
-  }
-  return session;
+  if (session) return session;
+  const known = sessionIds();
+  // The two session families are not interchangeable, and the confusing case is an id from the other one.
+  // `bu-` is this engine's shape, so an id without it never came from here, and one with it came from here
+  // and has since been closed or idle-reaped. Saying which is the difference between a fixable call and a
+  // search for a session that was never missing.
+  const foreign = !id.startsWith('bu-');
+  const where = foreign
+    ? 'this id did not come from browser_use: ids from pro_browser_open belong to the `browser` engine and are only accepted by pro_browser_* tools'
+    : 'browser_use ids are issued by browser_use_session_open and look like bu-1a2b3c4d';
+  throw new SessionError(
+    `no session "${id}"`,
+    [where, known.length ? `open here: ${known.join(', ')}` : 'no browser_use session is currently open'].join('; '),
+  );
 }
 
 export interface RefreshResult {
@@ -512,6 +542,304 @@ export async function storageState(session: BrowserUseSession): Promise<unknown>
   await ctx.storageState({ path: target });
   const { readFileSync } = await import('node:fs');
   return JSON.parse(readFileSync(target, 'utf8')) as unknown;
+}
+
+/**
+ * Word geometry for the page the session last read.
+ *
+ * The collector must have run first: words are joined to elements through the `data-pf-id` the collector
+ * stamps, so measuring words before a read would produce boxes with no owners. Only the top frame is
+ * measured — a word inside a cross-origin iframe is not reachable from here, and a listing that quietly
+ * omitted it would be a wrong transcript rather than a partial one. The caller is told which frames were
+ * left out.
+ */
+export async function readWords(session: BrowserUseSession): Promise<WordReport & { frames_skipped: string[] }> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const report = (await live.page.evaluate(WORD_SCRIPT)) as WordReport;
+  const frameIds = live.page.frames().map((f) => f.url());
+  return { ...report, frames_skipped: frameIds.slice(1) };
+}
+
+/** Where a session's own files go. Never outside the session's data root, which is deleted on close. */
+async function downloadsRoot(session: BrowserUseSession): Promise<string> {
+  const dir = path.join(session.dataRoot, 'downloads');
+  await mkdir(dir, { recursive: true });
+  return dir;
+}
+
+/** A name a filesystem will accept, from whatever the server offered. */
+function safeName(suggested: string, fallback: string): string {
+  const base = path
+    .basename(suggested || '')
+    .replace(/[^\w.\-+() ]+/g, '_')
+    .replace(/^[.\s]+/, '')
+    .slice(0, 120);
+  return base || fallback;
+}
+
+/** Size and sha256 of a file that is claimed to exist, measured from the bytes. */
+async function measure(file: string): Promise<{ bytes: number; sha256: string }> {
+  const { stat } = await import('node:fs/promises');
+  const hash = createHash('sha256');
+  const info = await stat(file);
+  await new Promise<void>((resolve, reject) => {
+    const stream = createReadStream(file);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', () => resolve());
+    stream.on('error', (error) => reject(error));
+  });
+  return { bytes: info.size, sha256: hash.digest('hex') };
+}
+
+export interface DownloadOutcome {
+  ok: boolean;
+  trigger: string;
+  suggested: string;
+  saved_to: string;
+  /** Whether the bytes went where the caller asked, or into a profile that dies with the session. */
+  saved_within: string;
+  bytes: number;
+  sha256: string;
+  /** The address the browser says the bytes came from. */
+  source_url: string;
+  failure: string;
+}
+
+/**
+ * Wait for a download while something is clicked, then save and measure it.
+ *
+ * The listener is registered *before* the trigger: a download that finishes in the 5 ms between a click and
+ * a `waitForEvent` call is a download nobody heard about. The file is saved inside the session's own root,
+ * so a refused or abandoned transfer cannot leave bytes anywhere the caller did not already control, and the
+ * result reports size and digest measured from the saved bytes — a download whose file is never opened is a
+ * claim about a network event, not about a file.
+ */
+async function awaitingDownload(
+  session: BrowserUseSession,
+  trigger: string,
+  run: () => Promise<void>,
+  options: { timeoutMs: number; saveTo: string },
+): Promise<DownloadOutcome> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const { assertWritable } = await import('./read-only-guard.js');
+  assertWritable('sessiya papkasiga fayl yuklab olish');
+  const waiting = live.page.waitForEvent('download', { timeout: options.timeoutMs });
+  try {
+    await run();
+  } catch (error) {
+    // Consume the pending listener, or a trigger that threw leaves an unhandled rejection behind.
+    await waiting.catch(() => undefined);
+    throw error;
+  }
+  const download = await waiting;
+  const suggested = download.suggestedFilename();
+  const target = options.saveTo || path.join(await downloadsRoot(session), safeName(suggested, 'download.bin'));
+  try {
+    await download.saveAs(target);
+  } catch (error) {
+    return {
+      ok: false,
+      trigger,
+      suggested,
+      saved_to: '',
+      saved_within: '',
+      bytes: 0,
+      sha256: '',
+      source_url: download.url(),
+      failure: `saveAs failed: ${(error as Error).message.slice(0, 200)}`,
+    };
+  }
+  const measured = await measure(target);
+  const saved_within = options.saveTo
+    ? 'the path the caller chose'
+    : 'session profile — deleted when the session closes';
+  if (!measured.bytes) {
+    return {
+      ok: false,
+      trigger,
+      suggested,
+      saved_to: target,
+      saved_within,
+      bytes: 0,
+      sha256: measured.sha256,
+      source_url: download.url(),
+      failure: 'the saved file is empty — the transfer did not deliver bytes',
+    };
+  }
+  return {
+    ok: true,
+    trigger,
+    suggested,
+    saved_to: target,
+    saved_within,
+    bytes: measured.bytes,
+    sha256: measured.sha256,
+    source_url: download.url(),
+    failure: '',
+  };
+}
+
+/** Click a point in the page and take whatever download it starts. */
+export async function downloadByClick(
+  session: BrowserUseSession,
+  point: { x: number; y: number },
+  options: { timeoutMs?: number; saveTo?: string } = {},
+): Promise<DownloadOutcome> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  return awaitingDownload(
+    session,
+    `click at ${Math.round(point.x)},${Math.round(point.y)}`,
+    () => live.page.mouse.click(point.x, point.y),
+    { timeoutMs: options.timeoutMs ?? 30_000, saveTo: options.saveTo ?? '' },
+  );
+}
+
+/**
+ * Ask the page itself to fetch a URL and keep the result.
+ *
+ * The address is put into a script string through JSON, so a URL containing a quote cannot escape its
+ * literal, and it goes through the same SSRF guard as a navigation — a download tool that would fetch
+ * anything the page referenced would be a wider door than the one that opened the session. The anchor is
+ * clicked in the top frame, which is what makes the browser, not this server, do the fetching: cookies,
+ * redirects and same-origin rules stay the browser's business.
+ */
+export async function downloadByUrl(
+  session: BrowserUseSession,
+  url: string,
+  options: { timeoutMs?: number; saveTo?: string } = {},
+): Promise<DownloadOutcome> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  let safe: URL;
+  try {
+    safe = await assertSafeUrl(url);
+  } catch (error) {
+    if (error instanceof UrlSecurityError)
+      throw new SessionError(error.message, 'only public http(s) targets are downloaded');
+    throw error;
+  }
+  const href = JSON.stringify(safe.toString());
+  return awaitingDownload(
+    session,
+    `anchor click for ${safe.host}${safe.pathname.slice(0, 60)}`,
+    async () => {
+      await live.page.evaluate(
+        `(() => { const a = document.createElement('a'); a.href = ${href}; a.rel = 'noreferrer'; a.style.display = 'none';` +
+          ` document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 2000); return true; })()`,
+      );
+    },
+    { timeoutMs: options.timeoutMs ?? 30_000, saveTo: options.saveTo ?? '' },
+  );
+}
+
+export interface UploadOutcome {
+  ok: boolean;
+  control: string;
+  /** What the control reports after the hand-off — read back from the page, not from the request. */
+  accepted: Array<{ name: string; size: number; type: string }>;
+  handed: Array<{ name: string; size: number }>;
+  failure: string;
+}
+
+/** The CSS attribute selector for one stamped node, with the value stripped to characters a selector accepts. */
+function stampedSelector(attribute: 'data-pf-id' | 'data-pf-upload', value: string): string {
+  return `[${attribute}="${value.replace(/[^A-Za-z0-9_-]/g, '')}"]`;
+}
+
+/**
+ * Every file control the top frame holds, including the ones a page hides.
+ *
+ * A styled upload widget keeps its real `input[type=file]` at `display:none`, which the collector's
+ * visibility filter is correct to drop for clicking purposes and wrong for handing it bytes: `setInputFiles`
+ * does not need the control to be visible, only to exist. The probe stamps each one so the caller can name
+ * it back without a CSS selector of its own.
+ */
+export async function listFileInputs(session: BrowserUseSession): Promise<Array<Record<string, unknown>>> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const found = (await live.page.evaluate(FILE_INPUT_SCRIPT)) as Array<Record<string, unknown>>;
+  return Array.isArray(found) ? found : [];
+}
+
+/** Evaluated in the page: find file inputs, stamp them, describe what they accept. */
+export const FILE_INPUT_SCRIPT = `(() => {
+  const list = Array.from(document.querySelectorAll('input[type=file]'));
+  return list.map((el, index) => {
+    const handle = 'pfu-' + (index + 1);
+    el.setAttribute('data-pf-upload', handle);
+    const r = el.getBoundingClientRect();
+    const st = getComputedStyle(el);
+    const labels = el.labels ? Array.prototype.slice.call(el.labels).map((l) => (l.textContent || '').trim()).join(' ') : '';
+    return {
+      upload_id: handle,
+      stamped_id: el.getAttribute('data-pf-id') || null,
+      name: el.name || '',
+      id: el.id || '',
+      accept: el.getAttribute('accept') || '',
+      multiple: el.multiple === true,
+      disabled: el.disabled === true,
+      required: el.required === true,
+      rect: { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
+      visible: st.display !== 'none' && st.visibility !== 'hidden' && r.width > 0 && r.height > 0,
+      label: labels.replace(/\\s+/g, ' ').trim().slice(0, 120),
+      held: el.files ? el.files.length : 0,
+    };
+  });
+})()`;
+
+/**
+ * Hand bytes to a file control and ask the page what it now holds.
+ *
+ * Only caller-supplied bytes are accepted. A local path would turn this tool into a file reader with a
+ * network sink attached, and the site would be the one deciding which file the session was allowed to open.
+ * The read-back is the point: `setInputFiles` resolving is not evidence a page accepted the file — a script
+ * can reject it, a `change` handler can clear it, and a control inside a widget that never forwards to the
+ * input holds nothing. So the answer is the control's own `files` list, after the hand-off.
+ */
+export async function uploadFiles(
+  session: BrowserUseSession,
+  control: { kind: 'data-pf-id' | 'data-pf-upload'; value: string },
+  files: FilePayload[],
+): Promise<UploadOutcome> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const selector = stampedSelector(control.kind, control.value);
+  try {
+    await live.page.setInputFiles(selector, files.length === 1 ? files[0]! : files, { timeout: 15_000 });
+  } catch (error) {
+    return {
+      ok: false,
+      control: selector,
+      accepted: [],
+      handed: files.map((f) => ({ name: f.name, size: f.buffer.byteLength })),
+      failure: `setInputFiles failed: ${(error as Error).message.slice(0, 200)}`,
+    };
+  }
+  const readBack = (await live.page.evaluate(
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)});` +
+      ` if (!el) return { missing: true, files: [] };` +
+      ` const list = el.files ? Array.from(el.files) : [];` +
+      ` return { missing: false, multiple: el.multiple === true, files: list.map((f) => ({ name: f.name, size: f.size, type: f.type })) }; })()`,
+  )) as { missing?: boolean; multiple?: boolean; files: Array<{ name: string; size: number; type: string }> };
+  if (readBack.missing) {
+    return {
+      ok: false,
+      control: selector,
+      accepted: [],
+      handed: files.map((f) => ({ name: f.name, size: f.buffer.byteLength })),
+      failure: 'the control the bytes were sent to is no longer in the document',
+    };
+  }
+  return {
+    ok: readBack.files.length > 0,
+    control: selector,
+    accepted: readBack.files,
+    handed: files.map((f) => ({ name: f.name, size: f.buffer.byteLength })),
+    failure: readBack.files.length ? '' : 'the hand-off resolved but the control reports no files',
+  };
 }
 
 /** The browser the session is running in, for reporting. */
