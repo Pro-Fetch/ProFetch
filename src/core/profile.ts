@@ -64,6 +64,8 @@ export const CATEGORY_LEVELS: Record<string, number> = {
   extract: 2,
   auth: 2,
   git: 3,
+  // Drives a real browser and can change a page, so it is not advertised to the smaller profiles.
+  browser_use: 3,
   codehost: 3,
   devops: 3,
   database: 3,
