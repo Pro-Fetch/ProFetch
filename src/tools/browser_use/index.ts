@@ -19,20 +19,34 @@ import browser_use_snapshot from './browser_use_snapshot.js';
 import browser_use_objects from './browser_use_objects.js';
 import browser_use_element_check from './browser_use_element_check.js';
 import browser_use_act from './browser_use_act.js';
+import browser_use_scan from './browser_use_scan.js';
+import browser_use_coverage from './browser_use_coverage.js';
+import browser_use_screenshot from './browser_use_screenshot.js';
+import browser_use_frames from './browser_use_frames.js';
+import browser_use_hit_test from './browser_use_hit_test.js';
+import browser_use_reveals from './browser_use_reveals.js';
+import browser_use_wait from './browser_use_wait.js';
+import browser_use_scroll from './browser_use_scroll.js';
+import browser_use_navigate from './browser_use_navigate.js';
+import browser_use_tabs from './browser_use_tabs.js';
+import browser_use_state_read from './browser_use_state_read.js';
+import browser_use_region from './browser_use_region.js';
+import browser_use_read from './browser_use_read.js';
 
 /**
  * The `browser_use` pack: the browser intelligence engine as MCP tools.
  *
- * Thirteen of these answer questions with no live page — what is installed, what a protocol can do, whether
- * an endpoint is allowed, how a box maps between coordinate spaces, whether two images differ, whether a
- * reveal or an action would be permitted, what is wrong with a page from the read you already have. Eight
- * more run a session: open a page in a chosen browser, keep a world model and coverage ledger for it, read
- * it again to see the delta, group it into objects, check whether a stored element is still the same
- * element, act with preflight and verification, and close it.
+ * Thirteen answer without a live page — what is installed, what a protocol can do, whether an endpoint is
+ * allowed, how a box maps between coordinate spaces, whether two images differ, whether a reveal or an
+ * action would be permitted, what is wrong with a page from the read you already have. Twenty-one run a
+ * session: open a page in a browser chosen by capability, keep a world model and a coverage ledger for it,
+ * read the whole document band by band, capture and annotate it, cross frames, check whether a stored
+ * element is still that element, act with preflight and independent verification, and close it.
  *
- * One tool in the pack changes anything (`pro_browser_use_act`), and it is the one that refuses most
- * often. That asymmetry is deliberate: a surface where reading is cheap and acting is a distinct,
- * explained decision is the shape that keeps a model from reporting success it never checked.
+ * Three tools in the pack change anything (`act`, `navigate`, `scroll`, `wait`, `scan` move the page
+ * without sending data; only `act` and `navigate` can leave it). That asymmetry is the point: reading is
+ * cheap, acting is a distinct decision with a recorded reason, and success is only claimed when a later
+ * read of the page agrees.
  */
 export default [
   browser_use_browsers_detect,
@@ -56,4 +70,17 @@ export default [
   browser_use_objects,
   browser_use_element_check,
   browser_use_act,
+  browser_use_scan,
+  browser_use_coverage,
+  browser_use_screenshot,
+  browser_use_frames,
+  browser_use_hit_test,
+  browser_use_reveals,
+  browser_use_wait,
+  browser_use_scroll,
+  browser_use_navigate,
+  browser_use_tabs,
+  browser_use_state_read,
+  browser_use_region,
+  browser_use_read,
 ];

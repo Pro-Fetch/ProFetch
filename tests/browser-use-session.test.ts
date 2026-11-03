@@ -131,6 +131,74 @@ describe.skipIf(!LIVE)('a live session', () => {
     ).not.toContain(session);
   });
 
+  it('scans to full coverage and the ledger agrees', async () => {
+    const session = await openSession();
+    const scanned = payload(await callTool('pro_browser_use_scan', { session_id: session, max_steps: 10 }));
+    expect(scanned.ok, JSON.stringify(scanned)).toBe(true);
+    expect(scanned.complete).toBe(true);
+    expect(Number(scanned.visited)).toBe(Number(scanned.bands));
+    expect(Array.isArray(scanned.only_found_by_scrolling)).toBe(true);
+
+    const coverage = payload(await callTool('pro_browser_use_coverage', { session_id: session }));
+    expect(coverage.complete).toBe(true);
+    expect(coverage.ratio).toBe(1);
+    expect((coverage.bands as Array<Record<string, unknown>>).every((b) => b.visited === true)).toBe(true);
+  });
+
+  it('captures the viewport at the size it reports', async () => {
+    const session = await openSession();
+    const captured = await callTool('pro_browser_use_screenshot', { session_id: session, kind: 'viewport' });
+    const shot = payload(captured);
+    expect(shot.ok).toBe(true);
+    // The bytes are their own content item, so a big capture cannot be truncated into invalid JSON.
+    const base64 = String(captured.content?.[1]?.text ?? '');
+    const image = (shot.geometry as Record<string, unknown>).image as { width: number; height: number };
+    expect(image.width).toBeGreaterThan(0);
+    const sharp = (await import('sharp')).default;
+    const meta = await sharp(Buffer.from(base64, 'base64')).metadata();
+    expect(meta.width).toBe(image.width);
+    expect(meta.height).toBe(image.height);
+  });
+
+  it('renders reading-order text and answers a region query', async () => {
+    const session = await openSession();
+    const read = payload(await callTool('pro_browser_use_read', { session_id: session }));
+    expect(read.ok).toBe(true);
+    expect(Number(read.lines)).toBeGreaterThan(0);
+    expect(String(read.text)).toMatch(/[A-Za-z]/);
+
+    const snapshot = payload(await callTool('pro_browser_use_snapshot', { session_id: session, outline: false }));
+    expect(Number(snapshot.nodes)).toBeGreaterThan(0);
+    const region = payload(
+      await callTool('pro_browser_use_region', {
+        session_id: session,
+        rect: JSON.stringify({ x: 0, y: 0, width: 1280, height: 720 }),
+      }),
+    );
+    expect(region.ok).toBe(true);
+    expect(Array.isArray(region.elements)).toBe(true);
+
+    const hit = payload(await callTool('pro_browser_use_hit_test', { session_id: session, x: 5, y: 5 }));
+    expect(hit.ok).toBe(true);
+    expect(Array.isArray(hit.stack)).toBe(true);
+
+    const frames = payload(await callTool('pro_browser_use_frames', { session_id: session }));
+    const list = frames.frames as Array<Record<string, unknown>>;
+    expect(list.some((f) => f.frame_id === 'main')).toBe(true);
+  });
+
+  it('refuses a guarded navigation without breaking the session', async () => {
+    const session = await openSession();
+    const result = payload(
+      await callTool('pro_browser_use_navigate', { session_id: session, to: 'http://127.0.0.1:9/x' }),
+    );
+    expect(result.ok).toBe(false);
+    expect(String(result.error)).toMatch(/Ruxsat|loopback|private|not allowed|bloklandi|SSRF/i);
+    // A refusal is not a crash: the session still answers.
+    const status = payload(await callTool('pro_browser_use_session_status', { session_id: session }));
+    expect(status.ok).toBe(true);
+  });
+
   it('refuses an action on an identity it never held, without touching the page', async () => {
     const session = await openSession();
     const before = payload(await callTool('pro_browser_use_session_status', { session_id: session }));

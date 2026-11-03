@@ -396,6 +396,124 @@ export function livePage(session: BrowserUseSession): LiveHandles['page'] {
   return live.page;
 }
 
+/** Scroll to a page position and read again. Returns the new model version. */
+export async function scrollTo(session: BrowserUseSession, y: number): Promise<RefreshResult> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  await live.page.evaluate(`(() => { window.scrollTo(0, ${Math.max(0, Math.round(y))}); return window.scrollY; })()`);
+  await live.page.waitForTimeout(60);
+  return refresh(session, {});
+}
+
+/**
+ * Navigate the session. The target goes through the same guard as the first open, because a session that
+ * could be sent anywhere by a later call would have undone the check that opened it.
+ */
+export async function navigate(session: BrowserUseSession, url: string): Promise<RefreshResult> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  let safe: URL;
+  try {
+    safe = await assertSafeUrl(url);
+  } catch (error) {
+    if (error instanceof UrlSecurityError)
+      throw new SessionError(error.message, 'only public http(s) targets are navigated to');
+    throw error;
+  }
+  await live.page.goto(safe.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
+  return refresh(session, {});
+}
+
+/** Step through the browser's own history, then re-read so the model follows. */
+export async function historyStep(
+  session: BrowserUseSession,
+  step: 'back' | 'forward' | 'reload',
+): Promise<RefreshResult> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const script = step === 'back' ? 'history.back()' : step === 'forward' ? 'history.forward()' : 'location.reload()';
+  await live.page.evaluate(`(() => { ${script}; return true; })()`);
+  await live.page.waitForTimeout(250);
+  return refresh(session, {});
+}
+
+/**
+ * Wait for a condition by polling real reads, not by sleeping.
+ *
+ * The predicate is evaluated against the snapshot the session last read plus a fresh one, so "the element
+ * appeared" means the collector saw it, not that a selector resolved once.
+ */
+export async function waitFor(
+  session: BrowserUseSession,
+  predicate: (snapshot: Snapshot) => boolean,
+  options: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<{ satisfied: boolean; waitedMs: number; reads: number; snapshot: Snapshot }> {
+  const deadline = Date.now() + (options.timeoutMs ?? 5000);
+  const interval = Math.max(50, options.intervalMs ?? 250);
+  let reads = 0;
+  for (;;) {
+    const { snapshot } = await refresh(session, {});
+    reads++;
+    if (predicate(snapshot))
+      return { satisfied: true, waitedMs: Date.now() - (deadline - (options.timeoutMs ?? 5000)), reads, snapshot };
+    if (Date.now() >= deadline) return { satisfied: false, waitedMs: options.timeoutMs ?? 5000, reads, snapshot };
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+}
+
+/** One capture, in the geometry the caller asked for. */
+export async function capture(
+  session: BrowserUseSession,
+  kind: 'viewport' | 'full-page' | 'element',
+  box?: { x: number; y: number; width: number; height: number },
+): Promise<Buffer> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  if (kind === 'element' && !box)
+    throw new SessionError('an element capture needs its box', 'pass rect from the last snapshot');
+  if (kind === 'full-page') return live.page.screenshot({ fullPage: true, animations: 'disabled' });
+  if (kind === 'element') return live.page.screenshot({ clip: box, animations: 'disabled' });
+  return live.page.screenshot({ animations: 'disabled' });
+}
+
+/** The tabs of a session's browser context. */
+export async function tabs(
+  session: BrowserUseSession,
+): Promise<Array<{ index: number; url: string; title: string; active: boolean }>> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const pages = live.context.pages();
+  const out: Array<{ index: number; url: string; title: string; active: boolean }> = [];
+  for (const [index, page] of pages.entries()) {
+    out.push({
+      index,
+      url: page.url(),
+      title: await page.title().catch(() => ''),
+      active: page === live.page,
+    });
+  }
+  return out;
+}
+
+/** Cookies for a session's own origin. Read-only: this engine does not write another site's jar. */
+export async function cookies(session: BrowserUseSession): Promise<Array<Record<string, unknown>>> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const ctx = live.context as unknown as { cookies(url?: string): Promise<Array<Record<string, unknown>>> };
+  return ctx.cookies(session.url);
+}
+
+/** The session's storage state (cookies plus per-origin storage), written into the session's own root. */
+export async function storageState(session: BrowserUseSession): Promise<unknown> {
+  const live = handles.get(session);
+  if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  const target = path.join(session.dataRoot, `state-${Date.now()}.json`);
+  const ctx = live.context as unknown as { storageState(options: { path: string }): Promise<unknown> };
+  await ctx.storageState({ path: target });
+  const { readFileSync } = await import('node:fs');
+  return JSON.parse(readFileSync(target, 'utf8')) as unknown;
+}
+
 /** The browser the session is running in, for reporting. */
 export function sessionSummary(session: BrowserUseSession): Record<string, unknown> {
   return {

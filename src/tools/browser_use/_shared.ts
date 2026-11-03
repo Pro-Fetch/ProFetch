@@ -15,9 +15,33 @@ import type { BrowserCapability } from '../../core/browser-use-contract.js';
 import { ALL_CAPABILITIES } from '../../core/browser-use-capabilities.js';
 import type { RawNode, Rect, Snapshot, BuildOptions } from '../../core/browser-use-perception.js';
 import { buildSnapshot } from '../../core/browser-use-perception.js';
+import { createHash } from 'node:crypto';
+import type { ToolResult } from '../../core/types.js';
 
 /** A node list large enough to be a mistake, not a page. */
 export const MAX_INPUT_NODES = 4000;
+
+/**
+ * A JSON summary plus image bytes as their own content item.
+ *
+ * `jsonBlock` truncates its body past 30k characters — harmless for a list of findings, silently wrong
+ * for a screenshot, where the cut lands inside base64 and the caller cannot parse what it got. So the
+ * bytes travel separately, and the summary carries their length and a short digest: enough to tell one
+ * capture from another without decoding it.
+ */
+export function imageResult(summary: Record<string, unknown>, base64: string): ToolResult {
+  const body = {
+    ...summary,
+    image_chars: base64.length,
+    image_sha256: createHash('sha256').update(base64).digest('hex').slice(0, 16),
+  };
+  return {
+    content: [
+      { type: 'text', text: '```json\n' + JSON.stringify(body, null, 2) + '\n```' },
+      { type: 'text', text: base64 },
+    ],
+  };
+}
 
 /**
  * A parse result as a discriminated union: checking `ok` narrows the other branch, so no caller has to

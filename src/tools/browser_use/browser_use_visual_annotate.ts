@@ -2,7 +2,7 @@ import { defineTool } from '../../core/tool.js';
 import { jsonBlock, fail } from '../../core/format.js';
 import { readBinarySource } from '../../core/binary-source.js';
 import { paintAnnotation, type AnnotationSpec, type Rgba, type RgbaImage } from '../../core/browser-use-visual.js';
-import { parseJsonArray, parseRect } from './_shared.js';
+import { parseJsonArray, parseRect, imageResult } from './_shared.js';
 import { num } from '../../core/input.js';
 
 /**
@@ -73,17 +73,19 @@ export default defineTool({
       .png()
       .toBuffer();
 
-    return jsonBlock(`${painted.boxes} box(es) annotated`, {
-      ok: true,
-      image_png_base64: out.toString('base64'),
-      width: image.width,
-      height: image.height,
-      pixels_written: painted.painted,
-      boxes: painted.boxes,
-      labels_outside: painted.labelsOutside,
-      boxes_clipped: clipped,
-      note: 'Coordinates are image pixels. Convert an element rect with browser_use_coords_convert(to=screenshot) first — CSS pixels and device pixels differ by the pixel ratio.',
-    });
+    return imageResult(
+      {
+        ok: true,
+        width: image.width,
+        height: image.height,
+        pixels_written: painted.painted,
+        boxes: painted.boxes,
+        labels_outside: painted.labelsOutside,
+        boxes_clipped: clipped,
+        note: 'Coordinates are image pixels. Convert an element rect with browser_use_coords_convert(to=screenshot) first — CSS pixels and device pixels differ by the pixel ratio. The PNG is the next content item.',
+      },
+      out.toString('base64'),
+    );
   },
 });
 

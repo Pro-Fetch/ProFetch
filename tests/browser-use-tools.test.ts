@@ -253,9 +253,11 @@ describe('coordinates and pixels', () => {
     const body = payload(result);
     expect(body.ok).toBe(true);
     expect(Number(body.pixels_written)).toBeGreaterThan(0);
-    expect(typeof body.image_png_base64).toBe('string');
+    // The PNG is its own content item, never truncated by the JSON block renderer.
+    const base64 = String(result.content?.[1]?.text ?? '');
+    expect(base64.length).toBeGreaterThan(100);
     // The returned image must decode and keep its size.
-    const round = await sharp(Buffer.from(String(body.image_png_base64), 'base64')).metadata();
+    const round = await sharp(Buffer.from(base64, 'base64')).metadata();
     expect(round.width).toBe(40);
     expect(round.height).toBe(40);
   });
