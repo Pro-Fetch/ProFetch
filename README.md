@@ -2,13 +2,13 @@
   <a href="https://github.com/Pro-Fetch/ProFetch">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.png">
-      <img alt="pro-fetch — 686 MCP tools, 43 categories, one gate" src="docs/assets/cover-light.png" width="860">
+      <img alt="pro-fetch — 694 MCP tools, 43 categories, one gate" src="docs/assets/cover-light.png" width="860">
     </picture>
   </a>
 </h1>
 
 <p align="center">
-  <b>686 MCP tools in one stdio server.</b> Fetch, crawl, extract, convert, OCR, web and academic
+  <b>694 MCP tools in one stdio server.</b> Fetch, crawl, extract, convert, OCR, web and academic
   search, deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV
   and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12
   meta-tools that reach all 673, so a client with a small context window loses nothing except
@@ -19,7 +19,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1553%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1562%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -229,8 +229,8 @@ npm run check
 | Step                         | What it proves                                                                                     |
 | ---------------------------- | -------------------------------------------------------------------------------------------------- |
 | `verify:static`              | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest |
-| `verify:registry`            | boots the real registry: **686 tools / 43 categories / all four profile counts**, every tool has a schema and a handler |
-| `test`                       | **1553 tests** across 86 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
+| `verify:registry`            | boots the real registry: **694 tools / 43 categories / all four profile counts**, every tool has a schema and a handler |
+| `test`                       | **1562 tests** across 87 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
 | `verify:package`             | the published tarball (570 files) has its shebang and `files` allowlist, and zero credentials or source files |
 | `audit:schema` _(on demand)_ | schemas against the code behind them — 0 dead properties, 0 unread required arguments              |
 
@@ -241,7 +241,7 @@ tools refused, clean JSON-RPC on stdout.
 
 ## Categories
 
-43 categories, 686 tools. The per-tool reference is generated from the running registry with
+43 categories, 694 tools. The per-tool reference is generated from the running registry with
 `npm run dump:catalog` into [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md); the system map — entry
 point, `dispatch()` gate, composites, profiles, MAX mode — is
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -262,7 +262,7 @@ point, `dispatch()` gate, composites, profiles, MAX mode — is
 | `time` 5                         | `zip` 5                         | `opendata` 5                     |
 | `units` 5                        | `binary` 4                      | `geo_data` 4                     |
 | `chess` 4                        | `color` 3                       | `phonetics` 3                    |
-| `browser_use` 13                |                                 |                                  |
+| `browser_use` 21                |                                 |                                  |
 
 ---
 

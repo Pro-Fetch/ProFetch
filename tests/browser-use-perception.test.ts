@@ -234,10 +234,12 @@ describe('target resolution — the bug this layer exists to prevent', () => {
   it('refuses a target that became obstructed between snapshots', () => {
     const r = resolveTarget(
       { identity: node.identity, backendId: '42' },
-      buildSnapshot([raw({ obstructed: true })], base),
+      // The collector marks a node obstructed only when the hit test disagrees, so the fixture does too.
+      buildSnapshot([raw({ obstructed: true, hitTestSelf: false })], base),
     );
     expect(r.staleness).toBe('CHANGED');
-    expect(r.detail).toMatch(/obstructed|interactable/);
+    expect(r.detail).toMatch(/not reachable right now/);
+    expect(r.detail).toMatch(/hit-test at the centre returns a different element/);
   });
 });
 

@@ -177,7 +177,9 @@ export function mergeVisibility(node: RawNode): { visible: boolean; conflicts: s
   if (!node.styleVisible && hasArea) conflicts.push('style says hidden but the layout box has area');
   if (node.styleVisible && !hasArea) conflicts.push('style says visible but the layout box is empty');
   if (node.ariaHidden && hasArea && node.styleVisible) conflicts.push('aria-hidden on an element that occupies space');
-  if (!node.hitTestSelf && hasArea && node.styleVisible)
+  if (!node.inViewport && hasArea && node.styleVisible) conflicts.push('outside the viewport that was read');
+  if (node.obstructed) conflicts.push('another element is on top of it');
+  if (!node.hitTestSelf && hasArea && node.styleVisible && node.inViewport)
     conflicts.push('hit-test at the centre returns a different element');
   if (node.disabled && hasArea) conflicts.push('the element is disabled');
 
@@ -476,13 +478,14 @@ export function resolveTarget(
       };
     }
     if (!byIdentity.interactable) {
+      const cause = byIdentity.conflicts.length ? `: ${byIdentity.conflicts.join('; ')}` : '';
       return {
         ok: false,
         node: byIdentity,
         staleness: 'CHANGED',
-        detail: byIdentity.conflicts.length
-          ? `element is no longer interactable: ${byIdentity.conflicts.join('; ')}`
-          : 'element is no longer interactable',
+        detail: byIdentity.interactive
+          ? `element is not reachable right now${cause}`
+          : `${byIdentity.role || byIdentity.tag} is not an interactive element${cause}`,
       };
     }
     return { ok: true, node: byIdentity, staleness: 'FRESH', detail: 'identity, node id and box all match' };
