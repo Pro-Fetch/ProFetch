@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixtures — checkout form</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #fff;
+        font: 14px system-ui;
+      }
+      form {
+        padding: 16px;
+        display: grid;
+        gap: 10px;
+        max-width: 520px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      button {
+        min-width: 120px;
+        min-height: 34px;
+      }
+      /* One deliberately tiny target: the bench should notice it without being told where it is. */
+      .icon {
+        width: 12px;
+        height: 12px;
+        padding: 0;
+        border: 0;
+        background: #0040ff;
+      }
+    </style>
+  </head>
+  <body>
+    <form>
+      <div class="row">
+        <label for="card">Card number</label>
+        <input id="card" name="card" placeholder="0000 0000 0000 0000" />
+      </div>
+      <!-- No label, no aria-label, no placeholder: an unnameable control by design. -->
+      <div class="row">
+        <input name="cvv_ghost" type="text" />
+      </div>
+      <div class="row">
+        <label for="country">Country</label>
+        <select id="country" name="country">
+          <option>Uzbekistan</option>
+          <option>Kazakhstan</option>
+          <option>Kyrgyzstan</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="terms">Accept terms</label>
+        <input id="terms" type="checkbox" />
+      </div>
+      <div class="row">
+        <button type="button" class="icon" aria-label=""></button>
+        <button type="button" data-role="pay">Pay now</button>
+        <a href="products.html">Back to cart</a>
+      </div>
+    </form>
+    <script>
+      // The script keeps state in a closure so a re-read has to notice the label change on its own.
+      const pay = document.querySelector('[data-role="pay"]');
+      pay.addEventListener('click', function () {
+        pay.textContent = 'Processing…';
+      });
+    </script>
+  </body>
+</html>

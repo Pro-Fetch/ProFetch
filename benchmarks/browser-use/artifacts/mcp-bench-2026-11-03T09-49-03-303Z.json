@@ -1,0 +1,104 @@
+{
+  "started": "2026-11-03T09:49:03.303Z",
+  "wall_ms": 2699,
+  "connect_ms": 1684.51,
+  "tools_list_ms": 391.98,
+  "tools_total": 713,
+  "tools_browser_use": 40,
+  "call_ms_total": 596.05,
+  "slowest": {
+    "name": "pro_browser_use_browsers_detect",
+    "ms": 293.5,
+    "bytes": 876,
+    "isError": false,
+    "assertion": "os + found array",
+    "ok": true
+  },
+  "assertions": [
+    {
+      "name": "pro_browser_use_browsers_detect",
+      "ok": true,
+      "ms": 293.5,
+      "bytes": 876,
+      "assertion": "os + found array"
+    },
+    {
+      "name": "pro_browser_use_diff_lists",
+      "ok": true,
+      "ms": 2.62,
+      "bytes": 448,
+      "assertion": "a relabel is reported as relabelled, not as add+remove"
+    },
+    {
+      "name": "pro_browser_use_action_preflight",
+      "ok": true,
+      "ms": 1.03,
+      "bytes": 257,
+      "assertion": "an identity the server never handed out is refused"
+    },
+    {
+      "name": "pro_browser_use_browsers_select",
+      "ok": true,
+      "ms": 287.23,
+      "bytes": 302,
+      "assertion": "a selection, or a blocker naming what is installed"
+    },
+    {
+      "name": "pro_browser_use_browsers_launch_plan",
+      "ok": true,
+      "ms": 1.43,
+      "bytes": 891,
+      "assertion": "a plan with an executable and a profile directory"
+    },
+    {
+      "name": "pro_browser_use_browsers_attach_validate",
+      "ok": true,
+      "ms": 1.22,
+      "bytes": 305,
+      "assertion": "loopback allowed, and the port is parsed out"
+    },
+    {
+      "name": "pro_browser_use_capabilities_matrix",
+      "ok": true,
+      "ms": 3.07,
+      "bytes": 294,
+      "assertion": "status counts add up to 24 products × 30 capabilities"
+    },
+    {
+      "name": "pro_browser_use_capabilities_check",
+      "ok": true,
+      "ms": 1.81,
+      "bytes": 802,
+      "assertion": "each capability answered with a reason"
+    },
+    {
+      "name": "pro_browser_use_coords_convert",
+      "ok": true,
+      "ms": 1.52,
+      "bytes": 552,
+      "assertion": "a 100,200 box at dpr 2 lands at 200,400 in the image"
+    },
+    {
+      "name": "pro_browser_use_state_classify",
+      "ok": true,
+      "ms": 1.11,
+      "bytes": 382,
+      "assertion": "a hover is offered as SAFE_REVERSIBLE"
+    },
+    {
+      "name": "pro_browser_use_health_diagnose",
+      "ok": true,
+      "ms": 1.51,
+      "bytes": 2347,
+      "assertion": "missing alt text and missing lang are both reported"
+    }
+  ],
+  "failures": [],
+  "live": {
+    "enabled": false
+  },
+  "server": {
+    "entry": "dist/server.js",
+    "transport": "stdio"
+  }
+}

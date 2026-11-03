@@ -1,0 +1,178 @@
+{
+  "started": "2026-11-03T09:49:06.795Z",
+  "wall_ms": 5083,
+  "connect_ms": 1718.07,
+  "tools_list_ms": 458.78,
+  "tools_total": 713,
+  "tools_browser_use": 40,
+  "call_ms_total": 2863.05,
+  "slowest": {
+    "name": "pro_browser_use_session_open",
+    "ms": 1624.54,
+    "bytes": 1075,
+    "isError": false,
+    "assertion": "a live page opens and reports nodes",
+    "ok": true
+  },
+  "assertions": [
+    {
+      "name": "pro_browser_use_browsers_detect",
+      "ok": true,
+      "ms": 357.45,
+      "bytes": 876,
+      "assertion": "os + found array"
+    },
+    {
+      "name": "pro_browser_use_diff_lists",
+      "ok": true,
+      "ms": 3.6,
+      "bytes": 448,
+      "assertion": "a relabel is reported as relabelled, not as add+remove"
+    },
+    {
+      "name": "pro_browser_use_action_preflight",
+      "ok": true,
+      "ms": 2.15,
+      "bytes": 257,
+      "assertion": "an identity the server never handed out is refused"
+    },
+    {
+      "name": "pro_browser_use_browsers_select",
+      "ok": true,
+      "ms": 344.45,
+      "bytes": 302,
+      "assertion": "a selection, or a blocker naming what is installed"
+    },
+    {
+      "name": "pro_browser_use_browsers_launch_plan",
+      "ok": true,
+      "ms": 1.65,
+      "bytes": 891,
+      "assertion": "a plan with an executable and a profile directory"
+    },
+    {
+      "name": "pro_browser_use_browsers_attach_validate",
+      "ok": true,
+      "ms": 1.04,
+      "bytes": 305,
+      "assertion": "loopback allowed, and the port is parsed out"
+    },
+    {
+      "name": "pro_browser_use_capabilities_matrix",
+      "ok": true,
+      "ms": 2.76,
+      "bytes": 294,
+      "assertion": "status counts add up to 24 products × 30 capabilities"
+    },
+    {
+      "name": "pro_browser_use_capabilities_check",
+      "ok": true,
+      "ms": 2.18,
+      "bytes": 802,
+      "assertion": "each capability answered with a reason"
+    },
+    {
+      "name": "pro_browser_use_coords_convert",
+      "ok": true,
+      "ms": 1.85,
+      "bytes": 552,
+      "assertion": "a 100,200 box at dpr 2 lands at 200,400 in the image"
+    },
+    {
+      "name": "pro_browser_use_state_classify",
+      "ok": true,
+      "ms": 1.54,
+      "bytes": 382,
+      "assertion": "a hover is offered as SAFE_REVERSIBLE"
+    },
+    {
+      "name": "pro_browser_use_health_diagnose",
+      "ok": true,
+      "ms": 2.53,
+      "bytes": 2347,
+      "assertion": "missing alt text and missing lang are both reported"
+    },
+    {
+      "name": "pro_browser_use_session_open",
+      "ok": true,
+      "ms": 1624.54,
+      "bytes": 1075,
+      "assertion": "a live page opens and reports nodes"
+    },
+    {
+      "name": "pro_browser_use_resize",
+      "ok": true,
+      "ms": 174.1,
+      "bytes": 477,
+      "assertion": "page, capture and request agree on the new size"
+    },
+    {
+      "name": "pro_browser_use_snapshot",
+      "ok": true,
+      "ms": 13.34,
+      "bytes": 3820,
+      "assertion": "a re-read advances the model and lists nodes"
+    },
+    {
+      "name": "pro_browser_use_element_check",
+      "ok": true,
+      "ms": 1.73,
+      "bytes": 493,
+      "assertion": "a live identity resolves as FRESH"
+    },
+    {
+      "name": "pro_browser_use_coverage",
+      "ok": true,
+      "ms": 1.83,
+      "bytes": 929,
+      "assertion": "the ledger states what it has not seen"
+    },
+    {
+      "name": "pro_browser_use_outline",
+      "ok": true,
+      "ms": 1.39,
+      "bytes": 344,
+      "assertion": "the outline is text, with its own truncation counts"
+    },
+    {
+      "name": "pro_browser_use_screenshot",
+      "ok": true,
+      "ms": 39.34,
+      "bytes": 64722,
+      "assertion": "a capture reports a size with pixels behind it"
+    },
+    {
+      "name": "pro_browser_use_extract",
+      "ok": true,
+      "ms": 1.43,
+      "bytes": 269,
+      "assertion": "extraction answers, even when the honest answer is none"
+    },
+    {
+      "name": "pro_browser_use_history",
+      "ok": true,
+      "ms": 1.84,
+      "bytes": 1150,
+      "assertion": "the reads are listed with their transition kinds"
+    },
+    {
+      "name": "pro_browser_use_session_close",
+      "ok": true,
+      "ms": 282.31,
+      "bytes": 94,
+      "assertion": "the session closes and reports itself gone"
+    }
+  ],
+  "failures": [],
+  "live": {
+    "enabled": true,
+    "url": "https://example.com/",
+    "title": "Example Domain",
+    "product": "chrome",
+    "session": "bu-99e32364"
+  },
+  "server": {
+    "entry": "dist/server.js",
+    "transport": "stdio"
+  }
+}

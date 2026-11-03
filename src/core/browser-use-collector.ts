@@ -31,6 +31,17 @@ export const COLLECTOR_SCRIPT = `(() => {
                      H1:'heading', H2:'heading', H3:'heading', IMG:'img', NAV:'navigation', MAIN:'main',
                      FORM:'form', SUMMARY:'disclosure-triangle', DETAILS:'group', UL:'list', LI:'listitem' };
 
+  const depthOf = (el) => {
+    // Not pathOf(el).split('>').length: that path stops at the nearest element carrying an id, so every
+    // id-bearing control would report depth 1 whatever its real position, and a hit stack sorted by depth
+    // would rank an <input id="card"> below the div that merely contains it. Depth is a fact about the
+    // tree, so it is measured on the tree.
+    let node = el;
+    let d = 0;
+    while (node && node.nodeType === 1) { d++; node = node.parentElement; }
+    return d;
+  };
+
   const pathOf = (el) => {
     const parts = [];
     let node = el;
@@ -169,7 +180,7 @@ export const COLLECTOR_SCRIPT = `(() => {
       hitTestSelf: selfOrChild,
       obstructed: onScreen && !selfOrChild,
       scrollable,
-      depth: pathOf(el).split('>').length,
+      depth: depthOf(el),
       interactive,
       boundaries: boundaries(el),
     });

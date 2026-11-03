@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixtures — tall page</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #fff;
+        font: 14px system-ui;
+      }
+      .band {
+        height: 900px;
+        padding: 16px;
+        border-top: 1px solid #eee;
+      }
+      #deep {
+        display: block;
+        margin: 24px 16px;
+        width: 200px;
+        height: 40px;
+        background: #0040ff;
+        color: #fff;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="band">top of the page</div>
+    <div class="band">second screen</div>
+    <div class="band">third screen</div>
+    <div class="band">fourth screen</div>
+    <!-- Nothing here is visible to a first read: coverage is the only way to find it. -->
+    <button id="deep" data-name="Deep control">Subscribe to alerts</button>
+  </body>
+</html>

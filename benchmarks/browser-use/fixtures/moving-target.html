@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fixtures — moving target</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #fff;
+        font: 14px system-ui;
+      }
+      #stage {
+        padding: 16px;
+      }
+      button {
+        min-width: 160px;
+        min-height: 34px;
+        background: #0040ff;
+        color: #fff;
+        border: 0;
+      }
+      .veil {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <button id="target">Add to cart</button>
+      <details id="disclosure">
+        <summary>Shipping options</summary>
+        <p>Free returns within 30 days</p>
+      </details>
+    </div>
+    <script>
+      // Three mutations the engine has to survive: rename in place, replace with a look-alike, and
+      // cover the target. Each is a different failure mode in a browser agent that trusts its ids.
+      window.__rename = function () {
+        const b = document.getElementById('target');
+        b.textContent = 'In cart';
+        return true;
+      };
+      window.__replace = function () {
+        const old = document.getElementById('target');
+        const fresh = document.createElement('button');
+        fresh.id = 'target';
+        fresh.textContent = 'Add to cart';
+        old.replaceWith(fresh);
+        return true;
+      };
+      window.__cover = function () {
+        const v = document.createElement('div');
+        v.className = 'veil';
+        v.id = 'veil';
+        document.body.appendChild(v);
+        return true;
+      };
+      window.__uncover = function () {
+        document.getElementById('veil')?.remove();
+        return true;
+      };
+    </script>
+  </body>
+</html>
