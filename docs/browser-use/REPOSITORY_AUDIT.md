@@ -8,20 +8,20 @@ description of the project: the point of this file is that the next phase cannot
 
 The registration path a new `browser_use` category must join, with the file that owns each step:
 
-| Step | Where | What it enforces |
-| --- | --- | --- |
-| Tool definition | `src/tools/<category>/<tool>.ts`, `defineTool({ name, category, description, inputSchema, handler })` | one file per tool; `additionalProperties: false` on every schema |
-| Category index | `src/tools/<category>/index.ts` — imports each tool and `export default [...]` | `src/tools/browser/index.ts` lists 41 exports at lines 1-41 / 43-85 |
-| Loader | `src/loader.ts:30-64` — one `import './tools/x/index.js'` side effect per category | a category not imported here does not exist at runtime |
-| Schema narrowing | `src/loader.ts:66-71` → `core/schema-narrowing.ts` + `core/source-resolver.ts` | published properties are cut down to what the resolved source actually reads; a property the handler never touches is not advertised |
-| Category vocabulary | `src/core/tool.ts:150-175` | per-category property unions; `applyCategorySchema` overwrites `required` for browser tools at `tool.ts:737-743` |
-| Dispatch | `src/router.ts` → `src/core/tool.ts:1101-1160` → `src/core/execution-engine.ts:101-293` | one funnel: policy → concurrency gates (64 global / 16 per-category / 64 network) → timeout |
-| Authorization | `src/core/security-policy.ts:84-166` | allow/deny lists, read-only, JS gate, mutating-action gate |
-| Profile visibility | `src/core/profile.ts:58-79` (`CATEGORY_LEVELS`, default level 3), `PROFILE_LEVELS` | visibility only, never authorization |
-| Counts | `scripts/tool-counts.json` (total 673, 42 categories, per-category numbers, profile sizes, testCount) | checked by `verify:registry` against the live registry, and by `tests/all-tools.test.ts` |
-| Catalog | `npm run dump:catalog` → `docs/TOOL_CATALOG.md` | generated from the registry |
-| Docs guard | `scripts/verify-static.mjs` | README/ARCHITECTURE/CONTRIBUTING/AGENTS counts must equal the manifest, and a deleted sentence fails |
-| Package guard | `scripts/verify-package.mjs` | 570 files, shebang, no `.d.ts`, no credentials |
+| Step                | Where                                                                                                 | What it enforces                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Tool definition     | `src/tools/<category>/<tool>.ts`, `defineTool({ name, category, description, inputSchema, handler })` | one file per tool; `additionalProperties: false` on every schema                                                                     |
+| Category index      | `src/tools/<category>/index.ts` — imports each tool and `export default [...]`                        | `src/tools/browser/index.ts` lists 41 exports at lines 1-41 / 43-85                                                                  |
+| Loader              | `src/loader.ts:30-64` — one `import './tools/x/index.js'` side effect per category                    | a category not imported here does not exist at runtime                                                                               |
+| Schema narrowing    | `src/loader.ts:66-71` → `core/schema-narrowing.ts` + `core/source-resolver.ts`                        | published properties are cut down to what the resolved source actually reads; a property the handler never touches is not advertised |
+| Category vocabulary | `src/core/tool.ts:150-175`                                                                            | per-category property unions; `applyCategorySchema` overwrites `required` for browser tools at `tool.ts:737-743`                     |
+| Dispatch            | `src/router.ts` → `src/core/tool.ts:1101-1160` → `src/core/execution-engine.ts:101-293`               | one funnel: policy → concurrency gates (64 global / 16 per-category / 64 network) → timeout                                          |
+| Authorization       | `src/core/security-policy.ts:84-166`                                                                  | allow/deny lists, read-only, JS gate, mutating-action gate                                                                           |
+| Profile visibility  | `src/core/profile.ts:58-79` (`CATEGORY_LEVELS`, default level 3), `PROFILE_LEVELS`                    | visibility only, never authorization                                                                                                 |
+| Counts              | `scripts/tool-counts.json` (total 673, 42 categories, per-category numbers, profile sizes, testCount) | checked by `verify:registry` against the live registry, and by `tests/all-tools.test.ts`                                             |
+| Catalog             | `npm run dump:catalog` → `docs/TOOL_CATALOG.md`                                                       | generated from the registry                                                                                                          |
+| Docs guard          | `scripts/verify-static.mjs`                                                                           | README/ARCHITECTURE/CONTRIBUTING/AGENTS counts must equal the manifest, and a deleted sentence fails                                 |
+| Package guard       | `scripts/verify-package.mjs`                                                                          | 570 files, shebang, no `.d.ts`, no credentials                                                                                       |
 
 Adding a category therefore touches: `src/tools/browser_use/`, `src/loader.ts`, `src/core/profile.ts`
 (a `CATEGORY_LEVELS` entry, or it silently defaults to level 3), `scripts/tool-counts.json`, and the
@@ -75,7 +75,7 @@ Runtime facts:
 - Action-level gate: `assertActionAllowed(action, tool)` at 321 against `MUTATING_ACTIONS`
   (`tool-classification.ts:141-153`); **unknown actions fail closed as mutations** (185-187).
 - Sink guards: `assertWritable` before any screenshot/PDF write (166, 305), `assertReadablePath` for
-  uploads (487), `assertWritablePath` for downloads checked *before* the click (503), symlink-safe
+  uploads (487), `assertWritablePath` for downloads checked _before_ the click (503), symlink-safe
   resolution in `path-containment.ts:44-59`.
 - JS gate: browser tools whose **name** matches `/evaluate|execute|script/i` need
   `PRO_FETCH_ALLOW_JS=true` (`security-policy.ts:135-143`); that flag is deliberately not
@@ -114,7 +114,7 @@ document asks for and the code cannot provide today.
   `mouse.click(x, y)`, no touchscreen API. Interaction addressing is CSS-selector-only. The only
   geometry ever returned is `{x, y}` scroll position (`browser-tools.ts:265`) and viewport sizes (294-295).
 - **No accessibility tree / ARIA snapshot.** No `ariaSnapshot`, no element handles, no role/name map.
-- **No vision path.** Screenshots are written to disk and returned as a *text* path (297-298); no MCP
+- **No vision path.** Screenshots are written to disk and returned as a _text_ path (297-298); no MCP
   image content, and nothing connects a browser screenshot to the OCR that already exists in
   `media-tools.ts`.
 - **No browser discovery.** No `executablePath`, no installed-browser detection, no version or
@@ -154,17 +154,17 @@ document asks for and the code cannot provide today.
 
 ## 7. Baseline (measured, to be re-measured after each phase)
 
-| Metric | Value | How measured |
-| --- | --- | --- |
-| Registered tools | **673** across **42** categories | `npm run verify:registry` → `registered=673; categories=42` |
-| Profile sizes | minimal 74 · standard 179 · smart 12 · full 673 | same |
-| `browser` category tools | **41** | `scripts/tool-counts.json`, enforced by `tests/all-tools.test.ts:51-57` |
-| Test files / tests | 70 files, 1231 tests (before this phase's new file) | `npm run check` → `TEST_RUN_PASS files=70 tests=1231` |
-| CI | 9/9 jobs green on the release commit | GitHub Actions, run 41219201278 |
-| Published tarball | 570 files, 0 credentials, 0 source files | `npm run verify:package` |
-| Engines used at runtime | 1 (Chromium, headless) | read of the two launch sites |
-| Native attachment paths | 0 | grep for `connectOverCDP\|connect(\|launchServer\|webdriver` in `src/` |
-| Coordinate/geometry APIs used | 0 | grep for `boundingBox\|getBoundingClientRect\|mouse.click` in `src/` |
+| Metric                        | Value                                               | How measured                                                            |
+| ----------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Registered tools              | **673** across **42** categories                    | `npm run verify:registry` → `registered=673; categories=42`             |
+| Profile sizes                 | minimal 74 · standard 179 · smart 12 · full 673     | same                                                                    |
+| `browser` category tools      | **41**                                              | `scripts/tool-counts.json`, enforced by `tests/all-tools.test.ts:51-57` |
+| Test files / tests            | 70 files, 1231 tests (before this phase's new file) | `npm run check` → `TEST_RUN_PASS files=70 tests=1231`                   |
+| CI                            | 9/9 jobs green on the release commit                | GitHub Actions, run 41219201278                                         |
+| Published tarball             | 570 files, 0 credentials, 0 source files            | `npm run verify:package`                                                |
+| Engines used at runtime       | 1 (Chromium, headless)                              | read of the two launch sites                                            |
+| Native attachment paths       | 0                                                   | grep for `connectOverCDP\|connect(\|launchServer\|webdriver` in `src/`  |
+| Coordinate/geometry APIs used | 0                                                   | grep for `boundingBox\|getBoundingClientRect\|mouse.click` in `src/`    |
 
 Phase 2 must not inherit these numbers by memory: re-run `npm run check`, `verify:registry` and the
 grep set, and diff against this table.

@@ -6,13 +6,13 @@ says UNKNOWN, and where a claim exists only in marketing it says DOCUMENTED.
 
 Confidence classes:
 
-| Class | Meaning |
-| --- | --- |
-| DOCUMENTED | Stated in README/docs/release notes; not read in code |
-| SOURCE-CONFIRMED | The code was read at the pinned revision, file and symbol named |
-| EXPERIMENTALLY-VERIFIED | Actually executed here |
-| INFERRED | Reasoned from the above, not directly shown |
-| UNKNOWN | Not checked — deliberately left open rather than guessed |
+| Class                   | Meaning                                                         |
+| ----------------------- | --------------------------------------------------------------- |
+| DOCUMENTED              | Stated in README/docs/release notes; not read in code           |
+| SOURCE-CONFIRMED        | The code was read at the pinned revision, file and symbol named |
+| EXPERIMENTALLY-VERIFIED | Actually executed here                                          |
+| INFERRED                | Reasoned from the above, not directly shown                     |
+| UNKNOWN                 | Not checked — deliberately left open rather than guessed        |
 
 Nothing here was copied into Pro-Fetch source. These are ideas to be informed by, not code to be
 reused; Stagehand and Skyvern are respectively MIT and AGPL, and the AGPL parts are not even read
@@ -20,18 +20,18 @@ past the interface.
 
 ## 1. Pinned revisions examined
 
-| System | Version | Commit / tag | Where read |
-| --- | --- | --- | --- |
-| Stagehand (`@browserbasehq/stagehand`) | 4.3.0 | `b7a4b899079f198a0ee78a6dcb62ad02f545cf49` (main, 2026-10-29) | cloned, source read |
-| Stagehand protocol package | `@browserbasehq/stagehand-protocol` 3.1.0 | same tree | source |
-| Browserbase Node SDK (`@browserbasehq/sdk`) | 2.24.0 | tag `v2.24.0`, commit `0a4d1720bbd79351413ca1c25ab522ee0c79c322` | source; note the repo is `browserbase/sdk-node` — `browserbase/sdk` returns "repository not found" |
-| browser-use (Python) | 0.13.14 | `b49a68e4060acb226da8f784194fef301c53a6d7` (main) | source |
-| Skyvern | 1.0.56 | `50237377361f1cb45036fa1784feea0a36732576` (main), Playwright 1.61.0 | source |
-| Midscene.js | docs for v1.x | — | DOCUMENTED only |
-| WebDriver BiDi | Editor's Draft, 8 Oct 2026; MDN modules page modified 22 Apr 2026 | — | spec read |
-| CDP | devtools-protocol viewer (Stable 1.3 / tip-of-tree) | — | spec read |
-| W3C WebDriver | revision date could not be fetched (HTTP 402) | — | UNKNOWN |
-| BrowserGym / MiniWoB++ / WebArena / VisualWebArena / WorkArena | BrowserGym (ServiceNow, Apache-2.0), MiniWoB++ (Farama, MIT), WebArena v0.2.0 | — | DOCUMENTED |
+| System                                                         | Version                                                                       | Commit / tag                                                         | Where read                                                                                         |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Stagehand (`@browserbasehq/stagehand`)                         | 4.3.0                                                                         | `b7a4b899079f198a0ee78a6dcb62ad02f545cf49` (main, 2026-10-29)        | cloned, source read                                                                                |
+| Stagehand protocol package                                     | `@browserbasehq/stagehand-protocol` 3.1.0                                     | same tree                                                            | source                                                                                             |
+| Browserbase Node SDK (`@browserbasehq/sdk`)                    | 2.24.0                                                                        | tag `v2.24.0`, commit `0a4d1720bbd79351413ca1c25ab522ee0c79c322`     | source; note the repo is `browserbase/sdk-node` — `browserbase/sdk` returns "repository not found" |
+| browser-use (Python)                                           | 0.13.14                                                                       | `b49a68e4060acb226da8f784194fef301c53a6d7` (main)                    | source                                                                                             |
+| Skyvern                                                        | 1.0.56                                                                        | `50237377361f1cb45036fa1784feea0a36732576` (main), Playwright 1.61.0 | source                                                                                             |
+| Midscene.js                                                    | docs for v1.x                                                                 | —                                                                    | DOCUMENTED only                                                                                    |
+| WebDriver BiDi                                                 | Editor's Draft, 8 Oct 2026; MDN modules page modified 22 Apr 2026             | —                                                                    | spec read                                                                                          |
+| CDP                                                            | devtools-protocol viewer (Stable 1.3 / tip-of-tree)                           | —                                                                    | spec read                                                                                          |
+| W3C WebDriver                                                  | revision date could not be fetched (HTTP 402)                                 | —                                                                    | UNKNOWN                                                                                            |
+| BrowserGym / MiniWoB++ / WebArena / VisualWebArena / WorkArena | BrowserGym (ServiceNow, Apache-2.0), MiniWoB++ (Farama, MIT), WebArena v0.2.0 | —                                                                    | DOCUMENTED                                                                                         |
 
 ## 2. What each system actually is
 
@@ -208,16 +208,16 @@ AppControlBench 96.7% — **no Midscene version attached to any of them and no m
 This is the section that decides the architecture, because "universal browser support" is bounded by
 protocols, not by ambition.
 
-| Need | CDP | WebDriver BiDi (draft 2026-10-08) | W3C WebDriver |
-| --- | --- | --- | --- |
-| Attach to an already-running browser | yes — `--remote-debugging-port`/`-pipe`, multi-client since Chrome 63 | **UNKNOWN** (not clearly specified) | no native attach |
-| Accessibility tree | `Accessibility.getFullAXTree` / `getPartialAXTree` / `queryAXTree` | **no accessibility module at all** | none |
-| Hit-testing / element-from-point | `DOM.hitTesting` (INFERRED — method named, page fetch blocked) | **no module**; approximable via `script.eval` | none |
-| Network interception | `Network` + `Fetch.enable` | `network.addIntercept` + request/response events | none |
-| Input synthesis | `Input.dispatch{Key,Mouse,Touch}Event` | `input` module (key/mouse/scroll/file) | Actions API (pointer/key/wheel) |
-| Element screenshot | via `backendNodeId` (INFERRED) | **viewport only**; full-page was open issue #384; no per-element | element screenshot **is** specified, plus Get Element Rect |
-| Mobile | emulation + Android through ADB/webview devtools; **no iOS** | no first-class mobile | Appium (UiAutomator2 / XCUITest); Safari via `safaridriver` (INFERRED) |
-| Who implements it | Chromium/Edge; Firefox deprecated CDP | **Firefox is production-ready and moved off CDP at Firefox 129**; Chromium ships it (Puppeteer ≥23 drives Firefox over BiDi; Playwright's BiDi is still experimental); WebKit/Safari minimal | everything, slowly |
+| Need                                 | CDP                                                                   | WebDriver BiDi (draft 2026-10-08)                                                                                                                                                            | W3C WebDriver                                                          |
+| ------------------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Attach to an already-running browser | yes — `--remote-debugging-port`/`-pipe`, multi-client since Chrome 63 | **UNKNOWN** (not clearly specified)                                                                                                                                                          | no native attach                                                       |
+| Accessibility tree                   | `Accessibility.getFullAXTree` / `getPartialAXTree` / `queryAXTree`    | **no accessibility module at all**                                                                                                                                                           | none                                                                   |
+| Hit-testing / element-from-point     | `DOM.hitTesting` (INFERRED — method named, page fetch blocked)        | **no module**; approximable via `script.eval`                                                                                                                                                | none                                                                   |
+| Network interception                 | `Network` + `Fetch.enable`                                            | `network.addIntercept` + request/response events                                                                                                                                             | none                                                                   |
+| Input synthesis                      | `Input.dispatch{Key,Mouse,Touch}Event`                                | `input` module (key/mouse/scroll/file)                                                                                                                                                       | Actions API (pointer/key/wheel)                                        |
+| Element screenshot                   | via `backendNodeId` (INFERRED)                                        | **viewport only**; full-page was open issue #384; no per-element                                                                                                                             | element screenshot **is** specified, plus Get Element Rect             |
+| Mobile                               | emulation + Android through ADB/webview devtools; **no iOS**          | no first-class mobile                                                                                                                                                                        | Appium (UiAutomator2 / XCUITest); Safari via `safaridriver` (INFERRED) |
+| Who implements it                    | Chromium/Edge; Firefox deprecated CDP                                 | **Firefox is production-ready and moved off CDP at Firefox 129**; Chromium ships it (Puppeteer ≥23 drives Firefox over BiDi; Playwright's BiDi is still experimental); WebKit/Safari minimal | everything, slowly                                                     |
 
 Consequences, stated plainly:
 
@@ -236,13 +236,13 @@ Consequences, stated plainly:
 
 ## 4. Benchmarks we can actually run
 
-| Benchmark | What it measures | Install cost | Needs an LLM? | Runs on Windows + Chromium? |
-| --- | --- | --- | --- | --- |
-| **MiniWoB++** (Farama, MIT) | 100+ small tasks, dense time-decayed reward | local HTML fixtures + Chrome/ChromeDriver over Selenium | no | **UNKNOWN** — official support is Linux/macOS |
-| **BrowserGym** (ServiceNow, Apache-2.0) | Gym wrapper over MiniWoB++/WebArena/… ; metrics `reward`, `terminated` | `pip install browsergym`, `playwright install chromium`; core is offline | no | **core: feasible** |
-| **WebArena v0.2.0** (Apache-2.0) | 812 functional-correctness tasks on self-hosted realistic sites | multi-container Docker + data generation + auto-login | env no, agent yes | **no** (Linux-first Docker) |
-| **VisualWebArena** (MIT) | 910 multimodal tasks (233 human-evaluated, ~89% human success) | Docker sites; optional BLIP-2 captioner ~12 GB VRAM; Python 3.10–3.11 | env no | **no** |
-| **WorkArena** (ServiceNow, Apache-2.0) | ServiceNow knowledge-work tasks: L1 33 atomic / 19,912 instances; WorkArena++ 682 composed | `pip install browsergym-workarena` **plus a live gated ServiceNow instance** via HuggingFace token | env no | **no** (external instance required) |
+| Benchmark                               | What it measures                                                                           | Install cost                                                                                       | Needs an LLM?     | Runs on Windows + Chromium?                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------------- |
+| **MiniWoB++** (Farama, MIT)             | 100+ small tasks, dense time-decayed reward                                                | local HTML fixtures + Chrome/ChromeDriver over Selenium                                            | no                | **UNKNOWN** — official support is Linux/macOS |
+| **BrowserGym** (ServiceNow, Apache-2.0) | Gym wrapper over MiniWoB++/WebArena/… ; metrics `reward`, `terminated`                     | `pip install browsergym`, `playwright install chromium`; core is offline                           | no                | **core: feasible**                            |
+| **WebArena v0.2.0** (Apache-2.0)        | 812 functional-correctness tasks on self-hosted realistic sites                            | multi-container Docker + data generation + auto-login                                              | env no, agent yes | **no** (Linux-first Docker)                   |
+| **VisualWebArena** (MIT)                | 910 multimodal tasks (233 human-evaluated, ~89% human success)                             | Docker sites; optional BLIP-2 captioner ~12 GB VRAM; Python 3.10–3.11                              | env no            | **no**                                        |
+| **WorkArena** (ServiceNow, Apache-2.0)  | ServiceNow knowledge-work tasks: L1 33 atomic / 19,912 instances; WorkArena++ 682 composed | `pip install browsergym-workarena` **plus a live gated ServiceNow instance** via HuggingFace token | env no            | **no** (external instance required)           |
 
 The honest reading: the industry-standard agent benchmarks are almost all Linux+Docker+live-backend
 affairs. On this machine the reproducible ladder is **our own deterministic fixtures first,
@@ -254,7 +254,7 @@ environment-gated extra that reports `BLOCKED_BY_ENVIRONMENT` rather than a fake
 Worth taking:
 
 1. **Stagehand's three-tier execution split** — plain code, deterministic structured step, LLM
-   fallback — is the right shape for a *tool surface*: the host AI can be as precise as it likes and
+   fallback — is the right shape for a _tool surface_: the host AI can be as precise as it likes and
    fall back to natural language only where precision is expensive.
 2. **Hybrid DOM+AX serialization as text, with the id inside the text** (`[frame-node] role: name`)
    is compact, model-friendly, and reversible. Both Stagehand and browser-use converged on it from
