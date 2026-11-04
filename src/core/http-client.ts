@@ -254,11 +254,7 @@ export function mayStoreHttpAnswer(
   truncated: boolean,
 ): boolean {
   return (
-    status >= 200 &&
-    status < 400 &&
-    !truncated &&
-    !/no-store|private|no-cache/i.test(cacheControl) &&
-    !hasSetCookie
+    status >= 200 && status < 400 && !truncated && !/no-store|private|no-cache/i.test(cacheControl) && !hasSetCookie
   );
 }
 
