@@ -9,6 +9,13 @@ npm ci
 npm run check
 ```
 
+Two capabilities are optional and the suite says which one it is missing. `npx playwright install
+chromium` unlocks the browser suites (`pinned-proxy`, `browser-use-session`); `better-sqlite3` is an
+optional dependency the server is designed to run without. On a machine that lacks either, those files
+print `ENV_SKIP file=… capability=… reason=…` and the run ends as `TEST_RUN_PASS_WITH_SKIPS`, naming what
+did not run. A skip with no declaration still fails the build — that is the difference between a suite
+that cannot run here and a test somebody turned off.
+
 `npm run check` runs, in order:
 
 | Step              | What it proves                                                                                                                                    |
@@ -17,6 +24,7 @@ npm run check
 | `verify:registry` | The **live** registry matches `scripts/tool-counts.json`: 717 tools, 43 categories, 4 profile sizes, unique names, every handler and schema valid |
 | `build`           | `tsc` compiles clean under `strict`                                                                                                               |
 | `test`            | The full Vitest suite passes                                                                                                                      |
+| `audit:schema`    | Every declared argument is read by the code behind it, and every `required` argument is read — a dead property fails the build                     |
 | `verify:package`  | The publishable tarball has a working shebang, an explicit file allowlist, and no credentials or stray type/source files                          |
 
 ## Loop

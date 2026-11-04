@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { moduleAvailable, skipBlockWithout } from './helpers/env-guard.js';
 import { rmSync } from 'node:fs';
 import { readFileSync } from 'node:fs';
 import '../src/loader.js';
@@ -344,7 +345,13 @@ describe('coverage composites reach the packs that had none', () => {
  * nothing about what to do. The native driver ships with the package, so the tool works on a clean
  * install.
  */
-describe('SQLite works without a system binary', () => {
+// `better-sqlite3` is an optional dependency: the server is designed to degrade without it, so a clone
+// that did not build the native module must not be reported red. The suite still runs wherever the driver
+// is present, and the skip is declared so the runner can tell it from an unexplained `it.skip`.
+const sqlite = moduleAvailable('better-sqlite3');
+if (!sqlite.ok) skipBlockWithout('tests/smart-system-quality.test.ts', 'better-sqlite3', sqlite.reason, false);
+
+describe.skipIf(!sqlite.ok)('SQLite works without a system binary', () => {
   const db = 'sqlite-tool-test.sqlite';
 
   beforeAll(() => {

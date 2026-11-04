@@ -4,6 +4,7 @@ import { callTool } from '../src/router.js';
 import { closeAll } from '../src/core/browser-use-session.js';
 import { playwrightAvailable } from '../src/core/browser-tools.js';
 import { hostReachable } from './helpers/liveGate.js';
+import { skipBlockWithout } from './helpers/env-guard.js';
 import type { ToolResult } from '../src/core/types.js';
 
 /**
@@ -34,6 +35,14 @@ function payload(result: ToolResult): Record<string, unknown> {
 const browser = await playwrightAvailable();
 const online = await hostReachable('https://example.com/');
 const LIVE = browser && online;
+if (!LIVE) {
+  skipBlockWithout(
+    'tests/browser-use-session.test.ts',
+    'browser+network',
+    !browser ? 'no launchable browser on this host (npx playwright install chromium)' : 'example.com did not answer',
+    false,
+  );
+}
 const PAGE = 'https://example.com/';
 
 async function openSession(): Promise<string> {

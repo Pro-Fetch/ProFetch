@@ -215,7 +215,18 @@ for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     // failing test, and vitest signals it with a non-zero code. It is retried rather than reported,
     // because it reproduces intermittently and the retry is known to clear it.
     if (code === 0) {
-      console.log(`TEST_RUN_PASS files=${result.reportedFiles} tests=${result.reportedTests}`);
+      const declared = result.envSkips ?? [];
+      if (declared.length > 0) {
+        console.log(
+          `TEST_RUN_PASS_WITH_SKIPS files=${result.reportedFiles} tests=${result.reportedTests} ` +
+            `skipped=${result.skippedTests}`,
+        );
+        for (const skip of declared) {
+          console.log(`  ENV_SKIP ${skip.file} · ${skip.capability} · ${skip.reason}`);
+        }
+      } else {
+        console.log(`TEST_RUN_PASS files=${result.reportedFiles} tests=${result.reportedTests}`);
+      }
       process.exit(0);
     }
     if (attempt < MAX_ATTEMPTS) {

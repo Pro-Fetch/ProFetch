@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { chromium, type Browser, type BrowserContext } from 'playwright';
+import { skipBlockWithout } from './helpers/env-guard.js';
 import {
   ALL_RESOURCE_TYPES,
   createProxyRouteHandler,
@@ -16,10 +17,29 @@ import {
   parseSetCookie,
 } from '../src/core/pinned-proxy.js';
 
-let browser: Browser;
+let browser: Browser | undefined;
 let server: http.Server;
 let origin: string;
 const requested: string[] = [];
+
+// The capability this file needs is a launchable Chromium, and the only honest way to know is to try.
+// A fresh clone without `npx playwright install` used to fail all eighteen tests at suite level — an
+// audit measured that as 12 failures and 24 skips on a machine whose code was fine. The launch is
+// attempted here rather than in `beforeAll` so the decision is made before the suites are declared.
+try {
+  browser = await chromium.launch({ headless: true });
+} catch (error) {
+  browser = undefined;
+  skipBlockWithout(
+    'tests/pinned-proxy.test.ts',
+    'chromium',
+    `chromium.launch() failed: ${String((error as Error).message)
+      .split('\n')[0]
+      .slice(0, 160)}`,
+    false,
+  );
+}
+const HAS_BROWSER = Boolean(browser);
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
@@ -89,7 +109,6 @@ beforeAll(async () => {
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : 0;
   origin = `http://127.0.0.1:${port}`;
-  browser = await chromium.launch({ headless: true });
 }, 120_000);
 
 afterAll(async () => {
@@ -128,9 +147,9 @@ async function pageWithProxy(context: BrowserContext) {
   return page;
 }
 
-describe('serving browser requests through a pinned connection', () => {
+describe.skipIf(!HAS_BROWSER)('serving browser requests through a pinned connection', () => {
   it('loads a page, runs its script and applies its stylesheet', async () => {
-    const context = await browser.newContext();
+    const context = await browser!.newContext();
     const page = await pageWithProxy(context);
     await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
     expect(await page.title()).toBe('bosh sahifa');
@@ -142,7 +161,7 @@ describe('serving browser requests through a pinned connection', () => {
   });
 
   it('follows a redirect with the final URL intact', async () => {
-    const context = await browser.newContext();
+    const context = await browser!.newContext();
     const page = await pageWithProxy(context);
     await page.goto(`${origin}/start`, { waitUntil: 'domcontentloaded' });
     // If the redirect were followed inside the proxy, this would be `/start` and every relative URL on
@@ -156,7 +175,7 @@ describe('serving browser requests through a pinned connection', () => {
   });
 
   it('keeps every Set-Cookie, which a plain fulfil loses', async () => {
-    const context = await browser.newContext();
+    const context = await browser!.newContext();
     const page = await pageWithProxy(context);
     await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded' });
     const names = (await context.cookies()).map((cookie) => cookie.name).sort();
@@ -167,7 +186,7 @@ describe('serving browser requests through a pinned connection', () => {
   });
 
   it('sends the stored cookies on a later request, which is what login depends on', async () => {
-    const context = await browser.newContext();
+    const context = await browser!.newContext();
     const page = await pageWithProxy(context);
     await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded' });
     const whoami = await page.evaluate(async (base) => {
@@ -182,7 +201,7 @@ describe('serving browser requests through a pinned connection', () => {
   });
 
   it('decompresses rather than forwarding content-encoding', async () => {
-    const context = await browser.newContext();
+    const context = await browser!.newContext();
     const page = await pageWithProxy(context);
     await page.goto(`${origin}/gzip`, { waitUntil: 'domcontentloaded' });
     // The fixture declares gzip but sends plain bytes, which is the point: forwarding the header would
@@ -194,7 +213,7 @@ describe('serving browser requests through a pinned connection', () => {
   });
 
   it('still fetches images directly', async () => {
-    const context = await browser.newContext();
+    const context = await browser!.newContext();
     const page = await pageWithProxy(context);
     requested.length = 0;
     await page.goto(`${origin}/`, { waitUntil: 'load' });
@@ -203,7 +222,7 @@ describe('serving browser requests through a pinned connection', () => {
   });
 });
 
-describe('what the proxy does not cover is stated, not implied', () => {
+describe.skipIf(!HAS_BROWSER)('what the proxy does not cover is stated, not implied', () => {
   it('names the types that still resolve in Chromium', () => {
     expect(PROXIED_RESOURCE_TYPES.has('document')).toBe(true);
     expect(PROXIED_RESOURCE_TYPES.has('xhr')).toBe(true);

@@ -342,6 +342,29 @@ describe('the test runner reads a summary that includes skipped tests', () => {
     expect(result.failures.join(' ')).toMatch(/skipped/);
   });
 
+  it('accepts a skip that declares the capability its machine is missing', () => {
+    // A fresh clone without `npx playwright install` cannot run the browser suites. An audit measured
+    // that as 12 failures and 24 skips on a machine whose code was fine.
+    const declared = evaluateSummary(
+      summarise('1 skipped | 37 passed (38)', '3 skipped | 738 passed (741)') +
+        'ENV_SKIP file=tests/pinned-proxy.test.ts capability=chromium reason=chromium.launch() failed: no binary\n',
+      { expectedTestFiles: 38, expectedTests: 741 },
+    );
+    expect(declared.failures).toEqual([]);
+    expect(declared.envSkips).toHaveLength(1);
+    expect(declared.envSkips[0].capability).toBe('chromium');
+  });
+
+  it('refuses a declaration whose tests then ran', () => {
+    // A guard that prints a skip line while nothing is skipped has stopped guarding.
+    const stale = evaluateSummary(
+      summarise('38 passed (38)', '741 passed (741)') +
+        'ENV_SKIP file=tests/smart-system-quality.test.ts capability=better-sqlite3 reason=not installed\n',
+      { expectedTestFiles: 38, expectedTests: 741 },
+    );
+    expect(stale.failures.join(' ')).toMatch(/guard eskirgan/);
+  });
+
   it('still reports a real failure', () => {
     const failed = judge('1 failed | 37 passed (38)', '1 failed | 740 passed (741)');
     expect(failed.failures.join(' ')).toMatch(/failed/);

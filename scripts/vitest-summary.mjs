@@ -48,7 +48,10 @@ export function parseSummary(output) {
   const plain = String(output).replace(/\x1b\[[0-9;]*m/g, '');
   const files = parseCounts(/^\s*Test Files\s+(.*)$/m.exec(plain)?.[1]);
   const tests = parseCounts(/^\s*Tests\s+(.*)$/m.exec(plain)?.[1]);
-  return { files, tests };
+  const envSkips = [...plain.matchAll(/^ENV_SKIP file=(\S+) capability=(\S+) reason=(.*)$/gm)].map(
+    ([, file, capability, reason]) => ({ file, capability, reason: reason.trim() }),
+  );
+  return { files, tests, envSkips };
 }
 
 /**
@@ -58,7 +61,7 @@ export function parseSummary(output) {
  * rewrites when a run reports *more* than expected - see the stale-manifest note below.
  */
 export function evaluateSummary(output, { expectedTestFiles, expectedTests }) {
-  const { files, tests } = parseSummary(output);
+  const { files, tests, envSkips } = parseSummary(output);
 
   const failures = [];
   const reportedFiles = files ? files.total : null;
@@ -89,9 +92,20 @@ export function evaluateSummary(output, { expectedTestFiles, expectedTests }) {
     // it had crashed. Now that it reads, treating it as a pass would be the other half of the same
     // mistake: a suite where a third of the assertions never ran would report a pass. The manifest
     // counts are compared against the number that actually ran, so a skip cannot quietly rewrite them
-    // either - a skipped run always ends in `failures`, which is what stops the rewrite path.
-    if (skippedTests > 0) {
-      failures.push(`${skippedTests} test skipped - ular bajarilmadi, shuning uchun to‘liq o‘tgan hisoblanmaydi`);
+    // either.
+    //
+    // A skip that *declares itself* is a different thing. A fresh clone without a browser, or without the
+    // optional `better-sqlite3`, cannot run those suites and must not be reported red for it — an audit
+    // measured exactly that: 12 failures and 24 skips on a machine that had nothing wrong with the code.
+    // The guard prints `ENV_SKIP file=… capability=… reason=…`; skips with no declaration still fail, and
+    // so does a declaration whose tests then ran, which would be a guard that stopped guarding.
+    if (skippedTests > 0 && envSkips.length === 0) {
+      failures.push(`${skippedTests} test skipped, hech qanday ENV_SKIP e'loni yo'q - ular bajarilmadi`);
+    }
+    if (skippedTests === 0 && envSkips.length > 0) {
+      failures.push(
+        `ENV_SKIP e'lon qilindi (${envSkips.map((s) => s.file).join(', ')}) lekin bitta test ham skip bo'lmadi - guard eskirgan`,
+      );
     }
     if (failedTests > 0) failures.push(`${failedTests} test(s) failed`);
     if (failedFiles > 0) failures.push(`${failedFiles} test file(s) failed`);
@@ -117,6 +131,8 @@ export function evaluateSummary(output, { expectedTestFiles, expectedTests }) {
     reportedFiles,
     reportedTests,
     skippedTests,
+    /** Declared environment skips, from `ENV_SKIP` lines printed by the suites themselves. */
+    envSkips,
     failedFiles,
     failedTests,
     /** Files and tests that actually ran, which is what the manifest is compared against. */
