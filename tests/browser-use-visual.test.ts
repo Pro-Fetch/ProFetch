@@ -287,6 +287,84 @@ describe('annotation', () => {
     expect(drawn.painted).toBe(8);
   });
 
+  it('gives a crowded label away instead of painting it over another label', () => {
+    // Two boxes whose tops are 10px apart: the second number would land on the first plate. Dropping the
+    // number keeps the box, so the element is still visible and still in the ledger — a picture where two
+    // digits fuse into one unreadable blob tells the reader nothing about either element.
+    const base = solidRgba(60, 60, [255, 255, 255, 255]);
+    const painted = paintAnnotation(
+      base,
+      [
+        { rect: { x: 2, y: 2, width: 40, height: 40 }, index: 1 },
+        { rect: { x: 2, y: 4, width: 40, height: 20 }, index: 2 },
+      ],
+      { thickness: 1, labelScale: 1 },
+    );
+    expect(painted.boxes).toBe(2);
+    expect(painted.labelsDrawn).toBe(1);
+    expect(painted.labelsCollided).toBe(1);
+    expect(at(painted.image, 4, 6)).toEqual([8, 8, 8, 255]);
+  });
+
+  it('draws every label when the caller asks for the crowded picture', () => {
+    const base = solidRgba(60, 60, [255, 255, 255, 255]);
+    const painted = paintAnnotation(
+      base,
+      [
+        { rect: { x: 2, y: 2, width: 40, height: 40 }, index: 1 },
+        { rect: { x: 2, y: 4, width: 40, height: 20 }, index: 2 },
+      ],
+      { thickness: 1, labelScale: 1, avoidLabelOverlap: false },
+    );
+    expect(painted.labelsDrawn).toBe(2);
+    expect(painted.labelsCollided).toBe(0);
+  });
+
+  it('lets a box outline give way to a label instead of cutting through it', () => {
+    // The second element's top edge runs straight through the first element's number. Drawing it would
+    // slice the digit; the outline loses one pixel and the label stays readable.
+    const base = solidRgba(40, 40, [255, 255, 255, 255]);
+    const painted = paintAnnotation(
+      base,
+      [
+        { rect: { x: 2, y: 2, width: 10, height: 10 }, index: 1 },
+        { rect: { x: 0, y: 5, width: 30, height: 20 }, index: 2 },
+      ],
+      { thickness: 1, labelScale: 1 },
+    );
+    expect(painted.boxes).toBe(2);
+    // (3,5) is on the second box's top edge and inside the first label's plate.
+    expect(at(painted.image, 3, 5)).toEqual([8, 8, 8, 255]);
+    // (1,7) belongs only to the second label, which lost the space race above.
+    expect(at(painted.image, 1, 7)).toEqual([255, 255, 255, 255]);
+    const naive = paintAnnotation(
+      base,
+      [
+        { rect: { x: 2, y: 2, width: 10, height: 10 }, index: 1 },
+        { rect: { x: 0, y: 5, width: 30, height: 20 }, index: 2 },
+      ],
+      { thickness: 1, labelScale: 1, avoidLabelOverlap: false },
+    );
+    expect(at(naive.image, 1, 7)).toEqual([8, 8, 8, 255]);
+  });
+
+  it('keeps the index when only the coordinate line lost the space race', () => {
+    const base = solidRgba(60, 60, [255, 255, 255, 255]);
+    const painted = paintAnnotation(
+      base,
+      [
+        { rect: { x: 2, y: 2, width: 40, height: 30 }, index: 1, label: '2,2,40,30' },
+        { rect: { x: 2, y: 12, width: 40, height: 30 }, index: 2, label: '2,12,40,30' },
+      ],
+      { thickness: 1, labelScale: 1 },
+    );
+    // First element keeps both plates; the second loses everything, because its index already sat on the
+    // first coordinate line. labels_drawn counts plates, and 2 of 3 is the honest number.
+    expect(painted.boxes).toBe(2);
+    expect(painted.labelsDrawn).toBe(2);
+    expect(painted.labelsCollided).toBe(1);
+  });
+
   it('changes only the annotation pixels, which is what a diff can then prove', () => {
     const base = make(40, 30, (x, y) =>
       x > 8 && x < 28 && y > 6 && y < 16 ? [0, 64, 255, 255] : [255, 255, 255, 255],

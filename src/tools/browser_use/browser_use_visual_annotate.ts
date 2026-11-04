@@ -22,10 +22,16 @@ export default defineTool({
       image_url: { type: 'string', description: 'Image URL, fetched through the SSRF guard' },
       boxes: {
         type: 'string',
-        description: 'JSON array of {"rect":{x,y,width,height},"index":n,"colour":[r,g,b,a]} in image pixels',
+        description:
+          'JSON array of {"rect":{x,y,width,height},"index":n,"colour":[r,g,b,a],"label":"120,44,300,28"} in image pixels; label is an optional second line under the number (digits, comma, period, minus)',
       },
       thickness: { type: 'number', description: 'Outline thickness in pixels (default 2)' },
       label_scale: { type: 'number', description: 'Digit scale; 1 = 3x5 pixels, 3 = 9x15 (default 2)' },
+      avoid_overlap: {
+        type: 'boolean',
+        description:
+          'Default true: a number is drawn only where no other number already sits, and box outlines give way to labels. Skipped counts land in labels_collided — the boxes are still all drawn.',
+      },
     },
     required: ['boxes'],
     additionalProperties: false,
@@ -66,6 +72,7 @@ export default defineTool({
     const painted = paintAnnotation(image, boxes, {
       thickness: Math.max(1, num(input, 'thickness', 2)),
       labelScale: Math.max(1, num(input, 'label_scale', 2)),
+      avoidLabelOverlap: input.avoid_overlap !== false,
     });
     const out = await sharp(Buffer.from(painted.image.data), {
       raw: { width: image.width, height: image.height, channels: 4 },
@@ -80,9 +87,11 @@ export default defineTool({
         height: image.height,
         pixels_written: painted.painted,
         boxes: painted.boxes,
+        labels_drawn: painted.labelsDrawn,
         labels_outside: painted.labelsOutside,
+        labels_collided: painted.labelsCollided,
         boxes_clipped: clipped,
-        note: 'Coordinates are image pixels. Convert an element rect with browser_use_coords_convert(to=screenshot) first — CSS pixels and device pixels differ by the pixel ratio. The PNG is the next content item.',
+        note: 'Coordinates are image pixels. Convert an element rect with browser_use_coords_convert(to=screenshot) first — CSS pixels and device pixels differ by the pixel ratio. Every box is drawn whatever the label counts say: labels_collided is a statement about the picture being crowded, not about missing elements. The PNG is the next content item.',
       },
       out.toString('base64'),
     );

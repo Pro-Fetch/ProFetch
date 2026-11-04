@@ -338,6 +338,25 @@ export interface PaintedAnnotation {
   boxes: number;
   /** Labels that could not be drawn because they fell outside the image. */
   labelsOutside: number;
+  /** Label plates drawn — each one carries an index, and an index the reader cannot find is a lost element. */
+  labelsDrawn: number;
+  /**
+   * Labels skipped because a label already occupies that space. The box is still drawn, so the element is
+   * still visible; only its number had no room. This is the count that tells a caller the picture is too
+   * dense to label at this scale, and that the ledger (not the image) is where the missing rows live.
+   */
+  labelsCollided: number;
+}
+
+export interface PaintOptions {
+  thickness?: number;
+  labelScale?: number;
+  /**
+   * Default true: a label is drawn only where no other label already sits, and box outlines give way to
+   * label plates instead of overprinting them. Turning this off reproduces the naive behaviour — every
+   * label drawn, digits on top of digits — which on a dense page reads as noise.
+   */
+  avoidLabelOverlap?: boolean;
 }
 
 /**
@@ -345,78 +364,165 @@ export interface PaintedAnnotation {
  *
  * The source is never mutated: a caller keeps comparing the capture it took against the capture it took,
  * and an annotated image that quietly replaced it would poison every later diff.
+ *
+ * Three passes, deliberately. Deciding which labels have room happens before any pixel is written, so a
+ * label that loses the race costs nothing but a counter — no half-drawn plate, no digit sitting on another
+ * digit. Then the boxes are drawn with the reserved rectangles left blank, and only at the end the plates
+ * and digits. Drawing boxes first and labels second would let a plate cut a box edge, which destroys the
+ * one thing the outline is there to say: where the element starts and ends.
  */
 export function paintAnnotation(
   source: RgbaImage,
   annotations: AnnotationSpec[],
-  options: { thickness?: number; labelScale?: number } = {},
+  options: PaintOptions = {},
 ): PaintedAnnotation {
   assertRgba(source, 'annotation target');
   const image: RgbaImage = { width: source.width, height: source.height, data: source.data.slice() };
   const thickness = Math.max(1, options.thickness ?? 2);
   const scale = Math.max(1, options.labelScale ?? 2);
+  const avoidOverlap = options.avoidLabelOverlap ?? true;
   const defaultColour: Rgba = [0, 229, 255, 255];
   const dark: Rgba = [8, 8, 8, 255];
   let painted = 0;
   let boxes = 0;
   let labelsOutside = 0;
+  let labelsCollided = 0;
+
+  // One byte per pixel: 1 where a label plate has already claimed the space. At 1920x1080 that is ~2 MB,
+  // paid only when someone annotates a capture, and it makes the overlap test exact rather than a
+  // rectangle heuristic that misses the L-shaped collisions dense text actually produces.
+  const reserved = avoidOverlap ? new Uint8Array(image.width * image.height) : null;
+  const claim = (x: number, y: number, w: number, h: number): boolean => {
+    if (!reserved) return true;
+    if (x < 0 || y < 0 || x + w > image.width || y + h > image.height) return false;
+    for (let py = y; py < y + h; py++) {
+      const row = py * image.width;
+      for (let px = x; px < x + w; px++) {
+        if (reserved[row + px]) return false;
+      }
+    }
+    for (let py = y; py < y + h; py++) {
+      const row = py * image.width;
+      reserved.fill(1, row + x, row + x + w);
+    }
+    return true;
+  };
+  const claimed = (x: number, y: number, w: number, h: number): boolean => {
+    if (!reserved) return false;
+    if (x < 0 || y < 0 || x + w > image.width || y + h > image.height) return false;
+    for (let py = y; py < y + h; py++) {
+      const row = py * image.width;
+      for (let px = x; px < x + w; px++) {
+        if (reserved[row + px]) return true;
+      }
+    }
+    return false;
+  };
+
+  interface Plate {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    /** Where the digits start. Not `x + scale`: the plate's padding is clamped at the box edge, so the
+     *  inset differs from the scale whenever the plate is squeezed against an outline. */
+    textX: number;
+    textY: number;
+    text: string;
+    colour: Rgba;
+    scale: number;
+  }
+  const plates: Plate[] = [];
 
   for (const annotation of annotations) {
-    const colour = annotation.colour ?? defaultColour;
     const { x, y, width, height } = annotation.rect;
     if (width <= 0 || height <= 0) continue;
     boxes++;
-    // Four strips, bounds-checked, so a box hanging off the edge of a capture draws the part that is there.
-    for (let t = 0; t < thickness; t++) {
-      for (let px = x; px < x + width; px++) {
-        if (putPixel(image, px, y + t, colour)) painted++;
-        if (putPixel(image, px, y + height - 1 - t, colour)) painted++;
-      }
-      for (let py = y; py < y + height; py++) {
-        if (putPixel(image, x + t, py, colour)) painted++;
-        if (putPixel(image, x + width - 1 - t, py, colour)) painted++;
-      }
-    }
+
     const label = String(annotation.index);
     const labelX = x + thickness + 1;
     const labelY = y + thickness + 1;
     const glyphW = label.length * (3 * scale + scale);
     const glyphH = 5 * scale;
-    if (labelX + glyphW > image.width || labelY + glyphH > image.height) {
-      labelsOutside++;
-      continue;
-    }
     // A dark plate behind the digits, because cyan on a bright button is unreadable and unreadable
     // annotation is decoration. Its padding stops at the outline: the box edge is what tells a reader
     // where the element is, so the label may sit inside it but never on top of it.
     const plateX = Math.max(labelX - scale, x + thickness);
     const plateY = Math.max(labelY - scale, y + thickness);
-    for (let py = plateY; py < labelY + glyphH + scale; py++) {
-      for (let px = plateX; px < labelX + glyphW; px++) {
-        if (putPixel(image, px, py, dark)) painted++;
-      }
+    if (labelX + glyphW > image.width || labelY + glyphH > image.height) {
+      labelsOutside++;
+      continue;
     }
-    painted += drawDigits(image, labelX, labelY, label, [255, 255, 255, 255], scale).painted;
+    if (!claim(plateX, plateY, labelX + glyphW - plateX, labelY + glyphH + scale - plateY)) {
+      labelsCollided++;
+      continue;
+    }
+    plates.push({
+      x: plateX,
+      y: plateY,
+      w: labelX + glyphW - plateX,
+      h: labelY + glyphH + scale - plateY,
+      textX: labelX,
+      textY: labelY,
+      text: label,
+      colour: [255, 255, 255, 255],
+      scale,
+    });
 
     // The coordinate line sits under the index, on its own plate. If it would not fit, it is skipped
-    // entirely rather than cut off: a truncated "568,6" is a wrong coordinate, not a partial one.
+    // entirely rather than cut off: a truncated "568,6" is a wrong coordinate, not a partial one. Losing
+    // only the coordinates still leaves a clickable, findable index, so the index is not thrown away too.
     if (annotation.label) {
       const coordY = labelY + glyphH + scale + 1;
       const coordW = annotation.label.length * (3 * scale + scale);
-      if (labelX + coordW <= image.width && coordY + glyphH <= image.height) {
-        for (let py = coordY - scale; py < coordY + glyphH + scale; py++) {
-          for (let px = plateX; px < labelX + coordW; px++) {
-            if (putPixel(image, px, py, dark)) painted++;
-          }
-        }
-        painted += drawDigits(image, labelX, coordY, annotation.label, [255, 255, 0, 255], scale).painted;
-      } else {
+      const coordH = glyphH + 2 * scale;
+      if (labelX + coordW > image.width || coordY + glyphH > image.height) {
         labelsOutside++;
+      } else if (claim(plateX, coordY - scale, labelX + coordW - plateX, coordH)) {
+        plates.push({
+          x: plateX,
+          y: coordY - scale,
+          w: labelX + coordW - plateX,
+          h: coordH,
+          textX: labelX,
+          textY: coordY,
+          text: annotation.label,
+          colour: [255, 255, 0, 255],
+          scale,
+        });
+      } else {
+        labelsCollided++;
       }
     }
   }
 
-  return { image, painted, boxes, labelsOutside };
+  for (const annotation of annotations) {
+    const colour = annotation.colour ?? defaultColour;
+    const { x, y, width, height } = annotation.rect;
+    if (width <= 0 || height <= 0) continue;
+    // Four strips, bounds-checked, so a box hanging off the edge of a capture draws the part that is there.
+    for (let t = 0; t < thickness; t++) {
+      for (let px = x; px < x + width; px++) {
+        if (!claimed(px, y + t, 1, 1)) if (putPixel(image, px, y + t, colour)) painted++;
+        if (!claimed(px, y + height - 1 - t, 1, 1)) if (putPixel(image, px, y + height - 1 - t, colour)) painted++;
+      }
+      for (let py = y; py < y + height; py++) {
+        if (!claimed(x + t, py, 1, 1)) if (putPixel(image, x + t, py, colour)) painted++;
+        if (!claimed(x + width - 1 - t, py, 1, 1)) if (putPixel(image, x + width - 1 - t, py, colour)) painted++;
+      }
+    }
+  }
+
+  for (const plate of plates) {
+    for (let py = plate.y; py < plate.y + plate.h; py++) {
+      for (let px = plate.x; px < plate.x + plate.w; px++) {
+        if (putPixel(image, px, py, dark)) painted++;
+      }
+    }
+    painted += drawDigits(image, plate.textX, plate.textY, plate.text, plate.colour, plate.scale).painted;
+  }
+
+  return { image, painted, boxes, labelsOutside, labelsDrawn: plates.length, labelsCollided };
 }
 
 /**

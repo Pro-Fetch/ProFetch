@@ -73,7 +73,7 @@ export default defineTool({
       let out = png;
       let labelled = 0;
       let ledger: Array<Record<string, unknown>> = [];
-      let stats = { boxes: 0, labels_outside: 0, painted: 0 };
+      let stats = { boxes: 0, labels_drawn: 0, labels_outside: 0, labels_collided: 0, painted: 0 };
       if (bool(input, 'annotate')) {
         const filter = (optionalStr(input, 'targets') ?? 'interactable') as ElementFilter;
         const pool = poolFor(session, filter);
@@ -104,8 +104,14 @@ export default defineTool({
           specs,
           { thickness: 2, labelScale: Math.max(1, Math.round(2 / (snapshot.deviceScaleFactor || 1))) },
         );
-        labelled = painted.boxes;
-        stats = { boxes: painted.boxes, labels_outside: painted.labelsOutside, painted: painted.painted };
+        labelled = painted.labelsDrawn;
+        stats = {
+          boxes: painted.boxes,
+          labels_drawn: painted.labelsDrawn,
+          labels_outside: painted.labelsOutside,
+          labels_collided: painted.labelsCollided,
+          painted: painted.painted,
+        };
         out = await sharp(Buffer.from(painted.image.data), {
           raw: { width: raw.info.width, height: raw.info.height, channels: 4 },
         })
@@ -123,7 +129,7 @@ export default defineTool({
           annotated_labels: labelled,
           annotation: stats,
           label_ledger: ledger,
-          note: 'boxInScreenshot(DOM rect, geometry) gives the pixels of any element in this image. A viewport shot starts at the scroll position, a full-page shot at the top of the document, an element shot at the element. label_ledger maps each drawn number to its element and box. The base64 PNG is the next content item.',
+          note: 'boxInScreenshot(DOM rect, geometry) gives the pixels of any element in this image. A viewport shot starts at the scroll position, a full-page shot at the top of the document, an element shot at the element. label_ledger maps each drawn number to its element and box. Every requested box is drawn; a number that would sit on another number is skipped and counted in annotation.labels_collided, so label_ledger — not the picture — is the complete list. The base64 PNG is the next content item.',
         },
         out.toString('base64'),
       );
