@@ -23,12 +23,6 @@
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
-<p align="center">
-  <a href="https://hvs8fgak.qwenwork.page/"><img alt="The pro-fetch film: 717 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
-  <br>
-  <b>Two minutes, silent, no voiceover</b> — <a href="https://hvs8fgak.qwenwork.page/">watch the film</a>.
-</p>
-
 ---
 
 - [Run it](#run-it) · [What answers which job](#what-answers-which-job) · [Profiles](#profiles) ·
