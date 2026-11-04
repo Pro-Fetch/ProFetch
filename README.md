@@ -75,7 +75,7 @@ Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, gen
 
 | Job                                                    | One call                 |
 | ------------------------------------------------------ | ------------------------ |
-| any URL → clean structured data (page, PDF, CSV, feed)  | `pro_fetch_ingest`       |
+| any URL → clean structured data (page, PDF, CSV, feed) | `pro_fetch_ingest`       |
 | every relevant extraction out of one page              | `pro_audit_page`         |
 | a topic researched, cited, verified                    | `pro_research_deep`      |
 | a repository explained                                 | `pro_repo_audit`         |
@@ -108,14 +108,14 @@ stay inside a smaller surface whatever it asks for.
 
 Enforced on every call, including calls made through the batch executor.
 
-| Variable                         | Effect                                            |
-| -------------------------------- | ------------------------------------------------- |
-| `PRO_FETCH_ALLOWED_TOOLS`        | allowlist by exact name or `*`                    |
-| `PRO_FETCH_DENIED_TOOLS`         | denylist, applied after the allowlist             |
-| `PRO_FETCH_DENIED_CATEGORIES`    | deny whole categories                             |
-| `PRO_FETCH_READ_ONLY`            | block every mutating operation                    |
-| `PRO_FETCH_MUTATION_ALLOWLIST`   | permit named mutations under read-only            |
-| `PRO_FETCH_OUTPUT_ROOT`          | contain every file write                          |
+| Variable                       | Effect                                 |
+| ------------------------------ | -------------------------------------- |
+| `PRO_FETCH_ALLOWED_TOOLS`      | allowlist by exact name or `*`         |
+| `PRO_FETCH_DENIED_TOOLS`       | denylist, applied after the allowlist  |
+| `PRO_FETCH_DENIED_CATEGORIES`  | deny whole categories                  |
+| `PRO_FETCH_READ_ONLY`          | block every mutating operation         |
+| `PRO_FETCH_MUTATION_ALLOWLIST` | permit named mutations under read-only |
+| `PRO_FETCH_OUTPUT_ROOT`        | contain every file write               |
 
 If `pro_capability_call` is not on the allowlist, it does not run. Mutating tools are classified from
 the registry, not from what a caller declares, so a tool cannot talk its way out of the gate.
@@ -132,10 +132,14 @@ report only whether a credential is present and where it came from.
   "arguments": {
     "calls": [
       { "tool": "pro_fetch_web_search", "arguments": { "query": "RAG architecture 2025" }, "label": "search" },
-      { "tool": "pro_fetch_academic_search", "arguments": { "query": "retrieval augmented generation" }, "label": "papers" },
-      { "tool": "pro_fetch_news_search", "arguments": { "query": "RAG news" }, "label": "news" }
-    ]
-  }
+      {
+        "tool": "pro_fetch_academic_search",
+        "arguments": { "query": "retrieval augmented generation" },
+        "label": "papers",
+      },
+      { "tool": "pro_fetch_news_search", "arguments": { "query": "RAG news" }, "label": "news" },
+    ],
+  },
 }
 ```
 
@@ -181,11 +185,11 @@ into `introduce` as `enforced` and `not_guaranteed` rather than glossed over.
 `PRO_FETCH_MODE` selects how much capacity one batch may use. Simple is the default and behaves
 exactly as the versions before the option existed.
 
-|                                    | simple _(default)_ | MAX                                      |
-| ---------------------------------- | ------------------ | ---------------------------------------- |
-| calls per `pro_capability_call`    | 5 000              | 9 999 999 999                            |
-| concurrency: total / network / cat | 64 / 64 / 16       | 512 each                                 |
-| a large batch runs                 | one batch          | chunks of `PRO_FETCH_BATCH_CHUNK` (1000) |
+|                                    | simple _(default)_ | MAX                                               |
+| ---------------------------------- | ------------------ | ------------------------------------------------- |
+| calls per `pro_capability_call`    | 5 000              | 9 999 999 999                                     |
+| concurrency: total / network / cat | 64 / 64 / 16       | 512 each                                          |
+| a large batch runs                 | one batch          | chunks of `PRO_FETCH_BATCH_CHUNK` (1000)          |
 | self-serve ceiling                 | —                  | `PRO_FETCH_MAX_SELF_SERVE` (99 999), then it asks |
 
 The model can also pick per batch, which is usually the right place for the decision:
@@ -208,12 +212,12 @@ because it limits requests to somebody else's server, where an unbounded batch i
 
 ## Optional binaries
 
-| Missing                                       | What you get instead                                        |
-| --------------------------------------------- | ----------------------------------------------------------- |
-| `sharp`, `@napi-rs/canvas`, `tesseract.js`    | those media tools fail individually, the rest is unaffected |
-| `git`, `docker`, `kubectl`, `psql`, `redis-cli` | `COMMAND_NOT_FOUND` with the exact command named            |
-| Playwright browsers                           | the browser pack asks for `npx playwright install --with-deps chromium` |
-| install scripts (`--ignore-scripts`)          | SQLite tools answer `SQLITE_UNAVAILABLE` with `npm rebuild better-sqlite3` |
+| Missing                                         | What you get instead                                                       |
+| ----------------------------------------------- | -------------------------------------------------------------------------- |
+| `sharp`, `@napi-rs/canvas`, `tesseract.js`      | those media tools fail individually, the rest is unaffected                |
+| `git`, `docker`, `kubectl`, `psql`, `redis-cli` | `COMMAND_NOT_FOUND` with the exact command named                           |
+| Playwright browsers                             | the browser pack asks for `npx playwright install --with-deps chromium`    |
+| install scripts (`--ignore-scripts`)            | SQLite tools answer `SQLITE_UNAVAILABLE` with `npm rebuild better-sqlite3` |
 
 SQLite needs no system binary — it uses the bundled `better-sqlite3` driver, and the `sqlite3` CLI is
 only a fallback. On Windows, npm tools invoke `npm-cli.js` through `process.execPath`, so `npm audit`,
@@ -226,13 +230,13 @@ npm ci
 npm run check
 ```
 
-| Step                         | What it proves                                                                                     |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| `verify:static`              | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest |
-| `verify:registry`            | boots the real registry: **717 tools / 43 categories / all four profile counts**, every tool has a schema and a handler |
-| `test`                       | **1645 tests** across 91 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour |
-| `verify:package`             | the published tarball (570 files) has its shebang and `files` allowlist, and zero credentials or source files |
-| `audit:schema` _(on demand)_ | schemas against the code behind them — 0 dead properties, 0 unread required arguments              |
+| Step              | What it proves                                                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
+| `verify:registry` | boots the real registry: **717 tools / 43 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
+| `test`            | **1645 tests** across 91 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                       |
+| `verify:package`  | the published tarball (570 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
+| `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 
 All 673 input schemas reject properties they do not declare. The MCP protocol itself was exercised
 live against `dist/server.js` over stdio: `initialize`, `tools/list` (673 unique under `full`, 12
@@ -246,23 +250,23 @@ tools refused, clean JSON-RPC on stdout.
 point, `dispatch()` gate, composites, profiles, MAX mode — is
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-|                                  |                                 |                                  |
-| -------------------------------- | ------------------------------- | -------------------------------- |
-| `github` 49                      | `browser` 41                    | `convert` 30                     |
-| `collaboration` 28               | `research` 26                   | `data` 26                        |
-| `admin` 25                       | `codehost` 25                   | `extract` 24                     |
-| `devops` 24                      | `database` 24                   | `security` 24                    |
-| `git` 23                         | `crawl` 22                      | `search` 20                      |
-| `http` 19                        | `knowledge` 18                  | `productivity` 18                |
-| `storage` 16                     | `archive` 15                    | `media` 15                       |
-| `docs` 15                        | `document` 13                   | `auth` 12                        |
-| `apitest` 12                     | `i18n` 12                       | `sql` 11                         |
-| `monitoring` 10                  | `encoding` 9                    | `qr` 9                           |
-| `imageproc` 9                    | `schema` 6                      | `llm` 5                          |
-| `time` 5                         | `zip` 5                         | `opendata` 5                     |
-| `units` 5                        | `binary` 4                      | `geo_data` 4                     |
-| `chess` 4                        | `color` 3                       | `phonetics` 3                    |
-| `browser_use` 44                |                                 |                                  |
+|                    |                |                   |
+| ------------------ | -------------- | ----------------- |
+| `github` 49        | `browser` 41   | `convert` 30      |
+| `collaboration` 28 | `research` 26  | `data` 26         |
+| `admin` 25         | `codehost` 25  | `extract` 24      |
+| `devops` 24        | `database` 24  | `security` 24     |
+| `git` 23           | `crawl` 22     | `search` 20       |
+| `http` 19          | `knowledge` 18 | `productivity` 18 |
+| `storage` 16       | `archive` 15   | `media` 15        |
+| `docs` 15          | `document` 13  | `auth` 12         |
+| `apitest` 12       | `i18n` 12      | `sql` 11          |
+| `monitoring` 10    | `encoding` 9   | `qr` 9            |
+| `imageproc` 9      | `schema` 6     | `llm` 5           |
+| `time` 5           | `zip` 5        | `opendata` 5      |
+| `units` 5          | `binary` 4     | `geo_data` 4      |
+| `chess` 4          | `color` 3      | `phonetics` 3     |
+| `browser_use` 44   |                |                   |
 
 ---
 

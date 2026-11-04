@@ -1,28 +1,26 @@
-import { fetchWithOptions } from '../../core/http-client.js';
-import { fetchUrl } from '../../core/fetcher.js';
-import { result, jsonBlock, fail } from '../../core/format.js';
-import { clipToTokens } from '../../core/chunker.js';
+import { defineTool } from '../../core/tool.js';
+import { jsonBlock } from '../../core/format.js';
 import { cache } from '../../core/cache.js';
 
 /**
  * pro_fetch_cache_stats — Show cache size hits and misses
  * Pack: archive (REAL ✅) (pro-fetch)
+ *
+ * The schema used to require a `url` that nothing read, behind an unused `view(input)` — the same shape
+ * `cache_clear` had, and the reason the schema audit could not see it: a statement touching the whole
+ * input looks like a read of every property.
  */
-import { defineTool } from '../../core/tool.js';
-import { view } from '../../core/input.js';
 export default defineTool({
   name: 'pro_fetch_cache_stats',
-  description: 'Show cache size hits and misses',
+  description: 'Show the response cache: how many entries it holds, and the hits and misses since boot.',
   category: 'archive',
   inputSchema: {
     type: 'object',
-    properties: {
-      url: { type: 'string', description: 'Manzil (URL)' },
-    },
-    required: ['url'],
+    properties: {},
+    required: [],
+    additionalProperties: false,
   },
-  async handler(input) {
-    const p = view(input);
+  async handler() {
     return jsonBlock('# Cache statistikasi', cache.stats());
   },
 });

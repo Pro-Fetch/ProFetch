@@ -88,10 +88,69 @@ interface Finding {
   undeclaredReads: string[];
   /** Whether the schema rejects undeclared properties at all. */
   closed: boolean;
+  /**
+   * True when `applyCategorySchema` rewrites this tool's schema from a table in `src/core/tool.ts`. For
+   * those tools the tool file is not the contract — the reads happen in a shared dispatcher — so they are
+   * measured and reported, but they do not decide the gate.
+   */
+  padded: boolean;
 }
 
 const findings: Finding[] = [];
 let skippedDelegating = 0;
+
+/**
+ * The source with its comments taken out, because a comment is not a read.
+ *
+ * The audit read property names straight out of the raw file, and a comment ending in the word "input."
+ * followed by a newline and a declaration matched `\b(?:input|p)\s*\.\s*([a-z_0-9]+)` — the `\s*` crossed
+ * the line break, so the next token, `const`, was reported as a property fifteen crawl tools read but did
+ * not declare. The headline number the gate was supposed to use was 291 findings, 15 of them that sentence.
+ *
+ * Only comments come out. Two wider projections were tried here and rejected on measurement:
+ *
+ * - stripping string and template literals took `with_dead_properties` from 0 to 341, because these
+ *   handlers name their keys *inside* quotes (`str(input, 'url')`) and interpolate real reads;
+ * - cutting the tool's own `inputSchema` block took it to 22 tools and 69 properties, 62 of them in the
+ *   browser pack, where the reads happen in a shared dispatcher the source resolver does not follow.
+ *
+ * So a name that appears only in its own description string is still counted as read, and the gate says
+ * which categories it could not see rather than pretending they were clean.
+ */
+function stripComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ');
+}
+
+/** Words that follow a dot only in prose, never as an input key. */
+const RESERVED_AFTER_DOT = new Set([
+  'const',
+  'let',
+  'var',
+  'function',
+  'return',
+  'new',
+  'typeof',
+  'if',
+  'else',
+  'for',
+  'while',
+  'length',
+  'size',
+  'name',
+  'value',
+  'text',
+  'toString',
+  'includes',
+  'map',
+  'filter',
+  'join',
+  'split',
+  'trim',
+  'replace',
+  'slice',
+  'push',
+  'test',
+]);
 
 /**
  * Reads the source that actually decides which inputs a tool reads.
@@ -129,7 +188,11 @@ for (const tool of allTools()) {
   const properties = Object.keys(schema.properties ?? {});
   const required = schema.required ?? [];
 
-  const haystack = sourceFileFor(tool.name, tool.category) ?? source;
+  const rawSource = sourceFileFor(tool.name, tool.category) ?? source;
+  // One text for both directions: reads must be code, and a name that appears only inside the tool's own
+  // `inputSchema` block is not a read of anything.
+  const haystack = stripComments(rawSource);
+  const codeSource = haystack;
 
   const mentions = (property: string): boolean => {
     const short = property.replace(/_number$/, '');
@@ -146,21 +209,24 @@ for (const tool of allTools()) {
   // a schema: a tool can only be closed once it declares everything its code reads.
   const READ_PATTERNS = [
     /\b(?:string|num|bool|objectInput)\s*\(\s*input\s*,\s*'([a-z_0-9]+)'/g,
-    /\b(?:input|p)\s*\.\s*([a-z_0-9]+)/g,
-    /\b(?:input|p)\s*\[\s*['"]([a-z_0-9]+)['"]\s*\]/g,
+    // `[ \t]*` rather than `\s*`: a property access does not skip a line, and `\s*` let a comment's
+    // sentence ending in "input." capture the next token — `const` — as a property name.
+    /\b(?:input|p)[ \t]*\.[ \t]*([a-z_0-9]+)/g,
+    /\b(?:input|p)[ \t]*\[[ \t]*['"]([a-z_0-9]+)['"][ \t]*\]/g,
   ];
   const reads = new Set<string>();
   for (const pattern of READ_PATTERNS) {
-    for (const match of haystack.matchAll(pattern)) reads.add(match[1]);
+    for (const match of codeSource.matchAll(pattern)) reads.add(match[1]);
   }
   // Fallback key lists - `list(input, 'sources', 'items', 'documents')`. Recognised only inside a call
   // that actually receives `input`, not as a bare array: `runCrawlTool` has
   // `!['pause', 'resume', 'stop', 'list'].includes(action)`, and reading those as input keys reported
   // all four as undeclared on all 22 crawl tools.
-  for (const match of haystack.matchAll(/\(\s*(?:input|p)\s*,\s*((?:'[a-z_0-9]+'\s*,\s*)*'[a-z_0-9]+')/g)) {
+  for (const match of codeSource.matchAll(/\(\s*(?:input|p)\s*,\s*((?:'[a-z_0-9]+'\s*,\s*)*'[a-z_0-9]+')/g)) {
     for (const key of match[1].matchAll(/'([a-z_0-9]+)'/g)) reads.add(key[1]);
   }
   const undeclaredReads = [...reads]
+    .filter((key) => !RESERVED_AFTER_DOT.has(key))
     .filter((key) => !properties.includes(key) && !anyOfKeys(tool.inputSchema).has(key))
     .sort();
 
@@ -179,6 +245,7 @@ for (const tool of allTools()) {
     requiredUnread,
     undeclaredReads,
     closed: (tool.inputSchema as { additionalProperties?: unknown }).additionalProperties === false,
+    padded: CATEGORY_PADDED.has(tool.category),
   });
 }
 
@@ -259,4 +326,48 @@ if (asJson) {
       `  ${finding.name.padEnd(42)} declared=${String(finding.declared).padStart(3)} dead=${String(finding.deadProperties.length).padStart(3)} [${finding.deadProperties.slice(0, 5).join(',')}]`,
     );
   }
+}
+
+/**
+ * The gate.
+ *
+ * This script used to print its numbers and exit 0 whatever they said, so 287 findings could never stop a
+ * build and a new dead property cost nothing. Two of the four measures are defects with a caller on the
+ * other end of them, and those are now failures:
+ *
+ *   - a declared property the code never reads advertises an argument that silently does nothing;
+ *   - a required property the code never reads refuses a call over a name it will not look at.
+ *
+ * The other two are not gated: an undeclared read (274 today) is a schema that could be wider, and
+ * `required_empty` (136) is a tool that takes optional knobs — both are backlog, not regressions. `--json`
+ * and `--report-only` keep the old behaviour for anyone measuring rather than enforcing.
+ */
+const reportOnly = args.includes('--report-only');
+// Padded categories are measured but do not decide the gate: their handlers forward `input` to one shared
+// dispatcher, so a property the resolver cannot find in the tool file is not evidence of a dead argument.
+const gateable = findings.filter((f) => !f.padded);
+const gateDead = gateable.filter((f) => f.deadProperties.length > 0);
+const gateUnread = gateable.filter((f) => f.requiredUnread.length > 0);
+const violations = [...gateDead, ...gateUnread];
+const paddedCount = findings.length - gateable.length;
+if (!reportOnly && violations.length > 0) {
+  console.error('\nSCHEMA_AUDIT_FAIL');
+  console.error(
+    `- ${gateDead.length} tool e'lon qilgan xususiyatni kod o'qimaydi, ` +
+      `${gateUnread.length} tool required deb e'lon qilib o'qimaydigan xususiyatni talab qiladi.`,
+  );
+  for (const finding of violations.slice(0, 20)) {
+    console.error(
+      `  ${finding.name.padEnd(42)} dead=[${finding.deadProperties.join(',')}] unread_required=[${finding.requiredUnread.join(',')}]`,
+    );
+  }
+  if (violations.length > 20) console.error(`  ... and ${violations.length - 20} more`);
+  console.error(`- O'lchashni davom ettirish uchun: npx tsx scripts/audit-schema.mts --report-only`);
+  process.exit(1);
+}
+if (!reportOnly) {
+  console.log(
+    `\nSCHEMA_AUDIT_GATE_PASS audited=${gateable.length} excluded_padded=${paddedCount} ` +
+      `dead=${gateDead.length} unread_required=${gateUnread.length}`,
+  );
 }
