@@ -478,13 +478,18 @@ const SEARCH_TOOL_PROPERTIES: Record<string, readonly string[]> = {
   pro_fetch_market_search: ['query', 'limit'],
   pro_fetch_jobs_search: ['query', 'limit'],
 };
-const ARCHIVE_TOOL_PROPERTIES: Record<string, readonly string[]> = {
+/** Exported for `tests/audit-external-2026-11-04.test.ts`: a row naming a tool outside `archive` is dead. */
+export const ARCHIVE_TOOL_PROPERTIES: Record<string, readonly string[]> = {
   pro_fetch_cache_get: ['key'],
   pro_fetch_cache_search: ['needle'],
   pro_fetch_cache_put: ['key', 'value', 'ttl_ms'],
   // `pro_fetch_cache_delete` does not exist in the registry; deletion and TTL live in
   // `pro_fetch_cache_tune`. The stale entry could never match, so it silently narrowed nothing.
-  pro_fetch_cache_tune: ['pattern', 'ttl_ms'],
+  //
+  // `pro_fetch_cache_tune` was listed here too, and it was the same fault wearing a real name: the tool is
+  // in the `admin` category, which this table never runs for, and its arguments are `default_ttl_ms` and
+  // `max_entries` — not `pattern` and `ttl_ms`. A row that names arguments no tool reads is a dead contract
+  // nobody can see failing, so it is removed rather than corrected.
   pro_fetch_cache_clear: [],
   pro_fetch_cache_stats: [],
   pro_fetch_offline_browse: ['url', 'query', 'limit'],
@@ -492,11 +497,11 @@ const ARCHIVE_TOOL_PROPERTIES: Record<string, readonly string[]> = {
   pro_fetch_archive_org_save: ['url'],
   pro_fetch_google_cache_fetch: ['url', 'max_tokens'],
 };
-const ARCHIVE_TOOL_REQUIREMENTS: Record<string, string[]> = {
+/** Exported with the table above: a row here must also name an `archive` tool. */
+export const ARCHIVE_TOOL_REQUIREMENTS: Record<string, string[]> = {
   pro_fetch_cache_get: ['key'],
   pro_fetch_cache_search: ['needle'],
   pro_fetch_cache_put: ['key', 'value'],
-  pro_fetch_cache_tune: ['pattern', 'ttl_ms'],
   pro_fetch_archive_org_fetch: ['url'],
   pro_fetch_archive_org_save: ['url'],
   pro_fetch_google_cache_fetch: ['url'],

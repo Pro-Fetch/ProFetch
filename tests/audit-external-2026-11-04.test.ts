@@ -13,11 +13,14 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../src/loader.js';
+import { allTools, ARCHIVE_TOOL_PROPERTIES, ARCHIVE_TOOL_REQUIREMENTS } from '../src/core/tool.js';
 import { cache } from '../src/core/cache.js';
 import { fetchUrl } from '../src/core/fetcher.js';
 import { mayStoreHttpAnswer } from '../src/core/http-client.js';
 
 process.env.PRO_FETCH_PROFILE = 'full';
+
+const registered = (name: string) => allTools().find((candidate) => candidate.name === name);
 
 const HTML = '<html><body><main><h1>Doc</h1><p>Body text that is long enough to render.</p></main></body></html>';
 
@@ -124,5 +127,29 @@ describe('what the fetch cache may hold', () => {
     expect(mayStoreHttpAnswer(200, 'no-cache', false, false)).toBe(false);
     expect(mayStoreHttpAnswer(200, '', true, false)).toBe(false);
     expect(mayStoreHttpAnswer(200, '', false, true)).toBe(false);
+  });
+});
+
+describe('a schema table row that names no reachable tool is a dead contract', () => {
+  it('every archive table row names a registered tool in the archive category', () => {
+    // `applyCategorySchema` only runs for the `archive` category, so a row naming a tool elsewhere — the
+    // audit found `pro_fetch_cache_tune`, which is `admin` and takes `default_ttl_ms`/`max_entries` — can
+    // never match. It narrows nothing and advertises arguments that belong to no tool.
+    const dead: string[] = [];
+    for (const name of [...Object.keys(ARCHIVE_TOOL_PROPERTIES), ...Object.keys(ARCHIVE_TOOL_REQUIREMENTS)]) {
+      const found = registered(name);
+      if (!found) dead.push(`${name}: not registered`);
+      else if (found.category !== 'archive')
+        dead.push(`${name}: category is ${found.category}, table runs for archive`);
+    }
+    expect(dead).toEqual([]);
+  });
+
+  it('cache_clear declares nothing it does not read', () => {
+    // The schema used to require a `url` that no line of the handler looked at, hidden from the schema audit
+    // by an unused `view(input)` — a statement touching the whole input reads like a read of every property.
+    const found = registered('pro_fetch_cache_clear');
+    expect(Object.keys(found?.inputSchema.properties ?? {})).toEqual([]);
+    expect(found?.inputSchema.required ?? []).toEqual([]);
   });
 });
