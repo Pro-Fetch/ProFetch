@@ -1,14 +1,14 @@
 # Benchmarks
 
-Two harnesses, both run against real code, neither of which reports a number it did not measure.
+Three harnesses run against real code. The first two report a number only when they measured it and exit
+non-zero on any failed assertion, so neither is usable as a green light that only proves the machine was on.
+The third asserts nothing at all, and says so.
 
-| harness    | command                                        | what it measures                                                                                                                  | artifacts                                                          |
-| ---------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| MCP-native | `npm run browser-use:bench:mcp`, `:bench:live` | the server as a model sees it: stdio handshake against `dist/server.js`, `tools/list`, then per-tool calls with an assertion each | `artifacts/mcp-bench-*.json`/`.csv`, `MCP_BENCH_LATEST.md`         |
-| Fixtures   | `npm run browser-use:bench:fixtures`           | whether the engine reaches the right answer on pages whose answers are written into the HTML                                      | `artifacts/fixture-bench-*.json`/`.csv`, `FIXTURE_BENCH_LATEST.md` |
-
-Both exit non-zero on any failed assertion, so neither is usable as a green light that only proves the
-machine was on.
+| harness       | command                                        | what it measures                                                                                                                  | artifacts                                                          |
+| ------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| MCP-native    | `npm run browser-use:bench:mcp`, `:bench:live` | the server as a model sees it: stdio handshake against `dist/server.js`, `tools/list`, then per-tool calls with an assertion each | `artifacts/mcp-bench-*.json`/`.csv`, `MCP_BENCH_LATEST.md`         |
+| Fixtures      | `npm run browser-use:bench:fixtures`           | whether the engine reaches the right answer on pages whose answers are written into the HTML                                      | `artifacts/fixture-bench-*.json`/`.csv`, `FIXTURE_BENCH_LATEST.md` |
+| Coordinate map| `npm run browser-use:map`                      | a real public page listed and drawn: every element box, every word box, one paragraph enlarged; it checks nothing and exits 0     | `artifacts/coordinate-map/`, `COORDINATE_MAP_LATEST.md`            |
 
 ## What the fixture bench plants, and what it asks
 

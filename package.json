@@ -61,7 +61,8 @@
     "verify:static": "node scripts/verify-static.mjs",
     "browser-use:bench:mcp": "tsx scripts/browser-use-bench.mts",
     "browser-use:bench:live": "tsx scripts/browser-use-bench.mts --live",
-    "browser-use:bench:fixtures": "tsx scripts/browser-use-fixture-bench.mts"
+    "browser-use:bench:fixtures": "tsx scripts/browser-use-fixture-bench.mts",
+    "browser-use:map": "tsx scripts/browser-use-coordinate-map.mts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",

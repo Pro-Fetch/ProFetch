@@ -5,16 +5,20 @@
  * unit test can prove `findPhrase` unions four boxes correctly; it cannot prove that a real page's real word
  * boxes land on the real ink, or that a coordinate printed next to a button is the coordinate a click needs.
  *
- * Three artefacts come out, and they answer three different questions:
+ * Four artefacts come out, and they answer four different questions:
  *   elements.csv / words.csv   — the numbers, every row, no budget applied
  *   map-elements.png           — every box drawn on the picture, with its own coordinates beside it
  *   map-words.png              — the same for text, which no element box can express
+ *   map-region-zoom.png        — one paragraph enlarged, where those coordinates are actually readable
  *
- * Run: npx tsx scripts/browser-use-coordinate-map.mts <out-dir> [url]
+ * Run: npm run browser-use:map -- [out-dir] [url]
+ *      (default out-dir: benchmarks/browser-use/artifacts/coordinate-map,
+ *       and the run log is mirrored to benchmarks/browser-use/COORDINATE_MAP_LATEST.md)
  */
 
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AnnotationSpec, Rgba, RgbaImage } from '../src/core/browser-use-visual.js';
 
@@ -24,7 +28,7 @@ const { buildWordRows, findPhrase, summarizeWords } = await import('../src/core/
 const { boxInScreenshot } = await import('../src/core/browser-use-coordinates.js');
 const { paintAnnotation, cropRgba } = await import('../src/core/browser-use-visual.js');
 
-const OUT = path.resolve(process.argv[2] ?? '.');
+const OUT = path.resolve(process.argv[2] ?? 'benchmarks/browser-use/artifacts/coordinate-map');
 const TARGET = process.argv[3] ?? 'https://en.wikipedia.org/wiki/HTTP';
 const sharp = (await import('sharp')).default;
 
@@ -304,5 +308,15 @@ if (busiest) {
 }
 
 await writeFile(path.join(OUT, 'coordinate-map-run.md'), log.join('\n') + '\n', 'utf8');
+// The convention the other browser-use harnesses follow: a timestamped artefact per run plus one LATEST
+// summary that a reader (and the documentation) can point at without knowing when the run happened.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+await writeFile(
+  path.join(repoRoot, 'benchmarks', 'browser-use', 'COORDINATE_MAP_LATEST.md'),
+  ['# Coordinate map — latest run', '', ...log.map((line) => `    ${line}`), ''].join('\n'),
+  'utf8',
+);
 await closeSession(session.id);
-say(`session closed; ${log.length} line(s) of run log kept in coordinate-map-run.md`);
+say(
+  `session closed; ${log.length} line(s) of run log kept in coordinate-map-run.md and in benchmarks/browser-use/COORDINATE_MAP_LATEST.md`,
+);

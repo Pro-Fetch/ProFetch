@@ -30,9 +30,12 @@ covers the Chromium + CDP path well and nothing else:
 - **Closed `<details>` content is skipped deliberately** (the summary excepted). Browsers hide it through
   `::details-content`, which leaves children with a real rect and `visible` computed style — counting them
   would make "I revealed something" false. The cost: a scan reports an element only after a reveal.
-- **1500 elements per frame, 400 per snapshot.** The collector stops at 1500 DOM nodes; perception keeps
-  400, interactable-first. Both counts are reported (`truncated`), but truncated is a floor on what was
-  _missed_, not on what exists.
+- **Ceilings, and what they still cost.** The collector stamps at most 1500 elements per frame by default and
+  perception keeps 400 nodes per snapshot by default; the collector's ceiling rises with the caller's `budget`
+  argument (up to 20000), so a listing of a whole document is possible but is never the cheap path. Every
+  answer carries the walk's own report — `scanned`, `reported`, `capped` — and a capped walk is warned about in
+  the text, because `truncated: 0` says nothing about a page the walk never finished. Truncation remains a
+  floor on what was _missed_, not a count of what exists.
 - **`value` is read once, at collection time**, from the property. A control updated without a re-read is
   stale by design — that is what the identity check is for.
 
@@ -44,8 +47,12 @@ covers the Chromium + CDP path well and nothing else:
   lifted, but stitching one image out of several frame captures is not implemented.
 - Screenshot comparison works on decoded RGBA. It is a **difference**, not a judgement: nothing here says
   whether a change was intended.
-- Annotation digits are a 3×5 bitmap — digits only. Any other character is skipped and counted rather than
-  drawn as something approximate.
+- Annotation digits are a 3×5 bitmap — digits, comma, period and minus, because a coordinate line is made of
+  them. Any other character is skipped and counted rather than drawn as something approximate.
+- **A crowded picture loses numbers, not elements.** Every requested box is drawn; a label that would sit on
+  another label is skipped and counted in `labels_collided`. The image is therefore never the complete index —
+  the row ledger is, and a caller that needs every number from a dense page has to ask for fewer boxes, a
+  region, or the listing itself.
 
 ## The world model is conservative, and that has a cost
 
@@ -62,8 +69,10 @@ and passed its own unit tests while failing in a browser.
 
 ## Not built
 
-- **Drag-and-drop, clipboard, multi-touch, file upload through `act`.** Uploads exist in the older
-  `browser` pack; this engine's action layer does not have them.
+- **Drag-and-drop, clipboard, multi-touch.** Uploads and downloads are tools of their own here
+  (`pro_browser_use_upload`, `pro_browser_use_download`), not part of `act`: an upload takes caller bytes and is
+  verified by reading the control's own `FileList` back, a download by the saved file's size and sha256. Neither
+  has been exercised against a real site that needs authentication.
 - **Dialog handling in sessions.** The probe drives `alert`/`confirm` on a page, but the session bridge has
   no auto-accept policy, so a page that opens a dialog stalls a session until something dismisses it.
 - **Network control from a session** — request mocking and interception were verified in the probe, not
@@ -86,7 +95,7 @@ and passed its own unit tests while failing in a browser.
 
 ## Sharp edges for callers
 
-- **`tools/list` is ~713 schemas.** Only `full` advertises `browser_use` (level 3): `minimal`, `standard`
+- **`tools/list` is ~717 schemas.** Only `full` advertises `browser_use` (level 3): `minimal`, `standard`
   and `smart` do not show it at all.
 - **A session holds a browser process.** Idle sessions are reclaimed on the next `open`, not by a timer, so
   a client that opens and abandons sessions keeps processes until it opens another.
