@@ -11,7 +11,7 @@
   <b>717 MCP tools in one stdio server.</b> Fetch, crawl, extract, convert, OCR, web and academic
   search, deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV
   and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12
-  meta-tools that reach all 673, so a client with a small context window loses nothing except
+  meta-tools that reach all 717, so a client with a small context window loses nothing except
   schema bytes.
 </p>
 
@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <a href="https://hvs8fgak.qwenwork.page/"><img alt="The pro-fetch film: 673 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
+  <a href="https://hvs8fgak.qwenwork.page/"><img alt="The pro-fetch film: 717 tools behind one gate" src="docs/assets/film-poster.jpg" width="860"></a>
   <br>
   <b>Two minutes, silent, no voiceover</b> — <a href="https://hvs8fgak.qwenwork.page/">watch the film</a>.
 </p>
@@ -61,7 +61,7 @@ Copy-ready file: [`mcp.example.json`](./mcp.example.json). Node 22.13 or newer, 
 Every call, direct or composed, crosses the same gate:
 
 ```text
-client ──> dispatch() ──> permission policy ──> SSRF / sandbox / annotation checks ──> 673 handlers
+client ──> dispatch() ──> permission policy ──> SSRF / sandbox / annotation checks ──> 717 handlers
                 ▲
      12 meta-tools in the default profile reach the same gate,
      with the same policy applied to every call inside a batch.
@@ -86,7 +86,7 @@ Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, gen
 | many results collapsed into one answer                 | `pro_synthesize`         |
 | the catalog searched in plain language                 | `pro_capability_map`     |
 | a multi-step task planned, gated, evidenced            | `pro_fetch_workflow`     |
-| any of the 673 by exact name                           | `pro_fetch_tool_execute` |
+| any of the 717 by exact name                           | `pro_fetch_tool_execute` |
 
 ## Profiles
 
@@ -97,7 +97,7 @@ Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, gen
 | `minimal`              |    74 | http, convert, admin            |
 | `standard` _(default)_ |   179 | + github, search, extract, auth |
 | `smart`                |    12 | the twelve above                |
-| `full`                 |   673 | everything                      |
+| `full`                 |   717 | everything                      |
 
 `pro_fetch_profile_switch` changes it at runtime and takes effect on the next request.
 `PRO_FETCH_PROFILE_CEILING` pins a maximum the switch may not pass; unset by default, because the
@@ -235,11 +235,11 @@ npm run check
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **717 tools / 43 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
 | `test`            | **1661 tests** across 93 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                       |
-| `verify:package`  | the published tarball (570 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
+| `verify:package`  | the published tarball (637 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 
-All 673 input schemas reject properties they do not declare. The MCP protocol itself was exercised
-live against `dist/server.js` over stdio: `initialize`, `tools/list` (673 unique under `full`, 12
+All 717 input schemas reject properties they do not declare. The MCP protocol itself was exercised
+live against `dist/server.js` over stdio: `initialize`, `tools/list` (717 unique under `full`, 12
 under `smart`, every schema `type: "object"`), `tools/call` for each advertised smart tool, hidden
 tools refused, clean JSON-RPC on stdout.
 

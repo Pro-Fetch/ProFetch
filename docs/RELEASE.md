@@ -8,7 +8,7 @@ How to publish `pro-fetch`, and what is already verified.
 | ----------------------- | ------------------------------------------------------------------------------- |
 | Version cut             | `1.0.0` in `package.json` and the lockfile, `CHANGELOG.md` has a `[1.0.0]` section |
 | `npm run check` green   | 1231 tests, 70 files, static + registry + package + format all PASS, exit 0     |
-| Tarball clean           | 570 files, no `.env`, no keys, no `.d.ts`, shebang present (`verify:package`)    |
+| Tarball clean           | 637 files, no `.env`, no keys, no `.d.ts`, shebang present (`verify:package`)    |
 | Name free               | `npm view pro-fetch` → HTTP 404 (free)                                          |
 | Old name               | `pro-fetch-mcp` exists on npm at `0.0.0-stage`, owned by this maintainer         |
 | `npm publish --dry-run` | PASS (runs `prepublishOnly` → full `npm run check` first)                        |
