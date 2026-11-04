@@ -110,6 +110,11 @@ export interface Snapshot {
   /** Nodes dropped by the budget, counted so "the whole page" is never implied. */
   truncated: number;
   budget: number;
+  /**
+   * What the in-page walks say about themselves. `capped` means the collector stopped at its own ceiling with
+   * elements left unread, so `truncated: 0` below is not evidence that the document was seen in full.
+   */
+  walk?: { scanned: number; reported: number; capped: boolean };
 }
 
 export interface BuildOptions {
@@ -121,6 +126,7 @@ export interface BuildOptions {
   scroll: { x: number; y: number };
   capturedAt: number;
   budget?: number;
+  walk?: { scanned: number; reported: number; capped: boolean };
 }
 
 const INTERACTIVE_TAGS = new Set(['a', 'button', 'input', 'select', 'textarea', 'details', 'summary']);
@@ -280,6 +286,7 @@ export function buildSnapshot(raw: RawNode[], options: BuildOptions): Snapshot {
     nodes: ranked.slice(0, budget),
     truncated: Math.max(0, ranked.length - budget),
     budget,
+    ...(options.walk ? { walk: options.walk } : {}),
   };
 }
 

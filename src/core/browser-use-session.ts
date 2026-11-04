@@ -19,8 +19,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { assertSafeUrl, UrlSecurityError } from './ssrf-guard.js';
-import { COLLECTOR_SCRIPT } from './browser-use-collector.js';
-import { WORD_SCRIPT, type WordReport } from './browser-use-words.js';
+import { COLLECTOR_CAP, collectorScript } from './browser-use-collector.js';
+import { MAX_WORDS, wordScript, type WordReport } from './browser-use-words.js';
 import { buildSnapshot, type Snapshot } from './browser-use-perception.js';
 import { applySnapshot, createWorldModel, type WorldModel } from './browser-use-world.js';
 import { collectAllFrames, type FrameCollection } from './browser-use-frames.js';
@@ -308,20 +308,28 @@ export interface RefreshResult {
 export async function refresh(session: BrowserUseSession, options: { budget?: number } = {}): Promise<RefreshResult> {
   const live = handles.get(session);
   if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
+  // The ceiling moves with the requested budget, because ranking cannot recover what the walk never saw: a
+  // caller asking for 4000 nodes would still get the first 1500 the document happened to yield, in document
+  // order, and a "visible elements" listing would quietly be the top of the DOM rather than the page.
+  const script = collectorScript(Math.max(COLLECTOR_CAP, Math.floor(options.budget ?? 0)));
   const collected = await collectAllFrames(
     {
       frames: () => live.page.frames(),
     },
     async (frame) => {
-      const data = (await evaluateIn(frame, COLLECTOR_SCRIPT)) as {
+      const data = (await evaluateIn(frame, script)) as {
         nodes: unknown[];
         url: string;
         title: string;
+        scanned?: number;
+        capped?: boolean;
       };
       return {
         nodes: data.nodes as never,
         url: typeof data.url === 'string' ? data.url : live.page.url(),
         title: typeof data.title === 'string' ? data.title : await live.page.title().catch(() => ''),
+        scanned: typeof data.scanned === 'number' ? data.scanned : undefined,
+        capped: data.capped === true,
       };
     },
     async (frame) => {
@@ -352,6 +360,7 @@ export async function refresh(session: BrowserUseSession, options: { budget?: nu
     scroll: geometry.scroll,
     capturedAt: Date.now(),
     budget: options.budget ?? 400,
+    walk: collected.walk,
   });
   if (!session.model) {
     session.model = createWorldModel(snapshot, {
@@ -553,10 +562,14 @@ export async function storageState(session: BrowserUseSession): Promise<unknown>
  * omitted it would be a wrong transcript rather than a partial one. The caller is told which frames were
  * left out.
  */
-export async function readWords(session: BrowserUseSession): Promise<WordReport & { frames_skipped: string[] }> {
+export async function readWords(
+  session: BrowserUseSession,
+  options: { cap?: number } = {},
+): Promise<WordReport & { frames_skipped: string[] }> {
   const live = handles.get(session);
   if (!live) throw new SessionError(`session ${session.id} has no live page`, 'it was closed — open it again');
-  const report = (await live.page.evaluate(WORD_SCRIPT)) as WordReport;
+  const script = wordScript(Math.max(MAX_WORDS, Math.floor(options.cap ?? 0)));
+  const report = (await live.page.evaluate(script)) as WordReport;
   const frameIds = live.page.frames().map((f) => f.url());
   return { ...report, frames_skipped: frameIds.slice(1) };
 }

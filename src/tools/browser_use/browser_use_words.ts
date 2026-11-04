@@ -46,6 +46,11 @@ export default defineTool({
       owner: { type: 'string', description: 'Only words whose owning element has this node id, e.g. pf-42' },
       limit: { type: 'number', description: 'Rows to return (default 200, 0 for as many as fit)' },
       offset: { type: 'number', description: 'Skip this many matched words first' },
+      max_words: {
+        type: 'number',
+        description:
+          'How many words the in-page walk may measure (default 4000, up to 20000). Raise it when the answer must cover a whole article rather than its first 4000 words',
+      },
     },
     required: ['session_id'],
     additionalProperties: false,
@@ -54,7 +59,7 @@ export default defineTool({
     try {
       const session = requireSession(optionalStr(input, 'session_id'));
       const snapshot = session.model.latest;
-      const report = await readWords(session);
+      const report = await readWords(session, { cap: num(input, 'max_words', 0, 0) });
       const space = (optionalStr(input, 'space') ?? 'css-viewport') as ElementSpace;
       // Measured and filtered in the collector's own space, then converted once at the end. Region
       // arguments are documented as css-viewport pixels, and a filter that ran after a space change would

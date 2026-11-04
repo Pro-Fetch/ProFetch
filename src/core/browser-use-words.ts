@@ -57,18 +57,23 @@ export interface WordReport {
 /** How many words one read returns before it is cut. A page of a novel is ~50k words; that is not a read, it is a dump. */
 export const MAX_WORDS = 4000;
 
+/** The most a single read may be asked for. Beyond this the page cost stops being the caller's to decide. */
+const MAX_WORD_CAP = 20000;
+
 /** Tags whose text is never shown to a reader. */
 const SKIP_TAGS = ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TITLE', 'META', 'LINK', 'SVG', 'PATH', 'HEAD'];
 
 /**
- * Evaluated inside the page. Returns `WordReport`.
+ * Build the in-page word script with a given ceiling.
  *
- * `getClientRects()` rather than `getBoundingClientRect()`: the latter returns the union of the fragments,
- * which for a wrapped word is a box covering text that is not part of the word. The union is still computed
- * here, but from the fragments, and `parts` says when it should not be used as a click target.
+ * The default is right for a normal read. A caller who asks for the words of a whole article gets a bigger
+ * ceiling rather than a silent 4000-word slice of it — the same rule the element walk follows, because a
+ * listing that says "every word" cannot be built from a walk that stopped at a number nobody chose.
  */
-export const WORD_SCRIPT = `(() => {
-  const MAX = ${MAX_WORDS};
+export function wordScript(cap: number = MAX_WORDS): string {
+  const ceiling = Math.max(1, Math.min(MAX_WORD_CAP, Math.floor(cap) || MAX_WORDS));
+  return `(() => {
+  const MAX = ${ceiling};
   const SKIP = ${JSON.stringify(SKIP_TAGS)};
   const out = [];
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -170,6 +175,16 @@ export const WORD_SCRIPT = `(() => {
   return { words: out, truncated, unmeasured, errored,
            viewport: { width: vw, height: vh }, scroll: { x: window.scrollX, y: window.scrollY } };
 })()`;
+}
+
+/**
+ * Evaluated inside the page at the default ceiling. Returns `WordReport`.
+ *
+ * `getClientRects()` rather than `getBoundingClientRect()`: the latter returns the union of the fragments,
+ * which for a wrapped word is a box covering text that is not part of the word. The union is still computed
+ * here, but from the fragments, and `parts` says when it should not be used as a click target.
+ */
+export const WORD_SCRIPT = wordScript();
 
 /** What the page hands back, before the perception layer joins it to elements. */
 export interface WordRow {

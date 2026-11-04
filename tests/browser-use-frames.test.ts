@@ -223,4 +223,54 @@ describe('collection', () => {
     expect(c.nodes[0].frameId).toBe('main');
     expect(c.offsets.get('main')).toEqual({ x: 0, y: 0 });
   });
+
+  it('carries the collector ceiling through, including from a frame it could not lift', async () => {
+    // The listing a caller gets is the union of every frame's walk, and each frame may have stopped early.
+    // Aggregating without that would let a read of three frames report "everything" when each frame threw
+    // away most of its elements.
+    const top = new FakeFrame('https://shop.test/cart', '');
+    const foreign = new FakeFrame('https://other.test/widget', 'widget', top);
+    const perFrame = new Map<
+      FrameLike,
+      { nodes: RawNode[]; url: string; title: string; scanned?: number; capped?: boolean }
+    >([
+      [
+        top,
+        {
+          nodes: [node(), node({ token: 't2' })],
+          url: 'https://shop.test/cart',
+          title: 'Cart',
+          scanned: 4200,
+          capped: true,
+        },
+      ],
+      [
+        foreign,
+        {
+          nodes: [node({ token: 't9' })],
+          url: 'https://other.test/widget',
+          title: 'Widget',
+          scanned: 10,
+          capped: false,
+        },
+      ],
+    ]);
+    const c = await collectAllFrames(
+      { frames: () => [top, foreign] },
+      async (f) => perFrame.get(f)!,
+      async (f) => (f === top ? { ok: true, x: 0, y: 0 } : { ok: false, reason: 'cross origin' }),
+    );
+    expect(c.unlifted).toHaveLength(1);
+    expect(c.walk).toEqual({ scanned: 4210, reported: 3, capped: true });
+  });
+
+  it('counts its own nodes when a collector reports no ceiling at all', async () => {
+    const top = new FakeFrame('https://shop.test/cart', '');
+    const c = await collectAllFrames(
+      { frames: () => [top] },
+      async () => ({ nodes: [node()], url: 'https://shop.test/cart', title: 'Cart' }),
+      async () => ({ ok: true, x: 0, y: 0 }),
+    );
+    expect(c.walk).toEqual({ scanned: 1, reported: 1, capped: false });
+  });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { COLLECTOR_SCRIPT } from '../src/core/browser-use-collector.js';
-import { WORD_SCRIPT, MAX_WORDS } from '../src/core/browser-use-words.js';
+import { COLLECTOR_SCRIPT, COLLECTOR_CAP, collectorScript } from '../src/core/browser-use-collector.js';
+import { WORD_SCRIPT, MAX_WORDS, wordScript } from '../src/core/browser-use-words.js';
 import { HOP_SCRIPT, GEOMETRY_SCRIPT } from '../src/core/browser-use-session.js';
 import { PAGE_META_SCRIPT } from '../src/core/browser-use-health.js';
 
@@ -51,5 +51,25 @@ describe('in-page scripts survive being strings', () => {
 
   it('the word cap in the source is the exported constant, not a second number someone kept in sync', () => {
     expect(WORD_SCRIPT).toContain(`const MAX = ${MAX_WORDS};`);
+  });
+
+  it('the element ceiling in the page is the exported constant, and a caller can raise it', () => {
+    // A listing that promises "every element" cannot be built from a walk that stopped at a number the
+    // caller never chose. The default must be the exported one, a raised budget must really reach the page,
+    // and the two degenerate inputs must not mean "unlimited".
+    expect(COLLECTOR_SCRIPT).toContain(`if (ordinal >= ${COLLECTOR_CAP})`);
+    expect(collectorScript(4000)).toContain('if (ordinal >= 4000)');
+    expect(collectorScript(0)).toContain(`if (ordinal >= ${COLLECTOR_CAP})`);
+    expect(collectorScript(Number.NaN)).toContain(`if (ordinal >= ${COLLECTOR_CAP})`);
+    expect(collectorScript(5_000_000)).toContain('if (ordinal >= 20000)');
+    expect(() => new Function(`return (${collectorScript(4000)});`)).not.toThrow();
+  });
+
+  it('the word ceiling in the page is the exported constant, and a caller can raise it', () => {
+    expect(WORD_SCRIPT).toContain(`const MAX = ${MAX_WORDS};`);
+    expect(wordScript(12000)).toContain('const MAX = 12000;');
+    expect(wordScript(0)).toContain(`const MAX = ${MAX_WORDS};`);
+    expect(wordScript(9_000_000)).toContain('const MAX = 20000;');
+    expect(() => new Function(`return (${wordScript(12000)});`)).not.toThrow();
   });
 });

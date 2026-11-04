@@ -21,8 +21,23 @@
 
 import type { RawNode } from './browser-use-perception.js';
 
-/** The script evaluated in the page. It returns `RawNode[]`. */
-export const COLLECTOR_SCRIPT = `(() => {
+/**
+ * How many elements a walk stamps before it stops, whatever the document holds.
+ *
+ * The number is a wall against a pathological page (a 40k-element DOM would turn one read into seconds of
+ * layout work and megabytes of JSON), not a claim about any real page. A caller who asks for more nodes than
+ * this gets a bigger wall — see `collectorScript(cap)` — because reporting "every element" out of a listing
+ * that could not possibly contain them all is worse than a slower read.
+ */
+export const COLLECTOR_CAP = 1500;
+
+/** The ceiling a single walk may be given. Beyond this, page cost stops being the caller's decision to make. */
+const MAX_COLLECTOR_CAP = 20000;
+
+/** Build the in-page script with a given element ceiling. */
+export function collectorScript(cap: number = COLLECTOR_CAP): string {
+  const ceiling = Math.max(1, Math.min(MAX_COLLECTOR_CAP, Math.floor(cap) || COLLECTOR_CAP));
+  return `(() => {
   const out = [];
   const vw = window.innerWidth, vh = window.innerHeight;
   const sx = window.scrollX, sy = window.scrollY;
@@ -126,6 +141,7 @@ export const COLLECTOR_SCRIPT = `(() => {
 
   const all = Array.from(document.querySelectorAll('*'));
   let ordinal = 0;
+  let capped = false;
   for (const el of all) {
     const tag = el.tagName.toLowerCase();
     if (['script','style','meta','link','head','html','body','noscript','template','svg','path'].includes(tag)) continue;
@@ -184,15 +200,37 @@ export const COLLECTOR_SCRIPT = `(() => {
       interactive,
       boundaries: boundaries(el),
     });
-    if (ordinal >= 1500) break;
+    if (ordinal >= ${ceiling}) {
+      capped = true;
+      break;
+    }
   }
-  return { nodes: out, viewport: { width: vw, height: vh }, scroll: { x: sx, y: sy },
-           deviceScaleFactor: window.devicePixelRatio || 1, title: document.title, url: location.href };
+  return {
+    nodes: out,
+    scanned: all.length,
+    reported: ordinal,
+    capped,
+    viewport: { width: vw, height: vh },
+    scroll: { x: sx, y: sy },
+    deviceScaleFactor: window.devicePixelRatio || 1,
+    title: document.title,
+    url: location.href,
+  };
 })()`;
+}
+
+/** The script evaluated in the page at the default ceiling. It returns the nodes plus the walk report. */
+export const COLLECTOR_SCRIPT = collectorScript();
 
 /** What the collector returns: the nodes plus the frame context every rect depends on. */
 export interface CollectorResult {
   nodes: RawNode[];
+  /** Elements the document holds that the walk looked at, whether or not it reported them. */
+  scanned?: number;
+  /** Elements the walk actually reported. */
+  reported?: number;
+  /** True when the walk stopped at its own ceiling with elements left unread. */
+  capped?: boolean;
   viewport: { width: number; height: number };
   scroll: { x: number; y: number };
   deviceScaleFactor: number;

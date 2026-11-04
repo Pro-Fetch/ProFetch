@@ -30,7 +30,9 @@ export interface PageLike {
 }
 
 /** Runs the collector inside one frame and returns what it reported. */
-export type CollectorRunner = (frame: FrameLike) => Promise<{ nodes: RawNode[]; url: string; title: string }>;
+export type CollectorRunner = (
+  frame: FrameLike,
+) => Promise<{ nodes: RawNode[]; url: string; title: string; scanned?: number; capped?: boolean }>;
 
 export interface FrameInfo {
   /**
@@ -64,6 +66,12 @@ export interface FrameCollection {
   unlifted: Array<{ frameId: string; count: number; reason: string }>;
   /** Cumulative offset per frame, or null when a hop on the way to it is unknown. */
   offsets: Map<string, { x: number; y: number } | null>;
+  /**
+   * What the in-page walks say about their own limits. A collector stops at a fixed number of stamped
+   * elements, and a read that reached that ceiling has not seen the rest of the document — which is a fact
+   * about the answer, not a detail of the implementation.
+   */
+  walk: { scanned: number; reported: number; capped: boolean };
   warnings: string[];
 }
 
@@ -237,8 +245,16 @@ export async function collectAllFrames(
   const offsets = resolveOffsets(infos, measured);
   const nodes: RawNode[] = [];
   const unlifted: FrameCollection['unlifted'] = [];
+  let scanned = 0;
+  let reported = 0;
+  let capped = false;
   for (const { info, frame } of infoByIndex) {
     const collected = await runCollector(frame);
+    // Counted before the lift decision below: the walk happened either way, and a frame whose nodes could
+    // not be placed would otherwise vanish from the totals as if it had never been read.
+    scanned += collected.scanned ?? collected.nodes.length;
+    reported += collected.nodes.length;
+    capped = capped || collected.capped === true;
     const offset = offsets.get(info.frameId) ?? null;
     if (collected.nodes.length && offset === null && info.frameId !== TOP_FRAME_ID) {
       unlifted.push({
@@ -262,7 +278,7 @@ export async function collectAllFrames(
     }
   }
 
-  return { frames: infos, hops, nodes, unlifted, offsets, warnings };
+  return { frames: infos, hops, nodes, unlifted, offsets, walk: { scanned, reported, capped }, warnings };
 }
 
 /** A short human-readable account of the frame layer, for a tool answer. */

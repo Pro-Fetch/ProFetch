@@ -15,6 +15,7 @@ import {
   type ElementFilter,
   type ElementSpace,
 } from '../../core/browser-use-elements.js';
+import { MAX_WORDS } from '../../core/browser-use-words.js';
 import { parseRect } from './_shared.js';
 import { optionalStr, bool, num } from '../../core/input.js';
 
@@ -61,7 +62,8 @@ export default defineTool({
       offset: { type: 'number', description: 'Skip this many matched rows first' },
       budget: {
         type: 'number',
-        description: 'Re-read the page keeping up to this many nodes first (0 = use last read)',
+        description:
+          'Re-read the page keeping up to this many nodes first (0 = use last read). This also lifts the in-page element ceiling, which is how a listing of every element on a large page becomes possible',
       },
       with_words: { type: 'boolean', description: 'Count the words measured inside each element (extra page read)' },
       lines: { type: 'boolean', description: 'Return a compact text listing instead of JSON rows' },
@@ -100,7 +102,12 @@ export default defineTool({
         minArea: input.min_area === undefined ? undefined : num(input, 'min_area', 0, 0),
       });
       const wanted = bool(input, 'with_words');
-      const words = wanted ? await countWords(session) : { counts: new Map<string, number>(), failure: '' };
+      // The word pass gets the same generosity as the element walk: a caller asking for 4000 nodes is asking
+      // for a full listing, and counting words out of a 4000-word slice of a 12000-word page would make every
+      // element below the cut report zero words as if that were a fact about the page.
+      const words = wanted
+        ? await countWords(session, Math.max(MAX_WORDS, Math.floor(budget)))
+        : { counts: new Map<string, number>(), failure: '', capped: false };
       const all = elementRows(matched, snapshot, { space }).map((row) =>
         wanted ? { ...row, words: words.counts.get(row.backend_id) ?? 0 } : row,
       );
@@ -147,6 +154,10 @@ export default defineTool({
           scroll: snapshot.scroll,
           reread,
         },
+        // The walk's own ceiling, kept separate from `truncated`: a read whose in-page walk stopped early
+        // can still report no budget loss at all, which is true of the budget and false of the page.
+        walk: snapshot.walk ?? { scanned: snapshot.nodes.length, reported: snapshot.nodes.length, capped: false },
+        ...(wanted ? { words_capped: words.capped } : {}),
         space,
         filter,
         stats,
@@ -157,10 +168,19 @@ export default defineTool({
         snapshot_nodes: snapshot.nodes.length,
         snapshot_truncated: snapshot.truncated,
         rows,
-        note:
+        note: [
           rows.length < all.length
             ? `${all.length - offset - rows.length} matched row(s) are not in this response. Raise offset by ${rows.length} to continue, or narrow with tag/role/region.`
             : 'owns_centre=false means a click at the box centre lands on something else, even when the element is visible.',
+          snapshot.walk?.capped
+            ? `WARNING: the in-page walk stopped at its element ceiling (${snapshot.walk.reported} reported of ${snapshot.walk.scanned} in the document), so this is not every element. Re-read with a larger budget to lift the ceiling, or narrow with region.`
+            : '',
+          wanted && words.capped
+            ? 'The word pass also stopped at its ceiling, so a `words` count on a late element is a floor, not a fact.'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       });
     } catch (error) {
       if (error instanceof SessionError) return fail(error.message);
@@ -176,17 +196,24 @@ export default defineTool({
  * and "the word pass could not run" are different answers, and a caller choosing between a paragraph and an
  * empty container should not be handed the first for the second reason.
  */
-async function countWords(session: BrowserUseSession): Promise<{ counts: Map<string, number>; failure: string }> {
+async function countWords(
+  session: BrowserUseSession,
+  cap = 0,
+): Promise<{ counts: Map<string, number>; failure: string; capped: boolean }> {
   const counts = new Map<string, number>();
   let report;
   try {
-    report = await readWords(session);
+    report = await readWords(session, { cap });
   } catch (error) {
-    return { counts, failure: `the word pass did not run: ${(error as Error).message.slice(0, 160)}` };
+    return { counts, failure: `the word pass did not run: ${(error as Error).message.slice(0, 160)}`, capped: false };
   }
   for (const word of report.words) {
     if (!word.ownerBackendId) continue;
     counts.set(word.ownerBackendId, (counts.get(word.ownerBackendId) ?? 0) + 1);
   }
-  return { counts, failure: report.truncated ? `${report.truncated} word(s) past the cap were not counted` : '' };
+  return {
+    counts,
+    capped: report.truncated > 0,
+    failure: report.truncated ? `${report.truncated} word(s) past the cap were not counted` : '',
+  };
 }
