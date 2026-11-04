@@ -1,3 +1,19 @@
+/**
+ * The map is keyed by caller-controlled names (e.g. `domain:<hostname>`), so without a bound a
+ * long-lived process that touches many distinct keys grows it forever.
+ *
+ * The bound used to be a suggestion: reaching it called `pruneStaleBuckets()`, which only drops buckets idle
+ * for fifteen minutes, so a run that keeps naming new hosts grew the map past the ceiling — measured by an
+ * external audit at 60,000 entries against a stated 50,000. It is now enforced in three steps, cheapest
+ * first, because the steps are not equally lossless: an idle bucket is already refilled, a full bucket
+ * recreates to exactly the same state, and only the last step forgets a bucket that still holds a debt.
+ */
+export const MAX_BUCKETS = 50_000;
+const IDLE_MS = 15 * 60_000;
+
+/** Evict down to 90% rather than one slot under the ceiling, so the sweep is amortised. */
+const EVICT_FLOOR = MAX_BUCKETS - Math.floor(MAX_BUCKETS / 10);
+
 interface Bucket {
   tokens: number;
   last: number;
@@ -8,13 +24,10 @@ interface Bucket {
 }
 const buckets = new Map<string, Bucket>();
 
-/**
- * The map is keyed by caller-controlled names (e.g. `domain:<hostname>`), so without a bound a
- * long-lived process that touches many distinct keys grows it forever. Pruning a bucket idle longer
- * than IDLE_MS is lossless — it is fully refilled by then, and the next access recreates it.
- */
-const MAX_BUCKETS = 50_000;
-const IDLE_MS = 15 * 60_000;
+/** What a bucket holds at `now`, the same refill `take` and the snapshots compute. */
+function refill(b: Bucket, now: number): number {
+  return Math.min(b.limit, b.tokens + ((now - b.last) / b.windowMs) * b.limit);
+}
 
 function pruneStaleBuckets(now: number): void {
   for (const [key, b] of buckets) {
@@ -22,14 +35,37 @@ function pruneStaleBuckets(now: number): void {
   }
 }
 
+function enforceCeiling(now: number): void {
+  if (buckets.size < MAX_BUCKETS) return;
+  pruneStaleBuckets(now);
+  if (buckets.size < EVICT_FLOOR) return;
+  // A bucket that is already full costs nothing to forget: the next access recreates it at full tokens.
+  for (const [key, b] of Array.from(buckets)) {
+    if (buckets.size <= EVICT_FLOOR) return;
+    if (refill(b, now) >= b.limit) buckets.delete(key);
+  }
+  if (buckets.size <= EVICT_FLOOR) return;
+  // Still over: drop least-recently-used. This is the honest cost of a bounded map — a key that was being
+  // limited can have its bucket evicted by churn and regain a full budget on the next call. The ceiling
+  // exists because caller-chosen keys are unbounded, and a server that runs out of memory serves nobody.
+  for (const key of buckets.keys()) {
+    if (buckets.size <= EVICT_FLOOR) return;
+    buckets.delete(key);
+  }
+}
+
 export function take(key: string, limit = 60, windowMs = 60_000): boolean {
   const now = Date.now();
-  if (buckets.size >= MAX_BUCKETS) pruneStaleBuckets(now);
-  const b = buckets.get(key) ?? { tokens: limit, last: now, limit, windowMs };
+  enforceCeiling(now);
+  const existing = buckets.get(key);
+  const b = existing ?? { tokens: limit, last: now, limit, windowMs };
   b.limit = limit;
   b.windowMs = windowMs;
-  b.tokens = Math.min(b.limit, b.tokens + ((now - b.last) / b.windowMs) * b.limit);
+  b.tokens = refill(b, now);
   b.last = now;
+  // Re-insert rather than mutate in place: `Map` keeps insertion order, and an evicted key must be the one
+  // least recently *used*, not the one created longest ago.
+  buckets.delete(key);
   if (b.tokens < 1) {
     buckets.set(key, b);
     return false;
@@ -52,8 +88,7 @@ export function bucketStatus(key: string, limit = 60, windowMs = 60_000): { toke
   const now = Date.now();
   const b = buckets.get(key);
   if (!b) return { tokens: limit, limit };
-  const tokens = Math.min(b.limit, b.tokens + ((now - b.last) / b.windowMs) * b.limit);
-  return { tokens: Math.floor(tokens), limit: b.limit };
+  return { tokens: Math.floor(refill(b, now)), limit: b.limit };
 }
 
 /**
@@ -66,8 +101,7 @@ export function bucketsSnapshot(): Record<string, number> {
   const now = Date.now();
   const out: Record<string, number> = {};
   for (const [key, b] of buckets) {
-    const tokens = Math.min(b.limit, b.tokens + ((now - b.last) / b.windowMs) * b.limit);
-    out[key] = Math.floor(tokens);
+    out[key] = Math.floor(refill(b, now));
   }
   return out;
 }
