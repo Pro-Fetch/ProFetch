@@ -232,6 +232,34 @@ export interface HttpResult {
    * input repeated back in the shape of an answer.
    */
   url?: string;
+  /**
+   * Whether this answer may be stored at all, decided once by `mayStoreHttpAnswer`.
+   *
+   * `fetchUrl` keeps its own clipped-markdown cache and had no idea about status, `cache-control` or
+   * `set-cookie`, so the two layers did not share a policy: an error page or a cookie-bearing response was
+   * stored upstairs for an hour and handed back later as `cached: true`. The answer now carries its own
+   * verdict, so a second cache cannot invent a weaker one.
+   */
+  storeAllowed: boolean;
+}
+
+/**
+ * The single rule about what may be stored: a successful, complete answer that the server did not mark
+ * private and that carries no session cookie.
+ */
+export function mayStoreHttpAnswer(
+  status: number,
+  cacheControl: string,
+  hasSetCookie: boolean,
+  truncated: boolean,
+): boolean {
+  return (
+    status >= 200 &&
+    status < 400 &&
+    !truncated &&
+    !/no-store|private|no-cache/i.test(cacheControl) &&
+    !hasSetCookie
+  );
 }
 
 export interface BinaryResult {
@@ -414,6 +442,9 @@ export async function fetchWithOptions(url: string, opts: FetchOptions = {}): Pr
       try {
         const payload = JSON.parse(cached.value) as HttpResult;
         if (payload && typeof payload.status === 'number' && typeof payload.text === 'string') {
+          // An entry written before `storeAllowed` existed carries no verdict. Serve it, but say so:
+          // `undefined` in a field typed `boolean` is the kind of gap a later refactor reads as true.
+          payload.storeAllowed = payload.storeAllowed === true;
           if (cached.expiresAt >= Date.now()) return payload;
           stalePayload = payload;
           const etag = payload.headers?.etag;
@@ -463,7 +494,14 @@ export async function fetchWithOptions(url: string, opts: FetchOptions = {}): Pr
         };
         const cacheControl304 = res.headers.get('cache-control') ?? '';
         const ttl = httpCacheTtl(res, opts.cacheTtlMs);
-        if (ttl > 0 && !/no-store|private|no-cache/i.test(cacheControl304)) {
+        const storeAllowed304 = mayStoreHttpAnswer(
+          refreshed.status,
+          cacheControl304,
+          res.headers.has('set-cookie'),
+          refreshed.truncated,
+        );
+        refreshed.storeAllowed = storeAllowed304;
+        if (ttl > 0 && storeAllowed304) {
           // Caching is a side effect, not the purpose of the call, so read-only mode skips it.
           //
           // This block was once written as a bare `if (ttl > 0 && ...) if (!canSkipSideEffect()) ...; else
@@ -530,6 +568,8 @@ export async function fetchWithOptions(url: string, opts: FetchOptions = {}): Pr
         }
       }
       text += decoder.decode();
+      const cacheControl = res.headers.get('cache-control') ?? '';
+      const ttl = httpCacheTtl(res, opts.cacheTtlMs);
       const result: HttpResult = {
         status: res.status,
         contentType: res.headers.get('content-type') ?? '',
@@ -538,18 +578,9 @@ export async function fetchWithOptions(url: string, opts: FetchOptions = {}): Pr
         truncated,
         // Where the answer actually came from, after redirects.
         url: finalUrl,
+        storeAllowed: mayStoreHttpAnswer(res.status, cacheControl, res.headers.has('set-cookie'), truncated),
       };
-      const cacheControl = res.headers.get('cache-control') ?? '';
-      const ttl = httpCacheTtl(res, opts.cacheTtlMs);
-      if (
-        cacheable &&
-        ttl > 0 &&
-        !result.truncated &&
-        res.status >= 200 &&
-        res.status < 400 &&
-        !/no-store|private|no-cache/i.test(cacheControl) &&
-        !res.headers.has('set-cookie')
-      ) {
+      if (cacheable && ttl > 0 && result.storeAllowed) {
         // Braces, not a bare `if`: the same if/else binding mistake as the 304 path above is not worth
         // repeating at the second call site.
         if (!canSkipSideEffect()) {

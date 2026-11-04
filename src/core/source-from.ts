@@ -34,6 +34,9 @@ function fromInline(text: string, contentType = 'text/html'): HttpResult {
     headers: { 'content-type': contentType },
     text,
     truncated: false,
+    // Inline content was not fetched: no server said anything about storing it, so no downstream cache
+    // should treat this as a network answer it is allowed to keep.
+    storeAllowed: false,
   };
 }
 

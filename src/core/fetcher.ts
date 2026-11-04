@@ -37,8 +37,23 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
   if (opts.useCache !== false) {
     const hit = cache.get(key);
     if (hit) {
-      const parsed = JSON.parse(hit.value) as Omit<FetchResult, 'cached'>;
-      return { ...parsed, cached: true };
+      // The value under this key is not guaranteed to be a stored document. `pro_fetch_cache_put` writes an
+      // arbitrary string under an arbitrary key and this key format is guessable, so a foreign value used to
+      // reach `JSON.parse` and throw a raw SyntaxError at the caller — an internal fault wearing the shape of
+      // a tool result. A bad entry is dropped and the document is fetched again.
+      let parsed: Omit<FetchResult, 'cached'> | null = null;
+      try {
+        parsed = JSON.parse(hit.value) as Omit<FetchResult, 'cached'>;
+      } catch {
+        parsed = null;
+      }
+      if (parsed && typeof parsed.status === 'number' && typeof parsed.markdown === 'string') {
+        return { ...parsed, cached: true };
+      }
+      // A delete is a side effect, and read-only mode refuses one. That refusal must not become a crash on
+      // somebody else's bad entry: the document is fetched fresh either way, and the stale value simply ages
+      // out on its own ttl.
+      if (!canSkipSideEffect()) cache.delete(key);
     }
   }
   if (!take('domain:' + url.hostname)) {
@@ -61,11 +76,11 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
     cached: false,
     truncated: res.truncated,
   };
-  // Keshlash - yon ta s ir, maqsad emas. `fetchUrl` har javobni keshlaydi, demak read-only
-  // rejimida ko pchtool yozuv qiladi. Keshlashni o tkazib yuborish to g ri: hujjat qaytadi,
-  // keyingi so rov kesh bo lmaydi, chaqiruvchi uchun farq yo q. Aks holda read-only rejimi
-  // butun fetch oilasini ishdan chiqarar edi.
-  if (!canSkipSideEffect()) cache.put(key, JSON.stringify(result), 3_600_000);
+  // Caching is a side effect, not the purpose of the call: read-only mode skips the write, the document still
+  // comes back, and the only cost is that the next call is not served from memory. Storing is also no longer
+  // unconditional — an answer the server marked private, an error page, a truncated body or a response
+  // carrying a session cookie is not a document to hand back an hour later as `cached: true`.
+  if (!canSkipSideEffect() && res.storeAllowed) cache.put(key, JSON.stringify(result), 3_600_000);
   return result;
 }
 
