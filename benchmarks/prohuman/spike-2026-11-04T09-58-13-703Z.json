@@ -1,0 +1,36 @@
+{
+  "target": "https://example.com/",
+  "session": "bu-ed47db1e",
+  "counts": {
+    "events": 109,
+    "keydown": 22,
+    "wheel": 4
+  },
+  "trustedRatio": 1,
+  "document1Path": {
+    "pointerEvents": 39,
+    "px": 588,
+    "curvatureMeanRad": 0.04237666868504292,
+    "interEventCv": 0.4958961447466033,
+    "bow": 95
+  },
+  "document2AfterClick": {
+    "pointerEvents": 22,
+    "keydown": 22,
+    "wheel": 4
+  },
+  "stillnessMaxMs": 4169.199999988079,
+  "keyHoldMs": {
+    "mean": 88.0954545445063,
+    "sd": 33.07635075318006,
+    "cv": 0.37546035631690516,
+    "p50": 99.29999999701977,
+    "p95": 132.09999999403954,
+    "max": 132.40000000596046
+  },
+  "residentLoop": {
+    "eventsWhileIdle": 22,
+    "fidgetsSent": 22
+  },
+  "sentSamples": 35
+}
