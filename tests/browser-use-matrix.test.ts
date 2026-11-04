@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { renderEngineSupportMatrix } from '../src/core/browser-use-matrix.js';
 import { ALL_CAPABILITIES, CAPABILITY_PROFILES } from '../src/core/browser-use-capabilities.js';
-import { VERIFIED } from '../src/core/browser-use-verified.js';
+import { EVIDENCE_OS, VERIFIED } from '../src/core/browser-use-verified.js';
 
 /**
  * The support matrix is the document people will quote in issues, and this repository has already
@@ -15,7 +15,24 @@ describe('the support matrix cannot drift from the profiles', () => {
   const committed = readFileSync('docs/browser-use/ENGINE_SUPPORT_MATRIX.md', 'utf8');
 
   it('matches the renderer byte for byte', () => {
-    expect(committed).toBe(renderEngineSupportMatrix());
+    // The evidence host, not the machine running this test. A committed document about a run that
+    // happened on Windows cannot be reproducible from a Linux checkout's OS, and an audit on one proved
+    // it was not: every `Y*` became `p` and this assertion failed with no code change.
+    expect(committed).toBe(renderEngineSupportMatrix(EVIDENCE_OS));
+  });
+
+  it('names the host its verified cells belong to, instead of saying "this machine"', () => {
+    expect(committed).toContain(`verified on ${EVIDENCE_OS}`);
+    expect(committed).not.toMatch(/verified on this machine/);
+    expect(committed).toMatch(/not a\s*\n?claim about the machine reading this file/);
+  });
+
+  it('is a different document for a host that was never driven', () => {
+    // The pinning above only means something if the OS really changes the answer. On Linux nothing has
+    // been probed, so the verified cells must disappear — the claim is about a run, not about a file.
+    const elsewhere = renderEngineSupportMatrix('linux');
+    expect(elsewhere).not.toBe(committed);
+    expect(elsewhere).toContain('verified on linux');
   });
 
   it('has a row for every product and a column entry for every capability', () => {

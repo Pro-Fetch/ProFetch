@@ -29,6 +29,13 @@ export const RUN_EVIDENCE = 'benchmarks/browser-use/artifacts/' + ARTIFACT;
 const RUN_DATE = '2026-11-02';
 const RUN_OS: OperatingSystem = 'windows';
 
+/**
+ * The host every verified fact below was gathered on. Exported because the committed support matrix is a
+ * statement about *that* host: rendering it with the reading machine's OS would rewrite `Y*` into `p` on a
+ * Linux checkout, and the committed document could then never be reproduced by its own generator.
+ */
+export const EVIDENCE_OS: OperatingSystem = RUN_OS;
+
 /** The products driven in this run, with the versions the registry read from the binaries. */
 const PRODUCTS: Array<{ product: string; browserVersion: string }> = [
   { product: 'chrome', browserVersion: '156.0.8078.74' },
