@@ -13,6 +13,7 @@ import { describe, it, expect } from 'vitest';
 import {
   assertStableSafeUrl,
   isPrivateIp,
+  lookupWithRetry,
   resolveSafeUrl,
   UrlSecurityError,
   type DnsLookup,
@@ -124,5 +125,54 @@ describe('two lookups that disagree', () => {
     // link-local address that the guard never asks for.
     await expect(assertStableSafeUrl('https://late.example/', { lookup: resolver, gapMs: 0 })).resolves.toBeDefined();
     expect(calls).toBe(2);
+  });
+});
+
+describe('a resolver that is briefly deaf', () => {
+  // Measured on this machine: the browser session open refused en.wikipedia.org on a resolver timeout while
+  // the same URL answered 200 through curl seconds later. The guard treated a network hiccup as a verdict.
+  it('retries a thrown lookup once and takes the answer', async () => {
+    let calls = 0;
+    const flaky: DnsLookup = async () => {
+      calls += 1;
+      if (calls === 1) throw Object.assign(new Error('EAI_AGAIN en.example'), { code: 'EAI_AGAIN' });
+      return [{ address: PUBLIC, family: 4 }];
+    };
+    const got = await lookupWithRetry(flaky, 'en.example', { pauseMs: 0 });
+    expect(calls).toBe(2);
+    expect(got.map((entry) => entry.address)).toEqual([PUBLIC]);
+  });
+
+  it('does not ask twice when the resolver answered, however briefly', async () => {
+    let calls = 0;
+    const resolver: DnsLookup = async () => {
+      calls += 1;
+      return [{ address: METADATA, family: 4 }];
+    };
+    // The answer is a link-local address, but retrying is not this function's decision to make: it returns
+    // what the resolver said and the policy above refuses it. Retrying an answer would hide an alternation.
+    const got = await lookupWithRetry(resolver, 'rebind.example', { pauseMs: 0 });
+    expect(got.map((entry) => entry.address)).toEqual([METADATA]);
+    expect(calls).toBe(1);
+  });
+
+  it('names both raw failures when the resolver stays deaf', async () => {
+    const deaf: DnsLookup = async () => {
+      throw Object.assign(new Error('queryTimeout'), { code: 'EAI_TIMEOUT' });
+    };
+    await expect(lookupWithRetry(deaf, 'en.example', { pauseMs: 0 })).rejects.toThrow(
+      /en\.example: EAI_TIMEOUT queryTimeout, retry: EAI_TIMEOUT queryTimeout/,
+    );
+  });
+
+  it('carries the resolver words into the refusal a caller sees', async () => {
+    const error = await resolveSafeUrl('https://deaf.example/', {
+      lookup: async () => {
+        throw Object.assign(new Error('queryTimeout'), { code: 'EAI_TIMEOUT' });
+      },
+    }).catch((thrown) => thrown as UrlSecurityError);
+    expect(error).toBeInstanceOf(UrlSecurityError);
+    expect(error.message).toMatch(/EAI_TIMEOUT/);
+    expect(error.retryable).toBe(true);
   });
 });

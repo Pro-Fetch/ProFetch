@@ -76,8 +76,50 @@ export function describeUrl(rawUrl: string): string {
  */
 export type DnsLookup = (host: string) => Promise<Array<{ address: string; family: number }>>;
 
-const systemLookup: DnsLookup = async (host) =>
+const plainLookup: DnsLookup = async (host) =>
   (await lookup(host, { all: true })) as Array<{ address: string; family: number }>;
+
+/** What a thrown error is called, code first: `EAI_TIMEOUT queryTimeout`. */
+function errorIdentity(value: unknown): string {
+  const error = value as { code?: string; message?: string };
+  const code = error?.code ? String(error.code) : '';
+  const message = error?.message ? String(error.message) : String(value);
+  return code && !message.includes(code) ? `${code} ${message}` : message;
+}
+
+/**
+ * Run a resolver once, and again after a short pause if it threw.
+ *
+ * Windows resolvers go briefly deaf in bursts: measured on this machine, `lookup` failed for
+ * en.wikipedia.org (the browser session open refused the page) while the same URL answered 200 through curl
+ * seconds later. A resolver that is deaf for a moment is a network fact, not a security signal — refusing a
+ * public page because of it is a false block, and a false block on a guard is the failure mode that makes the
+ * whole tool look broken.
+ *
+ * Only a *thrown* lookup is retried. An answer is an answer: `assertStableSafeUrl` still performs two
+ * independent resolutions and compares them, so a resolver that alternates between a public and a private
+ * address is caught exactly as before.
+ */
+export async function lookupWithRetry(
+  resolve: DnsLookup,
+  host: string,
+  options: { pauseMs?: number } = {},
+): Promise<Array<{ address: string; family: number }>> {
+  let firstError: unknown;
+  try {
+    return await resolve(host);
+  } catch (error) {
+    firstError = error;
+  }
+  await new Promise((r) => setTimeout(r, options.pauseMs ?? 200));
+  try {
+    return await resolve(host);
+  } catch (error) {
+    throw new Error(`${host}: ${errorIdentity(firstError)}, retry: ${errorIdentity(error)}`);
+  }
+}
+
+const systemLookup: DnsLookup = (host) => lookupWithRetry(plainLookup, host);
 
 export async function resolveSafeUrl(
   rawUrl: string,
@@ -115,8 +157,12 @@ export async function resolveSafeUrl(
   let resolved: Array<{ address: string; family: number }>;
   try {
     resolved = await (options.lookup ?? systemLookup)(host);
-  } catch {
-    throw new UrlSecurityError('DNS host manziliga resolve bo‘lmadi: ' + host, 'DNS_ERROR', true);
+  } catch (error) {
+    throw new UrlSecurityError(
+      'DNS host manziliga resolve bo‘lmadi: ' + host + ' — ' + errorIdentity(error),
+      'DNS_ERROR',
+      true,
+    );
   }
   if (!resolved.length) throw new UrlSecurityError('DNS host uchun manzil qaytarmadi: ' + host, 'DNS_ERROR', true);
   for (const r of resolved) {

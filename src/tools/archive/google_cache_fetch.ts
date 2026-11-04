@@ -29,9 +29,14 @@ export default defineTool({
       : 8000;
     const googleCacheUrl =
       'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(source.toString());
+    // Why the primary was skipped, kept instead of swallowed. Google's web cache is retired, so a fallback is
+    // the normal answer — but "normal" is not "one reason": a refused connection, a 403 and a resolver that was
+    // briefly deaf are three different facts, and a caller that cannot tell them apart cannot tell a dead
+    // service from a broken network.
+    let googleAttempt: { ok: false; reason: string; status?: number } | null = null;
     try {
       const cached = await fetchUrl(googleCacheUrl, { maxTokens, useCache: true, timeoutMs: 15_000 });
-      if (cached.status < 400 && !/cache unavailable|page not found/i.test(cached.markdown))
+      if (cached.status < 400 && !/cache unavailable|page not found/i.test(cached.markdown)) {
         return result(
           JSON.stringify(
             {
@@ -45,12 +50,24 @@ export default defineTool({
             2,
           ),
         );
-    } catch {
-      /* Google Web Cache has been retired; try Wayback below. */
+      }
+      googleAttempt = {
+        ok: false,
+        reason: /cache unavailable|page not found/i.test(cached.markdown)
+          ? 'Google answered, but the page it served says the cache entry is gone'
+          : 'Google answered an error status',
+        status: cached.status,
+      };
+    } catch (error) {
+      googleAttempt = { ok: false, reason: String((error as Error).message || error).slice(0, 200) };
     }
     const waybackUrl = `https://web.archive.org/web/2/${encodeURIComponent(source.toString())}`;
     const archived = await fetchUrl(waybackUrl, { maxTokens, useCache: true, timeoutMs: 30_000 });
-    if (archived.status >= 400) throw new Error('Google cache va Wayback snapshot topilmadi.');
+    if (archived.status >= 400) {
+      throw new Error(
+        'Google cache va Wayback snapshot topilmadi.' + (googleAttempt ? ` Google: ${googleAttempt.reason}` : ''),
+      );
+    }
     return result(
       JSON.stringify(
         {
@@ -58,6 +75,7 @@ export default defineTool({
           provider: 'Internet Archive fallback',
           status: archived.status,
           archiveUrl: archived.url,
+          ...(googleAttempt ? { google_attempt: googleAttempt } : {}),
           markdown: archived.markdown,
         },
         null,

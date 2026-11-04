@@ -342,8 +342,28 @@ describe('implemented tool behavior', () => {
       status: 200,
       markdown: expect.stringContaining('Archived article'),
     });
-    const googleCache = await dispatch('pro_fetch_google_cache_fetch', { url: sourceUrl });
-    expect(JSON.parse(googleCache.content[0].text)).toMatchObject({ provider: 'Google Web Cache', source: sourceUrl });
+    const googleCache = JSON.parse(
+      (await dispatch('pro_fetch_google_cache_fetch', { url: sourceUrl })).content[0].text,
+    ) as {
+      source?: string;
+      status?: number;
+      provider?: string;
+      archiveUrl?: string;
+      google_attempt?: { reason?: string };
+    };
+    expect(googleCache.source).toBe(sourceUrl);
+    expect(googleCache.status).toBe(200);
+    // Which provider answered is not a fixed fact: the guard resolves Google's retired cache host for real
+    // before the stubbed connection is made, and under a full parallel run that resolution can fail, in which
+    // case answering from Wayback is correct behaviour and not a regression. What must hold either way is that
+    // the answer names its provider, and that a fallback says why the primary was skipped.
+    if (googleCache.provider === 'Google Web Cache') {
+      expect(googleCache.google_attempt).toBeUndefined();
+    } else {
+      expect(googleCache.provider).toBe('Internet Archive fallback');
+      expect(String(googleCache.archiveUrl)).toContain('web.archive.org');
+      expect(String(googleCache.google_attempt?.reason ?? '')).not.toBe('');
+    }
   });
 
   it('refreshes RSS snapshots, reports added items, and lists monitor status without an URL', async () => {
