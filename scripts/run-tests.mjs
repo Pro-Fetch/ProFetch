@@ -107,6 +107,11 @@ function syncManifestCounts(reportedFiles, reportedTests) {
  * exactly once, and if it does not, the file is left untouched and the reason is printed. Prose editing
  * by loose regex damaged this README five times before; a delimited badge with an exact-match
  * requirement is a different operation, and the guard is what makes it one.
+ *
+ * Returns the refusals, because a refusal is not cosmetic. An external audit found the repository
+ * committed as `manifest testCount 1571, README 1569` — a green run had updated the manifest and printed
+ * `qo‘lda` about the badge as a note, and the two drift guards (`verify:static`, `verify:registry`) then
+ * failed on a fresh clone with no code change. A number the guards compare cannot be left to a note.
  */
 function syncReadmeBadges(reportedFiles, reportedTests) {
   const edits = [
@@ -141,12 +146,14 @@ function syncReadmeBadges(reportedFiles, reportedTests) {
   ];
 
   const byFile = new Map();
+  const refused = [];
   for (const edit of edits) {
     const entry = byFile.get(edit.file) ?? { text: null, applied: [], refused: [] };
     if (entry.text === null) entry.text = readFileSync(path.join(root, edit.file), 'utf8');
     const matches = entry.text.match(new RegExp(edit.pattern.source, 'g')) ?? [];
     if (matches.length !== 1) {
       entry.refused.push(`${edit.what}: ${matches.length} ta moslik (aniq 1 ta bo‘lishi kerak edi)`);
+      refused.push(`${edit.file} — ${edit.what}: ${matches.length} ta moslik, aniq 1 ta kerak edi`);
     } else {
       entry.text = entry.text.replace(edit.pattern, edit.replacement);
       entry.applied.push(edit.what);
@@ -161,6 +168,7 @@ function syncReadmeBadges(reportedFiles, reportedTests) {
     if (entry.refused.length > 0) summary.push(`qo‘lda: ${entry.refused.join('; ')}`);
     console.warn(`note: ${file} - ${summary.join(', ')}`);
   }
+  return refused;
 }
 
 for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -181,7 +189,19 @@ for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       // Measured: the manifest reached 758, the README stayed at 741, and `verify:registry` kept
       // reporting the disagreement across repeated runs because the code that would have fixed it had
       // already returned.
-      syncReadmeBadges(result.reportedFiles, result.reportedTests);
+      const refused = syncReadmeBadges(result.reportedFiles, result.reportedTests);
+      if (refused.length > 0) {
+        // The suite is green and the numbers are not. Printing a note and exiting 0 is how a repository
+        // ends up committed as `manifest 1571, README 1569`: the run that measured it looked successful,
+        // and the two drift guards failed the next person to clone it.
+        console.error('TEST_RUN_FAIL');
+        console.error(`- barcha test o‘tdi (${result.reportedTests}), lekin hisoblar quyidagi joylarga yozilmadi:`);
+        for (const line of refused) console.error('  - ' + line);
+        console.error(
+          '- Bu fayllardagi sonlar manifest bilan solishtiriladi; qo‘lda to‘g‘rilang yoki patternni yangilang.',
+        );
+        process.exit(1);
+      }
     }
     if (result.nativeAbort) {
       console.warn('note: a native teardown abort occurred after every test had already passed.');
