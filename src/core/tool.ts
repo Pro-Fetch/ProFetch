@@ -3,6 +3,7 @@ import { log } from './log.js';
 import { executeTool } from './execution-engine.js';
 import { deriveAnnotations } from './tool-classification.js';
 import { withCurrentTool } from './tool-context.js';
+import { dispatchGuardRefusal } from './dispatch-guard.js';
 
 const NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/; // MCP spec limiti: 64 belgi
 const registry = new Map<string, ToolDefinition>();
@@ -1107,6 +1108,23 @@ export async function dispatch(name: string, input: Record<string, unknown> = {}
   const tool = registry.get(name);
   if (!tool) {
     return { content: [{ type: 'text', text: 'Nomalum tool: ' + name }], isError: true };
+  }
+  // Composite tools dispatch other tools; the gateway's policy therefore has to be checked here, not
+  // only at its own front door. Outside a gateway context this returns null and nothing changes.
+  const blocked = dispatchGuardRefusal(tool);
+  if (blocked !== null) {
+    const message = `Darvoza siyosati bu tool'ni to'sdi: ${blocked}`;
+    return {
+      content: [{ type: 'text', text: message }],
+      isError: true,
+      structuredContent: {
+        ok: false,
+        data: null,
+        error: { code: 'GATEWAY_POLICY', message, retryable: false },
+        metadata: { refusal: blocked, gated: true },
+      },
+      _meta: { 'pro-fetch': { refusal: blocked, gated: true } },
+    };
   }
   usage.set(name, (usage.get(name) ?? 0) + 1);
   try {
