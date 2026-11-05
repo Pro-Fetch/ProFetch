@@ -147,6 +147,21 @@ export function dispatcherFor(
   return agent;
 }
 
+/**
+ * Release every pooled dispatcher.
+ *
+ * A pooled `Agent` is not a passive object: it holds keep-alive sockets with live timers, and a process
+ * torn down while one of those fires crashes on Windows — observed here as a vitest worker dying inside
+ * Node's `RemoveEnvironmentCleanupHook` assertion, with no test failure to point at. One stuck socket must
+ * not block a shutdown, so each close is swallowed individually.
+ */
+export async function closeAllDispatchers(): Promise<void> {
+  const pooled = [...directAgents.values(), ...proxyAgents.values()];
+  directAgents.clear();
+  proxyAgents.clear();
+  await Promise.allSettled(pooled.map((agent) => agent.close()));
+}
+
 function boundedOption(value: number, fallback: number, min: number, max: number): number {
   return Number.isFinite(value) ? Math.max(min, Math.min(Math.floor(value), max)) : fallback;
 }
