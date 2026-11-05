@@ -1,7 +1,8 @@
 {
-  "total": 717,
+  "total": 737,
   "categories": {
     "github": 49,
+    "browser_use": 44,
     "browser": 41,
     "convert": 30,
     "collaboration": 28,
@@ -16,6 +17,7 @@
     "git": 23,
     "crawl": 22,
     "search": 20,
+    "prohuman": 20,
     "http": 19,
     "knowledge": 18,
     "productivity": 18,
@@ -42,14 +44,13 @@
     "geo_data": 4,
     "chess": 4,
     "color": 3,
-    "phonetics": 3,
-    "browser_use": 44
+    "phonetics": 3
   },
   "profiles": {
     "smart": 12,
     "minimal": 74,
     "standard": 179,
-    "full": 717
+    "full": 737
   },
   "smartComposites": [
     "pro_capability_call",
@@ -65,8 +66,8 @@
     "pro_data_pipeline",
     "pro_synthesize"
   ],
-  "testFiles": 93,
-  "testCount": 1661,
+  "testFiles": 99,
+  "testCount": 1741,
   "coverageComposites": {
     "pro_workspace_ops": {
       "categories": [
@@ -87,6 +88,6 @@
       "purpose": "One call for hosted-provider operations across the four MAX packs that had no composite."
     }
   },
-  "full": 717,
-  "categoryCount": 43
+  "full": 737,
+  "categoryCount": 44
 }

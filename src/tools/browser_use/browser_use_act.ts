@@ -10,6 +10,8 @@ import {
 } from '../../core/browser-use-actions.js';
 import type { Snapshot } from '../../core/browser-use-perception.js';
 import { requireStr, optionalStr, bool } from '../../core/input.js';
+import { acquirePointer, pointerHolder, releasePointer } from '../../core/prohuman-lock.js';
+import { stop } from '../../core/prohuman-driver.js';
 
 /**
  * pro_browser_use_act — Preflight, act, and verify against the page
@@ -37,6 +39,11 @@ export default defineTool({
       identity: { type: 'string', description: 'Identity from the last snapshot or outline' },
       backend_id: { type: 'string', description: 'Node id from the same read' },
       token: { type: 'string', description: 'Lifetime token from the same read (recommended)' },
+      pause_driver: {
+        type: 'boolean',
+        description:
+          'Take the cursor from a ProHuman driver. It stops that driver rather than pausing it: resuming would need a state it no longer has, and a cursor handed back to a loop that kept running would move under whatever this action reads',
+      },
       value: {
         type: 'string',
         description: 'Text for type, key for press, option for select; "true"/"false" for check',
@@ -54,6 +61,23 @@ export default defineTool({
     } catch (error) {
       if (error instanceof SessionError) return fail(error.message);
       throw error;
+    }
+    // A ProHuman driver owns the cursor while it runs. Two writers on one pointer interleave: the path is
+    // neither the driver's plan nor the caller's click, and every measurement after it describes a
+    // collision. `pause_driver` is the caller's way of saying "take over" — it stops the driver rather
+    // than sneaking an action in beside it.
+    const holder = pointerHolder(session.id);
+    if (holder?.kind === 'driver' && !bool(input, 'pause_driver', false)) {
+      return fail(
+        `the cursor belongs to ProHuman driver "${holder.id}" — pass pause_driver=true to take it over, or stop the driver first`,
+      );
+    }
+    const actionId = `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    if (holder?.kind === 'driver') {
+      // Yielding is a handover, not a negotiation: the driver is stopped first, and stopping it releases
+      // its lease. Asking a live lease for permission would refuse the very call that asked to take over.
+      stop(holder.id, `yielded to pro_browser_use_act (${actionId})`);
+      acquirePointer(session.id, { kind: 'action', id: actionId });
     }
     const kind = requireStr(input, 'action') as Action['kind'];
     const raw = optionalStr(input, 'value');
@@ -118,6 +142,9 @@ export default defineTool({
       const afterResult = await refresh(session, {});
       final = withVerification(outcome, verifyAction(action, before, afterResult.snapshot, action.target.identity));
     }
+    // The driver stays stopped: resuming it would need a state it no longer has, and a cursor handed back
+    // to a loop that kept running during the action would move under whatever the action read.
+    if (holder?.kind === 'driver') releasePointer(session.id, actionId);
     return jsonBlock(final.status, {
       ok: final.status === 'SUCCEEDED_VERIFIED' || final.status === 'EXECUTED_UNVERIFIED',
       status: final.status,

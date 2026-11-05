@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 713 ta tool · 43 ta kategoriya · smart=12, minimal=74, standard=179, full=713
+**Jami:** 737 ta tool · 44 ta kategoriya · smart=12, minimal=74, standard=179, full=737
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -14,8 +14,8 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | Kategoriya | Tool | Nima bor |
 |---|---:|---|
 | `github` | 49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories |
+| `browser_use` | 44 | — |
 | `browser` | 41 | Playwright automation: navigate, click, fill, extract, tabs, cookies |
-| `browser_use` | 40 | — |
 | `convert` | 30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc. |
 | `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
 | `data` | 26 | Load, profile, query, join, transform datasets (tables) |
@@ -28,6 +28,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `security` | 24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups |
 | `git` | 23 | Local git: status, diff, log, blame, branch operations |
 | `crawl` | 22 | Site crawl, sitemap/robots, link graph, site explain |
+| `prohuman` | 20 | — |
 | `search` | 20 | Web, news, image, academic & vertical search (Serper/Brave/DDG) |
 | `http` | 19 | HTTP client verbs, headers, retries, multipart, SSE/websocket |
 | `knowledge` | 18 | Local knowledge store / embeddings / retrieval |
@@ -113,6 +114,53 @@ _GitHub API: repos, code, issues, PRs, releases, actions, advisories_
 - `pro_pr_review` `S ▸` — Review one pull request end to end: description, diff, changed files, checks, reviews, inline comments and issue timeline in a single call.
 - `pro_repo_audit` `S ▸` — Full GitHub repository audit in one call: metadata, README, directory structure, languages, license, contributors, commit activity, open issues and pull requests, releases, topics, CI status and security advisories. Use this instead of calling a dozen GitHub tools by hand.
 
+## browser_use (44)
+
+- `pro_browser_use_act` `  ·` — Perform one action on an element the session has reported: click, type, press, check, select, hover, focus or scroll. Every action is preflighted (stale identity, covered element, wrong control kind and destructive labels are refused before anything runs) and then verified by re-reading the page.
+- `pro_browser_use_action_preflight` `  ·` — Run the action policy against a node list the caller supplies: does the identity resolve, is the element reachable, does this control take this value, and is the label one this engine will act on without a human? Answers with the reason and the point it would use.
+- `pro_browser_use_browsers_attach_validate` `  ·` — Check a native-attachment endpoint against this project’s policy before connecting: loopback is allowed, a private address needs an explicit opt-in, and a public host is never accepted. Returns the parsed host and port.
+- `pro_browser_use_browsers_detect` `  ·` — Installed browsers on this host: product, engine, version, protocols and the executable path each was found at. Reports "not found" per product rather than a shorter list.
+- `pro_browser_use_browsers_launch_plan` `  ·` — The exact executable, profile directory, arguments and warnings a product would be started with — inspected before anything runs, so a wrong flag is found here rather than in a crashed browser.
+- `pro_browser_use_browsers_select` `  ·` — Pick an installed browser for a task by required capabilities and connection mode. Refuses a browser that cannot do the job and says, per capability, why — it never substitutes a similar product.
+- `pro_browser_use_capabilities_check` `  ·` — Per-capability answer for one product: status, evidence class, the protocol it goes over, and the reason. UNKNOWN is a no — an unread specification is not a promise.
+- `pro_browser_use_capabilities_matrix` `  ·` — Render the support matrix: every product against every capability, with the glyph legend. `Y*` means this host ran it, `p` means read from a specification — the difference is the point of the table.
+- `pro_browser_use_capabilities_verified` `  ·` — The verified-facts overlay: which capability rows were run on a real browser, on which OS and version, and the probe artifact and step that prove each one. Rows only read from a specification are excluded by definition.
+- `pro_browser_use_coords_convert` `  ·` — Convert an element rect between CSS viewport, CSS page, device pixels and screenshot pixels, and lift it out of a frame when the offset is known. Use it before clicking by coordinate or before cropping a screenshot.
+- `pro_browser_use_coverage` `  ·` — The coverage ledger for a session: which scroll bands have been seen edge to edge, which frames were read or never produced a node, what the budgets dropped, and what remains unknown. An unread page is not a clean page.
+- `pro_browser_use_diff_lists` `  ·` — Compare two node lists by identity and report added, removed, moved and relabelled elements, with counts. Useful to diff a saved before/after pair without a live session.
+- `pro_browser_use_download` `  ·` — Start a download from the session — either by clicking an element the session reported (preflighted by the same policy as browser_use_act) or by asking the page to fetch a direct URL — then save it and report the suggested filename, source URL, byte count and sha256 of what actually landed. Without save_path the file goes into the session profile and is deleted when the session closes.
+- `pro_browser_use_element_check` `  ·` — Resolve a stored identity against the session’s current model: FRESH, MOVED, CHANGED, GONE, REPLACED, ID_RECYCLED or NAVIGATED, with the reason and — for a relabelled element — the identity to use instead.
+- `pro_browser_use_elements` `  ·` — List every element in the session with its box, centre point, depth and identifiers (identity, node id, lifetime token) in a chosen coordinate space. Filters: all / visible / interactable / interactive / text, tag, role, name, region, depth, minimum area. This is the tool for "what is at these coordinates" and "give me the box of every element"; the outline stays the tool for choosing what to click.
+- `pro_browser_use_evaluate` `  ·` — Evaluate a JavaScript expression inside a session page and return the JSON result. Refused unless PRO_FETCH_ALLOW_JS is set: arbitrary script in an authenticated browser session can read tokens, submit forms and exfiltrate, which is a different risk class from every other tool here.
+- `pro_browser_use_extract` `  ·` — Turn the session’s last read into records: repeated groups become rows with their member labels, tables become rows of cells, forms become named fields with current values. No new read of the page, no guess about what the data means.
+- `pro_browser_use_frames` `  ·` — The frames a session read, with the offset measured for each, how many nodes came from it, and the reason when a frame cannot report its own position (a cross-origin frame). Coordinates from an unpositioned frame are refused, not guessed.
+- `pro_browser_use_health_diagnose` `  ·` — Diagnose a page from an injected node list plus document metadata: unnamed controls, unlabelled fields, unreachable interactables, tiny tap targets, missing alt text, no lang, horizontal overflow, duplicate ids, insecure origin. Findings carry evidence and the recovery this engine would attempt.
+- `pro_browser_use_history` `  ·` — The snapshot history and transition log of a session: which versions exist, whether each was a mutation, a scroll, a resize, a fragment change or a navigation, and how many nodes and omissions each read carried.
+- `pro_browser_use_hit_test` `  ·` — Ask the session's latest read what sits at a coordinate: the stack of boxes covering the point, the topmost one, and whether a stored element still owns its own centre after the page moved.
+- `pro_browser_use_navigate` `  ·` — Go to a URL, or step back, forward or reload in an open session. Every target passes the same SSRF guard as the first open, and the result says whether the model treated it as a new document (it should).
+- `pro_browser_use_objects` `  ·` — Group the current snapshot into lists, cards, forms, tables and navigation by structure alone, and report the evidence for each label. Pass an identity to see which groups contain it.
+- `pro_browser_use_outline` `  ·` — Render the last read of a session as a budgeted outline: one line per element, indices the caller can quote, and an explicit count of what the budget left out. Costs no round trip to the page.
+- `pro_browser_use_read` `  ·` — Render the session’s current read as reading-order text, with the index of each element that can be acted on inline. Costs no new read of the page and respects the snapshot budget, so what is missing stays visible as a gap.
+- `pro_browser_use_region` `  ·` — Query the session’s current read by a rectangle or a frame: which elements fall in it, which contain it, and how much of it is covered. This is how a caller asks about a modal, a table, or a region it saw in a screenshot.
+- `pro_browser_use_resize` `  ·` — Set the viewport size and pixel ratio of an open session, then re-read: innerWidth from the page, the size of a fresh capture, and whether geometry moved with it. A layout is only emulated if the numbers agree.
+- `pro_browser_use_reveals` `  ·` — List the reveal candidates in a session's current read — closed disclosures, hidden or off-region controls — each classified as reversible, needing confirmation, or refused, with the undo step named.
+- `pro_browser_use_scan` `  ·` — Scroll a session through the document in planned steps, re-reading at each one, until the coverage ledger has seen every band edge to edge or the budget runs out. Reports what the first screen was hiding.
+- `pro_browser_use_screenshot` `  ·` — Take a viewport, full-page or element screenshot from an open session and return it as base64 PNG, with the geometry needed to map DOM boxes onto its pixels. With annotate=true boxes are outlined and numbered; `targets` chooses what gets a box (interactable only, or every element the read reached, or text-owning elements), and `coordinates` draws each box’s x,y,w,h under its number. The response carries the ledger that maps every drawn number back to its element, so the picture is machine-readable as well as human-readable.
+- `pro_browser_use_scroll` `  ·` — Scroll a session to a page position or so that an element sits in the upper third, re-read, and report the position the browser actually ended at, with what entered and left the viewport.
+- `pro_browser_use_session_close` `  ·` — Close one browser session, or every session this process opened, and delete the temporary profile directory each was started with. A profile the caller supplied is left in place.
+- `pro_browser_use_session_open` `  ·` — Start a browser session for a URL through the capability-aware selector, then take the first snapshot: model version, element outline and coverage. The url is checked by the SSRF guard before any browser starts.
+- `pro_browser_use_session_status` `  ·` — The world model and coverage ledger for an open session: model version, document signature, identities known, what changed last, and which bands, frames and budgets are still unread. Costs nothing — no new read of the page.
+- `pro_browser_use_sessions_list` `  ·` — Every browser_use session this process is holding open, with its browser, url, model version and idle time. Idle sessions are reclaimed on the next open, not by a background timer.
+- `pro_browser_use_snapshot` `  ·` — Re-read a session through the collector and every frame, fold it into the world model, and return the outline plus the delta since the previous read (added, removed, moved, relabelled). This is how a caller learns what its last action did.
+- `pro_browser_use_state_classify` `  ·` — Classify a UI reveal as reversible, needing confirmation, or refused — a closed disclosure and a hover are offered, a submit, navigation or a destructive label is not. Can also list the reveal candidates of an injected node list.
+- `pro_browser_use_state_read` `  ·` — Read the cookies the session's origin currently holds, and optionally its storage state (per-origin localStorage). Read-only: this engine does not write another site's jar.
+- `pro_browser_use_tabs` `  ·` — List the tabs in a session’s browser context with their urls, titles and which one this session drives. A restored profile can carry tabs of its own, and a tool that assumed otherwise would miscount.
+- `pro_browser_use_upload` `  ·` — With no files argument, list the file controls of the session (accept, multiple, visible or hidden, and the id to address them by). With files, hand caller-supplied bytes (name + base64) to one control and verify by reading the control’s own FileList back. Local paths are never accepted: this tool can only send what the caller already holds.
+- `pro_browser_use_visual_annotate` `  ·` — Draw numbered boxes for element rects onto a PNG and return it as base64, so a vision model sees the same indices the text outline used. The interior of each box is left untouched and the input image is never modified.
+- `pro_browser_use_visual_diff` `  ·` — Diff two PNG/JPEG images (base64 or URL) and report changed pixels, the bounding box of the change and a grid of hot regions. Different sizes are reported as not comparable instead of resampled.
+- `pro_browser_use_wait` `  ·` — Poll the page until an element with the given identity or accessible name is present (and optionally interactable), or the timeout passes. Every attempt is a real read, so the answer says how many reads it took.
+- `pro_browser_use_words` `  ·` — Measure every visible word on the page the session has open and return its box, centre and owning element, in a chosen coordinate space. With `phrase` it finds that exact sequence of words and returns the rectangle around it (how many times it occurs, and whether it wraps a line); with `region` it returns the words inside a box and their transcript. This is what makes a screenshot addressable by text.
+
 ## browser (41)
 
 _Playwright automation: navigate, click, fill, extract, tabs, cookies_
@@ -158,49 +206,6 @@ _Playwright automation: navigate, click, fill, extract, tabs, cookies_
 - `pro_browser_browser_type` `  ·` — Type text into an input by selector
 - `pro_browser_browser_upload_file` `  ·` — Upload a local file into a file input matched by selector
 - `pro_browser_browser_wait` `  ·` — Wait for a selector navigation or timeout
-
-## browser_use (40)
-
-- `pro_browser_use_act` `  ·` — Perform one action on an element the session has reported: click, type, press, check, select, hover, focus or scroll. Every action is preflighted (stale identity, covered element, wrong control kind and destructive labels are refused before anything runs) and then verified by re-reading the page.
-- `pro_browser_use_action_preflight` `  ·` — Run the action policy against a node list the caller supplies: does the identity resolve, is the element reachable, does this control take this value, and is the label one this engine will act on without a human? Answers with the reason and the point it would use.
-- `pro_browser_use_browsers_attach_validate` `  ·` — Check a native-attachment endpoint against this project’s policy before connecting: loopback is allowed, a private address needs an explicit opt-in, and a public host is never accepted. Returns the parsed host and port.
-- `pro_browser_use_browsers_detect` `  ·` — Installed browsers on this host: product, engine, version, protocols and the executable path each was found at. Reports "not found" per product rather than a shorter list.
-- `pro_browser_use_browsers_launch_plan` `  ·` — The exact executable, profile directory, arguments and warnings a product would be started with — inspected before anything runs, so a wrong flag is found here rather than in a crashed browser.
-- `pro_browser_use_browsers_select` `  ·` — Pick an installed browser for a task by required capabilities and connection mode. Refuses a browser that cannot do the job and says, per capability, why — it never substitutes a similar product.
-- `pro_browser_use_capabilities_check` `  ·` — Per-capability answer for one product: status, evidence class, the protocol it goes over, and the reason. UNKNOWN is a no — an unread specification is not a promise.
-- `pro_browser_use_capabilities_matrix` `  ·` — Render the support matrix: every product against every capability, with the glyph legend. `Y*` means this host ran it, `p` means read from a specification — the difference is the point of the table.
-- `pro_browser_use_capabilities_verified` `  ·` — The verified-facts overlay: which capability rows were run on a real browser, on which OS and version, and the probe artifact and step that prove each one. Rows only read from a specification are excluded by definition.
-- `pro_browser_use_coords_convert` `  ·` — Convert an element rect between CSS viewport, CSS page, device pixels and screenshot pixels, and lift it out of a frame when the offset is known. Use it before clicking by coordinate or before cropping a screenshot.
-- `pro_browser_use_coverage` `  ·` — The coverage ledger for a session: which scroll bands have been seen edge to edge, which frames were read or never produced a node, what the budgets dropped, and what remains unknown. An unread page is not a clean page.
-- `pro_browser_use_diff_lists` `  ·` — Compare two node lists by identity and report added, removed, moved and relabelled elements, with counts. Useful to diff a saved before/after pair without a live session.
-- `pro_browser_use_element_check` `  ·` — Resolve a stored identity against the session’s current model: FRESH, MOVED, CHANGED, GONE, REPLACED, ID_RECYCLED or NAVIGATED, with the reason and — for a relabelled element — the identity to use instead.
-- `pro_browser_use_evaluate` `  ·` — Evaluate a JavaScript expression inside a session page and return the JSON result. Refused unless PRO_FETCH_ALLOW_JS is set: arbitrary script in an authenticated browser session can read tokens, submit forms and exfiltrate, which is a different risk class from every other tool here.
-- `pro_browser_use_extract` `  ·` — Turn the session’s last read into records: repeated groups become rows with their member labels, tables become rows of cells, forms become named fields with current values. No new read of the page, no guess about what the data means.
-- `pro_browser_use_frames` `  ·` — The frames a session read, with the offset measured for each, how many nodes came from it, and the reason when a frame cannot report its own position (a cross-origin frame). Coordinates from an unpositioned frame are refused, not guessed.
-- `pro_browser_use_health_diagnose` `  ·` — Diagnose a page from an injected node list plus document metadata: unnamed controls, unlabelled fields, unreachable interactables, tiny tap targets, missing alt text, no lang, horizontal overflow, duplicate ids, insecure origin. Findings carry evidence and the recovery this engine would attempt.
-- `pro_browser_use_history` `  ·` — The snapshot history and transition log of a session: which versions exist, whether each was a mutation, a scroll, a resize, a fragment change or a navigation, and how many nodes and omissions each read carried.
-- `pro_browser_use_hit_test` `  ·` — Ask the session's latest read what sits at a coordinate: the stack of boxes covering the point, the topmost one, and whether a stored element still owns its own centre after the page moved.
-- `pro_browser_use_navigate` `  ·` — Go to a URL, or step back, forward or reload in an open session. Every target passes the same SSRF guard as the first open, and the result says whether the model treated it as a new document (it should).
-- `pro_browser_use_objects` `  ·` — Group the current snapshot into lists, cards, forms, tables and navigation by structure alone, and report the evidence for each label. Pass an identity to see which groups contain it.
-- `pro_browser_use_outline` `  ·` — Render the last read of a session as a budgeted outline: one line per element, indices the caller can quote, and an explicit count of what the budget left out. Costs no round trip to the page.
-- `pro_browser_use_read` `  ·` — Render the session’s current read as reading-order text, with the index of each element that can be acted on inline. Costs no new read of the page and respects the snapshot budget, so what is missing stays visible as a gap.
-- `pro_browser_use_region` `  ·` — Query the session’s current read by a rectangle or a frame: which elements fall in it, which contain it, and how much of it is covered. This is how a caller asks about a modal, a table, or a region it saw in a screenshot.
-- `pro_browser_use_resize` `  ·` — Set the viewport size and pixel ratio of an open session, then re-read: innerWidth from the page, the size of a fresh capture, and whether geometry moved with it. A layout is only emulated if the numbers agree.
-- `pro_browser_use_reveals` `  ·` — List the reveal candidates in a session's current read — closed disclosures, hidden or off-region controls — each classified as reversible, needing confirmation, or refused, with the undo step named.
-- `pro_browser_use_scan` `  ·` — Scroll a session through the document in planned steps, re-reading at each one, until the coverage ledger has seen every band edge to edge or the budget runs out. Reports what the first screen was hiding.
-- `pro_browser_use_screenshot` `  ·` — Take a viewport, full-page or element screenshot from an open session and return it as base64 PNG, with the geometry needed to map DOM boxes onto its pixels. With annotate=true the interactable elements are outlined and numbered with the same indices the outline used.
-- `pro_browser_use_scroll` `  ·` — Scroll a session to a page position or so that an element sits in the upper third, re-read, and report the position the browser actually ended at, with what entered and left the viewport.
-- `pro_browser_use_session_close` `  ·` — Close one browser session, or every session this process opened, and delete the temporary profile directory each was started with. A profile the caller supplied is left in place.
-- `pro_browser_use_session_open` `  ·` — Start a browser session for a URL through the capability-aware selector, then take the first snapshot: model version, element outline and coverage. The url is checked by the SSRF guard before any browser starts.
-- `pro_browser_use_session_status` `  ·` — The world model and coverage ledger for an open session: model version, document signature, identities known, what changed last, and which bands, frames and budgets are still unread. Costs nothing — no new read of the page.
-- `pro_browser_use_sessions_list` `  ·` — Every browser_use session this process is holding open, with its browser, url, model version and idle time. Idle sessions are reclaimed on the next open, not by a background timer.
-- `pro_browser_use_snapshot` `  ·` — Re-read a session through the collector and every frame, fold it into the world model, and return the outline plus the delta since the previous read (added, removed, moved, relabelled). This is how a caller learns what its last action did.
-- `pro_browser_use_state_classify` `  ·` — Classify a UI reveal as reversible, needing confirmation, or refused — a closed disclosure and a hover are offered, a submit, navigation or a destructive label is not. Can also list the reveal candidates of an injected node list.
-- `pro_browser_use_state_read` `  ·` — Read the cookies the session's origin currently holds, and optionally its storage state (per-origin localStorage). Read-only: this engine does not write another site's jar.
-- `pro_browser_use_tabs` `  ·` — List the tabs in a session’s browser context with their urls, titles and which one this session drives. A restored profile can carry tabs of its own, and a tool that assumed otherwise would miscount.
-- `pro_browser_use_visual_annotate` `  ·` — Draw numbered boxes for element rects onto a PNG and return it as base64, so a vision model sees the same indices the text outline used. The interior of each box is left untouched and the input image is never modified.
-- `pro_browser_use_visual_diff` `  ·` — Diff two PNG/JPEG images (base64 or URL) and report changed pixels, the bounding box of the change and a grid of hot regions. Different sizes are reported as not comparable instead of resampled.
-- `pro_browser_use_wait` `  ·` — Poll the page until an element with the given identity or accessible name is present (and optionally interactable), or the timeout passes. Every attempt is a real read, so the answer says how many reads it took.
 
 ## convert (30)
 
@@ -563,6 +568,29 @@ _Site crawl, sitemap/robots, link graph, site explain_
 - `pro_page_diff` `  ·` — Compare two URLs or two texts and report what changed: a text diff, added and removed headings, link changes and a content-size delta. Use it to answer "what changed on this page" without downloading and diffing both pages manually.
 - `pro_site_scan` `S ·` — Crawl a site in one call: start a bounded crawl, check robots compliance, collect page metadata, extract the internal link graph, and summarise the pages it reached. Use this for site overviews, sitemaps and structure discovery.
 
+## prohuman (20)
+
+- `pro_human_attach` `  ·` — Attach a ProHuman driver to an open browser_use session and install the page-side event recorder. Nothing moves until pro_human_start. Identity and consent are required.
+- `pro_human_click` `  ·` — Reach a target, settle on it, press, release and pause afterwards. Refused unless the session says whose site it is and that writing is allowed.
+- `pro_human_detach` `  ·` — Stop a driver and forget it. The page keeps the recorder until it is navigated away.
+- `pro_human_hover` `  ·` — Reach a point and rest on it — the pointer arrives, settles and stays, the way a hover is entered.
+- `pro_human_list` `  ·` — List the drivers that exist, optionally filtered to one session. Drivers whose session is gone are dropped here.
+- `pro_human_move` `  ·` — Reach a point along a curved, minimum-jerk path sized by Fitts’ law, ending with a settle window. Returns immediately; the movement happens on the driver’s clock.
+- `pro_human_press` `  ·` — Press one key with a human hold duration — Enter, Tab, Escape, a shortcut.
+- `pro_human_profile_check` `  ·` — Normalise a profile from a preset plus overrides and return the effective numbers, without touching a session. Out-of-range values are refused here rather than discovered mid-movement.
+- `pro_human_profiles` `  ·` — List the human behaviour presets and the ranges a profile may take. Pure data: nothing is attached, nothing moves.
+- `pro_human_read` `  ·` — Dwell for as long as reading `words` words takes at the profile’s rate. The pointer keeps drifting through it — which is what separates reading from hanging.
+- `pro_human_report` `  ·` — Measure the recorded trace: curvature, tortuosity, inter-event variation, key holds, stillness and the trusted ratio — the numbers the profile asked for beside the ones that happened.
+- `pro_human_scroll` `  ·` — Scroll in bursts of differing amplitude with pauses between them, and occasional short scrolls back.
+- `pro_human_sequence` `  ·` — Queue several actions in order — read, move, click, type — and let the driver run them on its own clock. Returns immediately; the answer says how many are queued.
+- `pro_human_start` `  ·` — Start a driver: it takes the cursor and keeps it alive, drifting on its own schedule until it is stopped or its runtime ceiling expires.
+- `pro_human_status` `  ·` — What the driver is doing right now: the pointer, how long since it last moved, the active action, the queue, the counters and the refusals.
+- `pro_human_stop` `  ·` — Stop a driver and hand the cursor back. Idempotent, and it reports what the driver did.
+- `pro_human_tab_churn` `  ·` — Switch to another tab, stay a while, come back. Refused when only one tab is open — a driver that invents attention it cannot show is worse than one that says no.
+- `pro_human_trace` `  ·` — The events the page itself recorded — type, timeStamp, isTrusted, coordinates, keys. This is the evidence; the driver’s log is only intent.
+- `pro_human_type` `  ·` — Type text with a cadence: per-key hold and gap, longer at word boundaries and punctuation, and seeded mistakes that are corrected with backspaces.
+- `pro_human_verify` `  ·` — The one claim this pack can make honestly: did the pointer ever hold still longer than the profile allows? An empty trace is a failure, not a pass.
+
 ## search (20)
 
 _Web, news, image, academic & vertical search (Serper/Brave/DDG)_
@@ -685,11 +713,11 @@ _Wayback + Internet Archive, local cache store, snapshots & diffs_
 
 - `pro_fetch_archive_org_fetch` `  ·` — Fetch a URL snapshot from the Internet Archive
 - `pro_fetch_archive_org_save` `  ·` — Save a URL to the Internet Archive
-- `pro_fetch_cache_clear` `  ·` — Clear the cache fully
+- `pro_fetch_cache_clear` `  ·` — Clear every entry in the response cache. Takes no arguments — the whole cache is emptied, and the number of entries it held is reported.
 - `pro_fetch_cache_get` `  ·` — Get the cached response for a key or URL
 - `pro_fetch_cache_put` `  ·` — Store custom data in the cache
 - `pro_fetch_cache_search` `  ·` — Search cached content by keyword
-- `pro_fetch_cache_stats` `  ·` — Show cache size hits and misses
+- `pro_fetch_cache_stats` `  ·` — Show the response cache: how many entries it holds, and the hits and misses since boot.
 - `pro_fetch_export_bundle` `  ·` — Export cache data as a portable bundle
 - `pro_fetch_google_cache_fetch` `  ·` — Fetch the Google cached copy of a page
 - `pro_fetch_import_bundle` `  ·` — Import a previously exported bundle

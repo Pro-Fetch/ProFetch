@@ -56,6 +56,7 @@ import './tools/qr/index.js';
 import './tools/sql/index.js';
 import './tools/opendata/index.js';
 import './tools/browser_use/index.js';
+import './tools/prohuman/index.js';
 import './tools/units/index.js';
 import './tools/phonetics/index.js';
 import './tools/chess/index.js';

@@ -11,7 +11,7 @@
  *
  * Regenerate with `npm run gen:mutation-sinks`. The drift test fails if this file stops matching the
  * code, and both it and the generator read the same scanner in `mutation-scan.ts`.
- * 36 tools.
+ * 39 tools.
  */
 
 export const SINK_REACHING_TOOLS: Readonly<Record<string, readonly string[]>> = {
@@ -49,6 +49,9 @@ export const SINK_REACHING_TOOLS: Readonly<Record<string, readonly string[]>> = 
   'pro_fetch_snapshot_diff': ['cache'],
   'pro_fetch_url_watch': ['cache'],
   'pro_fetch_wiki_search': ['dispatched-action'],
+  'pro_human_attach': ['declared-write'],
+  'pro_human_sequence': ['declared-write'],
+  'pro_human_start': ['declared-write'],
   'pro_pdf_split': ['fs-async', 'declared-write', 'output-dir'],
   'pro_zip_extract': ['fs-async', 'declared-write'],
 };

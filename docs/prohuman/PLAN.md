@@ -97,24 +97,53 @@ And one design consequence, not a bug: **the pointer sat still for 4.2 s while t
 fidget loop that only runs between calls is not enough — it must run *concurrently* with typing and
 scrolling, which changes the driver from "an action queue" into "a small scheduler with priorities".
 
+## M1–M4 — what the pack measured on a live page (2026-11-04)
+
+`tests/prohuman-driver.test.ts` runs the pack against `https://example.com/` in a headless Chrome and
+asserts the claims rather than the plumbing. Five cases, all passing on this machine:
+
+| case | what it proves |
+| --- | --- |
+| alive between calls | 1.4 s with no call in flight: drifts > 1, `pointer_last_moved_ms_ago` ≤ 1200, `verify` passes |
+| evidence is the page's | `report.measured.trusted_ratio` = 1.000, pointer events > 3, path length > 0, curvature > 0 |
+| named elements | `identity` resolves to the centre and width the engine measured, and the answer names what it aimed at |
+| consent | `public-read-only` refuses the click, records the refusal on the driver, and still allows reading |
+| one writer | `pro_browser_use_act` refuses while a driver holds the cursor; with `pause_driver=true` it takes over and the driver ends as `yielded to pro_browser_use_act` |
+
+Four defects the live tests found, each fixed rather than worked around:
+
+1. **A driver could not clean itself up.** Teardown routed through the same guard that refuses a driver
+   whose session is gone, so pruning a dead driver threw instead of releasing its cursor — an unhandled
+   rejection per tick. Teardown is now independent of the guard.
+2. **A tool-layer refusal was invisible.** The consent check in the tool returned before the driver saw
+   anything, so `status.refusals` stayed empty and a session denied every click looked like a session
+   nobody had asked anything of. Refusals are now recorded wherever they are raised.
+3. **Taking the cursor asked permission for it.** `pause_driver` tried to acquire a lease that was alive,
+   which is exactly what a handover must not do. It now stops the holder, which releases the lease.
+4. **The fixture's only link is below the fold** at 1280×720, so aiming at it was correctly refused. The
+   test scrolls it into view first — the two steps a real caller takes — rather than aiming at bare
+   coordinates and calling that coverage.
+
 ## Milestones
 
 | | |
 | --- | --- |
 | **M0** | spike: trusted events, resident loop, measurable geometry — **done, all four assumptions hold** |
-| **M1** | core: profile + seeded PRNG, path math, input surface, session lock, recorder |
-| **M2** | driver: concurrent idle/fidget scheduler, `attach/start/stop/status`, runtime ceiling, self-stop |
-| **M3** | action tools: `move/hover/click/type/press/scroll/read/tab_churn` |
-| **M4** | measurement: `trace/report/verify`, per-document metrics, disclosure report |
-| **M5** | registry: category `prohuman` (level 3, `full` only), counts, README row, CI, docs |
+| **M1** | core: profile + seeded PRNG, path math, input surface, session lock, recorder — **built, unit-tested** |
+| **M2** | driver: concurrent idle/fidget scheduler, `attach/start/stop/status`, runtime ceiling, self-stop — **built, live-tested** |
+| **M3** | action tools: `move/hover/click/type/press/scroll/read/tab_churn/sequence` — **built, live-tested** |
+| **M4** | measurement: `trace/report/verify`, per-document metrics, disclosure in every answer — **built** |
+| **M5** | registry: category `prohuman` at level 3 (`full` only), 717→737 tools and 43→44 categories, README row, schema gate, mutation table, docs — **wired** |
 
 Each milestone ends with a live run and `npm run check` green.
 
-## Open questions before M1
+## The open questions, answered by what was built
 
-1. How long may the driver run unattended while the model thinks? (proposal: 120 s default, 600 s ceiling)
-2. Is one driver per session acceptable? (proposal: yes)
-3. Is `sequence` (a scripted batch) wanted in v1, or does it wait?
-4. Targets by `browser_use` identity, or does ProHuman re-read the page itself? (proposal: identity — cheaper and reproducible)
-5. Where do traces persist? (proposal: the session's own data root, deleted with the session, and returned inline)
-6. Tool prefix: `prohuman_*` or `pro_human_*`?
+1. Unattended idle motion: **120 s default, 600 s hard ceiling**, carried by the profile.
+2. One driver per session: **yes**, enforced by the cursor lock rather than by convention.
+3. `sequence`: **included** — it enqueues steps and returns; the driver runs them on its own clock.
+4. Targets: **`browser_use` identity or node id**, resolved against the session's latest read. Bare
+   coordinates still work; an element outside the viewport is refused, not guessed at.
+5. Traces: **in the page, read on demand**. The pack persists nothing; `trace` and `report` can clear the
+   buffer so the next measurement covers one window.
+6. Name: **`pro_human_*`**, matching `pro_browser_*` and `pro_research_*`.
