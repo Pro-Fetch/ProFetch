@@ -132,7 +132,15 @@ export async function fetchSource(
     // Same in-flight coalescing as `downloadToBuffer`, so a composite that fetches a page while a
     // binary converter fetches the same address performs one request rather than two.
     const response = await fetchWithOptions(url, { maxBytes });
-    if (response.status >= 400) return { ok: false, error: `HTTP ${response.status}` };
+    if (response.status >= 400) {
+      const block = response.blocked;
+      return {
+        ok: false,
+        error: block
+          ? `HTTP ${response.status} — blok sahifasi (${block.kind}: ${block.marker}). ${block.hint}`
+          : `HTTP ${response.status}`,
+      };
+    }
     if (!response.text.trim()) return { ok: false, error: 'Bo‘sh javob olindi.' };
     return { ok: true, url, html: response.text };
   } catch (error) {

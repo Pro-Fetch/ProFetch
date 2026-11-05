@@ -7,6 +7,7 @@ import { assertSafeUrl, resolveSafeUrl } from './ssrf-guard.js';
 import { cache } from './cache.js';
 import { canSkipSideEffect } from './read-only-guard.js';
 import { withNetworkConcurrency } from './network-gate.js';
+import { COMPAT_USER_AGENT, classifyBlockPage, compatUaEnabled, type BlockPage } from './block-page.js';
 import { USER_AGENT } from './version.js';
 
 export interface FetchOptions {
@@ -20,6 +21,8 @@ export interface FetchOptions {
   cacheTtlMs?: number;
   /** A proxy named by the caller for this exact request (see `dispatcherFor`). */
   proxy?: string;
+  /** Internal: the single opt-in browser-UA retry. Never set by a tool. */
+  compat_retry?: boolean;
 }
 
 const UA = USER_AGENT;
@@ -241,6 +244,15 @@ export interface HttpResult {
    * verdict, so a second cache cannot invent a weaker one.
    */
   storeAllowed: boolean;
+  /**
+   * Set when the host answered a refusal page rather than content.
+   *
+   * Without it `pro_fetch_fetch_url` reports `ok` with "Access Denied" as the page body — measured on
+   * akamai.com, nsa.gov and researchgate.net. The caller cannot tell a block from an article.
+   */
+  blocked?: BlockPage | null;
+  /** True when the answer only arrived after the opt-in browser user-agent retry (PRO_FETCH_HTTP_COMPAT_UA). */
+  compat_ua?: boolean;
 }
 
 /**
@@ -357,7 +369,11 @@ function cacheSafeForRequest(url: URL, headers: Headers): boolean {
 }
 
 function cacheKeyForRequest(url: URL, headers: Headers): string {
-  const vary = ['accept', 'accept-language'].map((name) => `${name}:${headers.get(name) ?? ''}`).join('|');
+  // `user-agent` joined the vary list the day an answer started depending on it: a document fetched
+  // through the opt-in compat UA must never be handed back to an honest-UA request as if it were free.
+  const vary = ['accept', 'accept-language', 'user-agent']
+    .map((name) => `${name}:${headers.get(name) ?? ''}`)
+    .join('|');
   return 'http-get:' + createHash('sha256').update(`${url.toString()}|${vary}`).digest('hex');
 }
 
@@ -566,16 +582,37 @@ export async function fetchWithOptions(url: string, opts: FetchOptions = {}): Pr
       text += decoder.decode();
       const cacheControl = res.headers.get('cache-control') ?? '';
       const ttl = httpCacheTtl(res, opts.cacheTtlMs);
+      const responseHeaders = responseHeadersForTool(res);
+      const blocked = classifyBlockPage(res.status, responseHeaders, text);
       const result: HttpResult = {
         status: res.status,
         contentType: res.headers.get('content-type') ?? '',
-        headers: responseHeadersForTool(res),
+        headers: responseHeaders,
         text,
         truncated,
         // Where the answer actually came from, after redirects.
         url: finalUrl,
+        blocked,
         storeAllowed: mayStoreHttpAnswer(res.status, cacheControl, res.headers.has('set-cookie'), truncated),
       };
+      clearTimeout(timer);
+      // One rung, opted in, and announced. Measured: akamai.com and nsa.gov answer `pro-fetch-mcp/1.0.0`
+      // with 403 and a browser-shaped UA with 200, while researchgate.net answers both with the same
+      // Cloudflare page — so this only ever helps the UA-filter sites, and when it does the answer says
+      // `compat_ua: true` instead of pretending the honest request worked.
+      const callerNamedUa = Object.keys(opts.headers ?? {}).some((name) => name.toLowerCase() === 'user-agent');
+      if (blocked?.ua_sensitive && !opts.compat_retry && !callerNamedUa && compatUaEnabled()) {
+        try {
+          const retry = await fetchWithOptions(url, {
+            ...opts,
+            headers: { ...opts.headers, 'user-agent': COMPAT_USER_AGENT },
+            compat_retry: true,
+          });
+          if (!retry.blocked) return { ...retry, compat_ua: true };
+        } catch {
+          /* the refusal we already have is still the honest answer */
+        }
+      }
       if (cacheable && ttl > 0 && result.storeAllowed) {
         // Braces, not a bare `if`: the same if/else binding mistake as the 304 path above is not worth
         // repeating at the second call site.
@@ -583,7 +620,6 @@ export async function fetchWithOptions(url: string, opts: FetchOptions = {}): Pr
           cache.put(cacheKey, JSON.stringify(result), ttl, { type: 'http', status: result.status });
         }
       }
-      clearTimeout(timer);
       return result;
     } catch (err) {
       const rawMessage = err instanceof Error ? err.message : String(err);

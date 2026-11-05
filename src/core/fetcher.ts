@@ -1,4 +1,5 @@
 import { fetchWithOptions } from './http-client.js';
+import type { BlockPage } from './block-page.js';
 import { assertSafeUrl } from './ssrf-guard.js';
 import { take } from './ratelimit.js';
 import { cache } from './cache.js';
@@ -15,6 +16,10 @@ export interface FetchResult {
   tokens: number;
   cached: boolean;
   truncated: boolean;
+  /** Set when the host answered a refusal page instead of content. */
+  blocked?: BlockPage | null;
+  /** Set when only the opt-in browser user-agent got through (PRO_FETCH_HTTP_COMPAT_UA). */
+  compat_ua?: boolean;
 }
 export interface FetchUrlOptions {
   maxTokens?: number;
@@ -75,6 +80,8 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
     tokens: estimateTokens(clipped),
     cached: false,
     truncated: res.truncated,
+    blocked: res.blocked ?? null,
+    compat_ua: res.compat_ua,
   };
   // Caching is a side effect, not the purpose of the call: read-only mode skips the write, the document still
   // comes back, and the only cost is that the next call is not served from memory. Storing is also no longer

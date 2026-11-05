@@ -28,6 +28,14 @@ export default defineTool({
   async handler(input) {
     const p = view(input);
     const r = await fetchUrl(String(p.url), { maxTokens: Number(p.max_tokens ?? 8000) });
+    if (r.blocked) {
+      const excerpt = r.markdown.replace(/\s+/g, ' ').slice(0, 220);
+      return fail(
+        `Blok sahifasi (HTTP ${r.status}, ${r.blocked.kind}: ${r.blocked.marker}). Bu manba javob bermadi — kontent emas, rad etish qaytdi.\n` +
+          `Nima qilish kerak: ${r.blocked.hint}\n` +
+          `Host aytgani: ${excerpt}`,
+      );
+    }
     return {
       content: [
         {
@@ -44,7 +52,8 @@ export default defineTool({
             ' | ~' +
             r.tokens +
             ' token' +
-            (r.cached ? ' | cache' : ''),
+            (r.cached ? ' | cache' : '') +
+            (r.compat_ua ? ' | compat_ua: brauzer User-Agent ishlatilidi (PRO_FETCH_HTTP_COMPAT_UA)' : ''),
         },
       ],
     };
