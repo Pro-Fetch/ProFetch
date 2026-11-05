@@ -62,6 +62,8 @@ export const CATEGORY_LEVELS: Record<string, number> = {
   github: 2,
   search: 2,
   extract: 2,
+  // The receipts a citation rests on: reachable at `standard`, because that is what the API is for.
+  evidence: 2,
   auth: 2,
   git: 3,
   // Drives a real browser and can change a page, so it is not advertised to the smaller profiles.

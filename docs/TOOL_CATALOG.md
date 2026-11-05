@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 737 ta tool · 44 ta kategoriya · smart=12, minimal=74, standard=179, full=737
+**Jami:** 745 ta tool · 45 ta kategoriya · smart=12, minimal=74, standard=187, full=745
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -46,6 +46,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `encoding` | 9 | Base64/URL/hex/hash/compress codecs |
 | `imageproc` | 9 | Image processing: resize, crop, EXIF, QR, OCR pre/post |
 | `qr` | 9 | — |
+| `evidence` | 8 | — |
 | `schema` | 6 | JSON Schema / validation / inference helpers |
 | `llm` | 5 | LLM gateway: complete, embed, structured output |
 | `opendata` | 5 | Public open-data providers (Crossref, OpenLibrary, Patents, GDELT) |
@@ -904,6 +905,17 @@ _Image processing: resize, crop, EXIF, QR, OCR pre/post_
 - `pro_qr_plan` `  ·` — Matn uchun QR rejasini chiqarish: har bir daraja uchun sig‘adigan versiya, sig‘im va tavsiya. Matnni kodlamaydi — faqat rejasini ko‘rsatadi.
 - `pro_qr_rs_decode` `  ·` — Reed-Solomon kodli so‘zni tuzatish: sindromalar hisoblanadi, Berlekamp-Massey xatolar sonini, Chien qidiruvi joyini, Forney esa miqdorini topadi. Tuzatib bo‘lmasa "yo q" deyadi — noto‘g‘ri matnni "to‘g‘ri" deb qaytarmaydi.
 - `pro_qr_rs_encode` `  ·` — Reed-Solomon xato tuzatish kodli so‘zi yasash: berilgan ma’lumot baytlariga tekshiruv so‘zlari qo‘shiladi (GF(256), primitiv polinom 0x11D). Generator polinomi ham qaytariladi.
+
+## evidence (8)
+
+- `pro_evidence_bundle` `  ▸` — Check many receipts in one call and produce a report: per-item verdict (unchanged, changed, unreachable, missing), measured time each took, and summary counts.
+- `pro_evidence_check` `  ▸` — Re-check a sealed receipt: fetch the source again (or take the material you pass) and report unchanged, changed with line counts, or unreachable with the reason the look failed.
+- `pro_evidence_diff` `  ▸` — Line-by-line drift against a sealed receipt: added, removed and untouched counts plus the first changed lines. Without content the live source is fetched and compared with what was sealed.
+- `pro_evidence_export` `  ▸` — Render one receipt, or the whole held set, as a citation block: address, seal time, SHA-256, counts, check history and the stored excerpt. format: markdown or json.
+- `pro_evidence_list` `  ▸` — List the sealed receipts this server currently holds: id, address, kind, seal time, size, checks.
+- `pro_evidence_reseal` `  ▸` — Fetch the receipt source again and seal a new receipt for the current material, linked to the old one. Pass content to reseal from material you already hold.
+- `pro_evidence_seal` `  ▸` — Seal a receipt for what a source contained right now: SHA-256 of the canonical text, byte, line and word counts, the address and the timestamp. Pass content to seal material you already hold.
+- `pro_evidence_stats` `  ▸` — Summarise the evidence store: receipts held, bytes and words sealed, how many were re-checked, and the verdict counts of the last check (unchanged, changed, unreachable, never checked).
 
 ## schema (6)
 
