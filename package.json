@@ -66,7 +66,8 @@
     "http": "node dist/http/server.js",
     "http:dev": "tsx src/http/server.ts",
     "http:key": "tsx scripts/http-key.mts",
-    "bench:http": "tsx scripts/http-bench.mts"
+    "bench:http": "tsx scripts/http-bench.mts",
+    "billing:stripe": "tsx scripts/stripe-usage.mts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",
