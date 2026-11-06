@@ -69,7 +69,7 @@ Native bog'liqliklar (`sharp`, `@napi-rs/canvas`, `tesseract.js`, Playwright, gi
 
 ## 10. Test va tekshiruv (`npm run check`)
 
-`verify:static` (struktur invariantlar) · `verify:registry` (745/45, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1815) · `audit:schema` (e'lon qilingan, lekin kodda o'qilmaydigan xususiyat = qizil; `applyCategorySchema` qayta yozadigan kategoriyalar o'lchanadi, lekin darvozaga kirmaydi) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`.
+`verify:static` (struktur invariantlar) · `verify:registry` (745/45, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1822) · `audit:schema` (e'lon qilingan, lekin kodda o'qilmaydigan xususiyat = qizil; `applyCategorySchema` qayta yozadigan kategoriyalar o'lchanadi, lekin darvozaga kirmaydi) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`.
 
 ## 11. Ish-oqimi yadrosi: Bigfoot (`src/core/workflow/`, `src/tools/workflow/`)
 
