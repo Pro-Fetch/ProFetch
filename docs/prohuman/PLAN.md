@@ -131,6 +131,31 @@ Five defects the live tests found, each fixed rather than worked around:
    surfaces cannot disagree. An attributed breach is still a breach: `ok` stays false, because the promise
    was about the cursor, not about the load.
 
+## What a macOS CI runner measured that this machine could not (2026-11-06)
+
+The live suite passed six times locally and failed once on GitHub's macOS runner. The annotations named
+both failures, and neither was the driver:
+
+6. **A curvature of zero was reported as a measurement when there was nothing to measure.** The page had
+   recorded the reach as too few steps above the noise floor to form a turn, and `curvatureRad: 0` is the
+   same number a pointer travelling in a straight line produces. For a pack whose whole purpose is to
+   support or break a claim about how a movement looks, a zero that cannot be distinguished from "synthetic"
+   is the worst possible answer. `measureTrace` now computes the turn through `curvatureOf`, which returns
+   the mean with the number of turns it averaged, and `report` says in `limits` that the curvature was not
+   measurable — with the pointer-event count and path length attached, so the reader can see why. Measured
+   on this machine, the same flow records 84 pointer events and 53 turns at 0.039 rad, tortuosity 1.969.
+   A claim that needs a bend now makes two reaches in different directions: one bezier, coalesced into two
+   points, cannot form a turn no matter how far the pointer travelled.
+7. **A fixed wait measured the runner.** The continuity assertion slept 1400 ms and required more than one
+   idle drift. The calm profile plans a drift every 112–272 ms (`nextIdleGap` is 0.35–0.85 of the 320 ms
+   ceiling), so the window was never the problem; the macOS runner delivered one drift in all 1400 ms,
+   because each drift's round trip to the browser took about the whole window. The test now waits on
+   the driver's own counters (up to 8 s more) and still requires two drifts, so a driver that stops after
+   one still fails — with `scheduler_lag_ms` printed, naming whose slowness it was. The stillness bound
+   moved from a hardcoded 1200 ms to the ceiling the profile declares, doubled, plus the lateness the
+   driver measured in itself: a frozen cursor has nothing to attribute to, and its stillness grows with
+   uptime while the allowance does not.
+
 ## Milestones
 
 |        |                                                                                                                                                       |

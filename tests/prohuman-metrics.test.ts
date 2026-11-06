@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   distribution,
+  curvatureOf,
   curvatureRad,
   pathPx,
   measureTrace,
@@ -68,6 +69,22 @@ describe('curvature ignores the jitter of a resting hand', () => {
     const withJitter = [...reach, { x: 1001, y: 501 }, { x: 1002, y: 499 }, { x: 1000.5, y: 500.5 }];
     expect(curvatureRad(withJitter, 5)).toBe(curvatureRad(reach, 5));
     expect(curvatureRad(withJitter, 0)).toBeGreaterThan(curvatureRad(reach, 0));
+  });
+
+  it('the two kinds of zero are not the same answer', () => {
+    // A straight reach and a trace the browser coalesced into two points both report 0 radians. Only the
+    // sample count says which one happened, and a caller reading the angle alone can conclude that a
+    // recorded two-point trace proves a synthetic straight line. Measured on a macOS CI runner, where a
+    // reach that did move was reported exactly this way.
+    const straight = Array.from({ length: 20 }, (_, i) => ({ x: i * 40, y: 300 }));
+    const coalesced = [
+      { x: 100, y: 200 },
+      { x: 700, y: 640 },
+    ];
+    expect(curvatureOf(straight, 5).meanRad).toBe(0);
+    expect(curvatureOf(straight, 5).samples).toBe(18);
+    expect(curvatureOf(coalesced, 5).meanRad).toBe(0);
+    expect(curvatureOf(coalesced, 5).samples, 'two points cannot form a turn').toBe(0);
   });
 });
 
@@ -147,6 +164,7 @@ describe('a measured trace', () => {
     expect(m.events).toBe(0);
     expect(m.trustedRatio).toBe(0);
     expect(m.curvatureRad).toBe(0);
+    expect(m.curvatureSamples).toBe(0);
     expect(m.tortuosity).toBe(0);
   });
 });

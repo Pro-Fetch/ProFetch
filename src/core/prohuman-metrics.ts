@@ -60,6 +60,8 @@ export interface TraceMetrics {
   displacementPx: number;
   /** Mean turn angle in radians, ignoring steps at or below the noise floor. */
   curvatureRad: number;
+  /** How many turns `curvatureRad` averaged. Zero here means the angle was never measurable, not that the path was straight. */
+  curvatureSamples: number;
   /** `pathPx / displacementPx`: 1.0 is a straight line; a curved reach is measurably above it. */
   tortuosity: number;
   interEventMs: Distribution;
@@ -92,8 +94,15 @@ export function distribution(values: number[]): Distribution {
   };
 }
 
-/** Mean absolute turn angle. Steps at or below `noiseFloorPx` are jitter and are not turns. */
-export function curvatureRad(points: Point[], noiseFloorPx: number): number {
+/**
+ * Mean absolute turn angle, and the number of turns it was computed from.
+ *
+ * The sample count is not decoration. `0` is a true measurement for a pointer that travelled in a straight
+ * line, and no measurement at all for a trace the browser recorded as two points. Chrome coalescing on a
+ * loaded runner produces the second case from a driver that moved exactly as planned — and a reported zero
+ * without its sample count reads as evidence that the movement was synthetic.
+ */
+export function curvatureOf(points: Point[], noiseFloorPx: number): { meanRad: number; samples: number } {
   let sum = 0;
   let n = 0;
   for (let i = 1; i < points.length - 1; i++) {
@@ -108,7 +117,12 @@ export function curvatureRad(points: Point[], noiseFloorPx: number): number {
     sum += Math.acos(dot);
     n++;
   }
-  return n ? round3(sum / n) : 0;
+  return { meanRad: n ? round3(sum / n) : 0, samples: n };
+}
+
+/** Mean absolute turn angle. Steps at or below `noiseFloorPx` are jitter and are not turns. */
+export function curvatureRad(points: Point[], noiseFloorPx: number): number {
+  return curvatureOf(points, noiseFloorPx).meanRad;
 }
 
 export function pathPx(points: Point[]): number {
@@ -154,6 +168,7 @@ export function measureTrace(events: TraceEvent[], noiseFloorPx: number): TraceM
       ? Math.hypot(points[points.length - 1].x - points[0].x, points[points.length - 1].y - points[0].y)
       : 0;
   const length = pathPx(points);
+  const turns = curvatureOf(points, noiseFloorPx);
 
   return {
     events: events.length,
@@ -163,7 +178,8 @@ export function measureTrace(events: TraceEvent[], noiseFloorPx: number): TraceM
     trustedRatio: events.length ? round3(events.filter((e) => e.trusted).length / events.length) : 0,
     pathPx: length,
     displacementPx: round2(displacement),
-    curvatureRad: curvatureRad(points, noiseFloorPx),
+    curvatureRad: turns.meanRad,
+    curvatureSamples: turns.samples,
     tortuosity: displacement > 1 ? round3(length / displacement) : 0,
     interEventMs: distribution(gaps),
     keyHoldMs: distribution(holds),

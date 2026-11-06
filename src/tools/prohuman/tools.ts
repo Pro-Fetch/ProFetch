@@ -732,10 +732,18 @@ const tools = [
           },
           driver_stats: found.value.stats,
           disclosure: disclosureEcho(found.value.disclosure),
-          limits:
+          limits: [
             measured.trustedRatio < 1
               ? 'some recorded events were not trusted — they were dispatched by script, not by the browser'
               : '',
+            measured.curvatureSamples === 0
+              ? 'curvature was not measurable: the page recorded too few steps above the noise floor to form a ' +
+                `turn (${measured.pointerEvents} pointer events, ${measured.pathPx} px of path). ` +
+                'curvatureRad 0 here means no angle could be computed, not that the pointer travelled in a straight line.'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' | '),
         },
       );
     },
