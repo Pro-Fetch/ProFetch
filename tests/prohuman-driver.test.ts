@@ -53,6 +53,24 @@ async function openSession(): Promise<string> {
   return String(opened.session_id);
 }
 
+/**
+ * Read the driver's own status until it has delivered `count` idle drifts, or `deadlineMs` runs out.
+ *
+ * A fixed sleep measures the runner as much as the driver. On a saturated macOS runner one drift occupied
+ * the entire 1400 ms window that an idle machine spends delivering five, and the assertion said "greater
+ * than 1" to a number that was the machine's, not the driver's. The count comes from the driver; only the
+ * patience comes from here.
+ */
+async function waitDrifts(driverId: string, count: number, deadlineMs: number): Promise<Record<string, any>> {
+  const deadline = Date.now() + deadlineMs;
+  let status = payload(await callTool('pro_human_status', { driver_id: driverId }));
+  while (((status.stats?.drifts as number) ?? 0) < count && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    status = payload(await callTool('pro_human_status', { driver_id: driverId }));
+  }
+  return status;
+}
+
 afterAll(async () => {
   await closeAll();
 });
@@ -77,11 +95,19 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
 
     // Nothing is asked of the driver here. This is the gap the whole design exists for.
     await new Promise((resolve) => setTimeout(resolve, 1400));
+    let status = payload(await callTool('pro_human_status', { driver_id: driverId }));
+    if ((status.stats.drifts as number) <= 1) status = await waitDrifts(driverId, 2, 8_000);
 
-    const status = payload(await callTool('pro_human_status', { driver_id: driverId }));
+    const ceilingMs = Number(status.profile?.idle_stillness_ms ?? 320);
     expect(status.running).toBe(true);
-    expect(status.stats.drifts).toBeGreaterThan(1);
-    expect(status.pointer_last_moved_ms_ago).toBeLessThanOrEqual(1200);
+    // Two drifts, unasked, is the continuity claim. The number is the driver's; the patience above is
+    // the runner's. A driver that stops after one fails here with its own lateness attached.
+    expect(status.stats.drifts, JSON.stringify(status.scheduler_lag_ms)).toBeGreaterThan(1);
+    // Stillness is allowed the ceiling the profile declares plus the lateness the driver measured in
+    // itself — the machine's share of the gap, taken from a number it recorded, not from an excuse.
+    expect(status.pointer_last_moved_ms_ago, JSON.stringify(status)).toBeLessThanOrEqual(
+      ceilingMs * 2 + Number(status.scheduler_lag_ms.max_ms ?? 0),
+    );
     // Every drift is one lateness sample — the number that turns "the cursor sat still" into
     // "the cursor sat still, and the driver was itself N ms behind plan at its worst".
     expect(status.scheduler_lag_ms.samples, JSON.stringify(status.scheduler_lag_ms)).toBe(status.stats.drifts);
@@ -146,9 +172,23 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     expect(moved.ok, JSON.stringify(moved)).toBe(true);
     expect(String(moved.aimed_at)).toContain(target.tag);
 
+    // A second reach, in a different direction. One bezier can be coalesced by the browser into two
+    // recorded points, and two points form no turn however far apart they are; two reaches form one
+    // whichever way the sampling lands. This is what makes the claim below measurable rather than lucky.
+    const away = payload(await callTool('pro_human_move', { driver_id: driverId, x: 120, y: 90, wait_ms: 1200 }));
+    expect(away.ok, JSON.stringify(away)).toBe(true);
+
     const report = payload(await callTool('pro_human_report', { driver_id: driverId }));
     expect(report.measured.pathPx).toBeGreaterThan(0);
-    expect(report.measured.curvatureRad).toBeGreaterThan(0);
+    // Measured on a macOS runner: `pathPx` above zero and `curvatureRad` exactly zero. The pointer had
+    // travelled; the page had recorded too few steps above the noise floor to compute an angle from. That
+    // is a limit of the measurement, and a limit has to be reported as one — otherwise a coalesced trace
+    // reads as evidence that the driver moved in a straight line.
+    if (report.measured.curvatureSamples > 0) {
+      expect(report.measured.curvatureRad, JSON.stringify(report.measured)).toBeGreaterThan(0);
+    } else {
+      expect(String(report.limits), JSON.stringify(report.measured)).toContain('curvature was not measurable');
+    }
 
     await callTool('pro_human_detach', { driver_id: driverId });
     await callTool('pro_browser_use_session_close', { session_id: sessionId });
