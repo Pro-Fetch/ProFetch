@@ -5,6 +5,10 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
+_Hozircha bo'sh._
+
+## [1.1.0] - 2026-11-06
+
 ### Added
 
 - **Brend: chayon.** `docs/assets/` ichida tanlangan belgi — toza siluet
@@ -58,6 +62,10 @@ versiya semver bo'yicha.
 
 ### Fixed
 
+- Nomi bilan talab qilingan engine'ning kaliti bo'lmasa, endi o'sha kalitni aytadi. Oldin
+  `engine: 'google-cse'` kalitsiz `"Hech bir qidiruv engine javob bermadi (0 urinish): ."` deb
+  javob berardi — urilmagan zanjir uchun "0 urinish" va bo'sh ro'yxat. Endi: `"Google Custom Search"
+  sozlanmagan — kerak: GOOGLE_API_KEY + GOOGLE_CSE_ID (hech narsa urinishi qilinmadi)`.
 - RSS/Atom feedlari HTML rejimida o'qilganda `<link>` void element hisoblanadi — Google News'dagi 50
   ta itemning URL'i bo'sh deb tashlab yuborilayotgan edi; endi XML rejimida.
 - Qidiruv so'rovlari sahifa-fetch 15 s limitini meros olmasligi: 25 s alohida byudjet (Europe PMC
