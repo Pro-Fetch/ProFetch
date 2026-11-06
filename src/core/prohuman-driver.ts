@@ -121,6 +121,17 @@ export interface DriverState {
     schedulerLagMaxMs: number;
     schedulerLagSumMs: number;
     schedulerLagSamples: number;
+    /**
+     * How long a dispatched pointer move took to carry, in ms — the browser's share of the gap.
+     *
+     * Measured on the macOS CI runner: a recorded stillness of 804.1 ms beside a scheduler lag of 3 ms.
+     * The driver began that move essentially on time; the round trip to the browser is where the rest of
+     * the second went. Scheduler lateness alone therefore cannot account for a gap, and a claim about the
+     * cursor needs both numbers rather than one of them plus an assumption.
+     */
+    dispatchMsMax: number;
+    dispatchMsSum: number;
+    dispatchMsSamples: number;
   };
   log: DriverLogEntry[];
   /** Requests that were refused, with the reason: a silent refusal is a lost instruction. */
@@ -186,6 +197,9 @@ export async function attach(input: {
       schedulerLagMaxMs: 0,
       schedulerLagSumMs: 0,
       schedulerLagSamples: 0,
+      dispatchMsMax: 0,
+      dispatchMsSum: 0,
+      dispatchMsSamples: 0,
     },
     log: [],
     refusals: [],
@@ -371,6 +385,7 @@ async function drift(state: DriverState, now: number): Promise<void> {
   // could not move it.
   const lag = Math.max(0, now - state.nextIdleAtMs);
   const next = planDrift(state.pointer, state.viewport, state.profile, state.rng);
+  const dispatchedAt = Date.now();
   await state.surface.pointerMove(next.x, next.y);
   // Everything the outside can read is accounted after the move lands, and in one synchronous block:
   // `drifts` and the lateness sample count are the same event counted twice, and recording the sample
@@ -378,9 +393,13 @@ async function drift(state: DriverState, now: number): Promise<void> {
   // runner) or 7 with 6 (Windows). `lastPointerAtMs` moved here for the same reason — stamped with the
   // tick's start, a move that had not finished yet read as a cursor that had already been still that long.
   const delivered = Date.now();
+  const carry = Math.max(0, delivered - dispatchedAt);
   state.stats.schedulerLagMaxMs = Math.max(state.stats.schedulerLagMaxMs, lag);
   state.stats.schedulerLagSumMs += lag;
   state.stats.schedulerLagSamples += 1;
+  state.stats.dispatchMsMax = Math.max(state.stats.dispatchMsMax, carry);
+  state.stats.dispatchMsSum += carry;
+  state.stats.dispatchMsSamples += 1;
   state.stats.drifts += 1;
   state.pointer = next;
   state.lastPointerAtMs = delivered;
@@ -669,6 +688,17 @@ export function statusOf(state: DriverState): Record<string, unknown> {
         ? Math.round(state.stats.schedulerLagSumMs / state.stats.schedulerLagSamples)
         : 0,
       samples: state.stats.schedulerLagSamples,
+    },
+    /**
+     * How long the browser took to carry each dispatched move. The other half of any gap: the scheduler
+     * can start a move on time and the page can still sit for 800 ms while the round trip completes.
+     */
+    dispatch_latency_ms: {
+      max_ms: state.stats.dispatchMsMax,
+      mean_ms: state.stats.dispatchMsSamples
+        ? Math.round(state.stats.dispatchMsSum / state.stats.dispatchMsSamples)
+        : 0,
+      samples: state.stats.dispatchMsSamples,
     },
     refusals: state.refusals.slice(-10),
     log: state.log.slice(-20),

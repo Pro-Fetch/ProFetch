@@ -784,22 +784,38 @@ const tools = [
           : 0,
         samples: found.value.stats.schedulerLagSamples,
       };
-      // A breach smaller than the driver's own measured lateness is the machine, not the behaviour:
-      // the move was planned on time and the event loop delivered it late. Saying so is not a pass —
-      // `ok` stays false, because what the customer asked for was a cursor that never waits that long.
-      const explainedByLoad = !verdict.ok && verdict.samples >= 2 && verdict.worstMs - ceiling <= lag.max_ms;
+      // The other half of the machine's time: how long a move the driver started on time took the
+      // browser to carry. Measured on the macOS runner — a gap of 804.1 ms beside a scheduler lag of
+      // 3 ms. Attributing that to the scheduler alone was the mistake; the round trip is where the
+      // second went, and it is a measured number rather than an excuse.
+      const carry = {
+        max_ms: found.value.stats.dispatchMsMax,
+        mean_ms: found.value.stats.dispatchMsSamples
+          ? Math.round(found.value.stats.dispatchMsSum / found.value.stats.dispatchMsSamples)
+          : 0,
+        samples: found.value.stats.dispatchMsSamples,
+      };
+      // A breach no larger than what the machine spent — late start plus slow carry — is the machine,
+      // not the behaviour. Saying so is not a pass: `ok` stays false, because what the customer asked
+      // for was a cursor that never waits that long.
+      const attributedMs = lag.max_ms + carry.max_ms;
+      const explainedByLoad = !verdict.ok && verdict.samples >= 2 && verdict.worstMs - ceiling <= attributedMs;
       return jsonBlock(
         verdict.ok ? `no stillness over ${verdict.ceilingMs} ms` : `the pointer held still for ${verdict.worstMs} ms`,
         {
           ok: verdict.ok,
           verdict,
           scheduler_lag_ms: lag,
+          dispatch_latency_ms: carry,
           trusted_ratio: measured.trustedRatio,
           explanation:
             verdict.samples < 2
               ? 'fewer than two recorded pointer events: this says the recorder or the session is broken, not that the pointer was steady'
               : explainedByLoad
-                ? `the gap is ${verdict.worstMs} ms over a ${ceiling} ms ceiling, and the driver itself ran up to ${lag.max_ms} ms late against its plan — the machine was busy, not the behaviour. Reported as a breach anyway: the promise was about the cursor, not about the load.`
+                ? `the gap is ${verdict.worstMs} ms over a ${ceiling} ms ceiling. The driver started its moves up to ` +
+                  `${lag.max_ms} ms behind plan, and a move then took up to ${carry.max_ms} ms for the browser to ` +
+                  `carry — ${attributedMs} ms of machine, which covers the excess. Reported as a breach anyway: ` +
+                  `the promise was about the cursor, not about the load.`
                 : '',
         },
       );

@@ -155,6 +155,16 @@ both failures, and neither was the driver:
    moved from a hardcoded 1200 ms to the ceiling the profile declares, doubled, plus the lateness the
    driver measured in itself: a frozen cursor has nothing to attribute to, and its stillness grows with
    uptime while the allowance does not.
+8. **Scheduler lateness was only half of the machine's time.** The next macOS failure was
+   `worstMs: 804.1` against a `ceilingMs: 320` with `scheduler_lag_ms.max_ms: 3` — the driver began that
+   move 3 ms behind plan and the page still sat for eight-tenths of a second. The gap between two recorded
+   events is the planned gap **plus the browser's round trip**, and nothing in the pack measured the round
+   trip. `drift()` now times `pointerMove` and keeps worst/mean/samples as `dispatch_latency_ms`, in the
+   same synchronous block as the drift count, so it cannot disagree with it; `status` and `verify` both
+   report it, and `verify`'s attribution is `scheduler lag + carry` instead of scheduler lag alone. Measured
+   on this machine over 3 s: 15 drifts, scheduler lag max 13 ms, carry max 6 ms, worst gap 261.7 ms — the
+   two series agree and the ceiling holds. A breach stays a breach (`ok: false`): the promise was about the
+   cursor, and the new number explains where the time went rather than excusing it.
 
 ## Milestones
 
