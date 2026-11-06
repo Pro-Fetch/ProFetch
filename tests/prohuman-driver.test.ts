@@ -88,6 +88,24 @@ async function waitQuiescent(driverId: string, deadlineMs: number): Promise<Reco
   return status;
 }
 
+/**
+ * Read the report until the page itself has recorded `count` pointer events, or the deadline passes.
+ *
+ * Two is the floor that matters: a gap — the thing `verify` measures — needs two events, and a recorder
+ * that sees fewer than the driver dispatched is the defect worth catching. How fast the recorder fills up
+ * is the runner's business; on the macOS CI runner this window produced 2 events where this machine
+ * produces 80.
+ */
+async function waitRecorded(driverId: string, count: number, deadlineMs: number): Promise<Record<string, any>> {
+  const deadline = Date.now() + deadlineMs;
+  let report = payload(await callTool('pro_human_report', { driver_id: driverId }));
+  while (((report.measured?.pointerEvents as number) ?? 0) < count && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    report = payload(await callTool('pro_human_report', { driver_id: driverId }));
+  }
+  return report;
+}
+
 afterAll(async () => {
   await closeAll();
 });
@@ -133,12 +151,24 @@ describe.skipIf(!LIVE)('a driver on a real page', { timeout: 150_000 }, () => {
     expect(status.scheduler_lag_ms.max_ms).toBeGreaterThanOrEqual(0);
     expect(status.scheduler_lag_ms.mean_ms).toBeGreaterThanOrEqual(0);
 
-    const report = payload(await callTool('pro_human_report', { driver_id: driverId }));
+    const report = await waitRecorded(driverId, 2, 10_000);
     expect(report.measured.trusted_ratio ?? report.measured.trustedRatio).toBe(1);
-    expect(report.measured.pointerEvents).toBeGreaterThan(3);
+    // The recorder saw the driver move. `> 3` was the old demand and the macOS runner answered 2 — that
+    // number measured how fast the machine completed round trips, not whether the page recorded anything.
+    expect(report.measured.pointerEvents, JSON.stringify(report.measured)).toBeGreaterThanOrEqual(2);
+    // And it cannot have seen MORE than the driver dispatched: a larger count would mean something else
+    // was moving this cursor, which is the failure the session lock exists to prevent.
+    const dispatched = Number(status.stats.drifts) + Number(status.stats.pointerMoves);
+    expect(
+      report.measured.pointerEvents,
+      `page ${report.measured.pointerEvents} ta hodisa ko‘rdi, driver ${dispatched} ta yubordi`,
+    ).toBeLessThanOrEqual(dispatched + 1);
 
     const verdict = payload(await callTool('pro_human_verify', { driver_id: driverId }));
-    expect(verdict.verdict.samples, JSON.stringify(verdict)).toBeGreaterThan(2);
+    // The verifier reads the same recorder a moment later, so it sees at least as many events as the
+    // report did. Two events is also the floor for a gap to exist at all: `samples: moves.length`.
+    expect(verdict.verdict.samples, JSON.stringify(verdict)).toBeGreaterThanOrEqual(report.measured.pointerEvents);
+    expect(verdict.verdict.samples, JSON.stringify(verdict)).toBeGreaterThanOrEqual(2);
     // The strict ceiling is what the product reports to its user, and a saturated machine can honestly
     // breach it: measured here at 390.5 ms against a 320 ms ceiling while four suites shared one event
     // loop. What this test owns is the mechanism — the pointer keeps moving, and never stops for long.
