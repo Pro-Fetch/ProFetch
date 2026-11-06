@@ -83,8 +83,29 @@ jobs:
       - name: Build
         run: npm run build
 
+      # A failed run has to be diagnosable by somebody who cannot read the Actions log.
+      #
+      # The log itself needs a signed-in token; the check-run annotations endpoint does not. So the test
+      # output is teed to a file, and when the step fails the failing test names are re-emitted as
+      # ::error:: lines — readable through the public API, and enough to say WHICH test broke rather
+      # than "Unit tests exited 1" on one of six matrix jobs. npm test's own exit status still decides
+      # the result; this step only explains it.
       - name: Unit tests
-        run: npm test
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee /tmp/vitest.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            echo "::error::npm test exited $code on $(uname -s), Node $(node --version)"
+            grep -E '^ *(×|✗|FAIL)' /tmp/vitest.log | head -20 | while IFS= read -r line; do
+              printf '::error::%s\n' "$(echo "$line" | sed 's/[%\r]/ /g' | cut -c1-240)"
+            done
+            grep -E 'TEST_RUN_INCONCLUSIVE|Worker exited|only [0-9]+ of|AssertionError' /tmp/vitest.log | head -10 | while IFS= read -r line; do
+              printf '::error::%s\n' "$(echo "$line" | sed 's/[%\r]/ /g' | cut -c1-240)"
+            done
+          fi
+          exit "$code"
 
       - name: Verify the published tarball is executable and secret-free
         run: npm run verify:package
