@@ -62,6 +62,36 @@ async function liveTool(name: string, input: Record<string, unknown>, attempts =
 }
 
 /**
+ * `liveTool` for the case where the call succeeds but the portal leaves out the key the assertion needs.
+ *
+ * Measured twice in one day, the same way each time: `$select` answered with no `fields`, and
+ * `pro_opendata_count` answered with no `column_naming` (45 s of retries, then the assertion saw
+ * `undefined`). Both failed on one runner and passed on another with an identical commit, which is the
+ * portal talking, not the code.
+ *
+ * The rule lives here rather than inside each test because writing it inline was already tried once and
+ * failed the same way twice. A regression still fails: a broken parser produces the same absence on
+ * every attempt, and the message then names which side broke.
+ */
+async function liveField(
+  name: string,
+  input: Record<string, unknown>,
+  field: string,
+  attempts = 3,
+): Promise<Record<string, any>> {
+  let data = {} as Record<string, any>;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    data = payload(await callTool(name, input)) as Record<string, any>;
+    if (data[field] !== undefined) return data;
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 700 * attempt));
+  }
+  throw new Error(
+    `LIVE_ENDPOINT_UNAVAILABLE: ${name} ${attempts} urinishda ham "${field}" maydonini qaytarmadi. ` +
+      `Oxirgi javob: ${JSON.stringify(data).slice(0, 300)}. Portal javobi - mahsulot nuqsoni emas.`,
+  );
+}
+
+/**
  * One probe decides whether the live blocks below can mean anything this run. The portal answering
  * with a 404 or an HTML page is a product question and still fails; not reaching it at all is a
  * network fact, and reporting that as a test failure is what made the build lie about itself.
@@ -231,12 +261,12 @@ describe.skipIf(!portalReachable)('live: rows through SODA', () => {
   });
 
   it('honours $select', async () => {
-    const data = payload(
-      await liveTool('pro_opendata_rows', {
-        dataset: '8wbx-tsch',
-        limit: 2,
-        select: 'license_type,vehicle_license_number',
-      }),
+    // The portal was measured answering this with no `fields` at all on one runner while the same
+    // commit passed on another; `liveField` retries that absence and names it if it never lifts.
+    const data = await liveField(
+      'pro_opendata_rows',
+      { dataset: '8wbx-tsch', limit: 2, select: 'license_type,vehicle_license_number' },
+      'fields',
     );
     expect(data.fields).toEqual(['license_type', 'vehicle_license_number']);
   });
@@ -302,12 +332,12 @@ describe.skipIf(!portalReachable)('live: aggregates', () => {
 
   it('documents the flattened aggregate names it produces', async () => {
     // Measured: SoQL returns `min_vehicle_license_number`, not `min(vehicle_license_number)`.
-    const data = payload(
-      await liveTool('pro_opendata_count', {
-        dataset: '8wbx-tsch',
-        min: 'vehicle_license_number',
-        max: 'vehicle_license_number',
-      }),
+    // `column_naming` was seen missing from the portal's answer on one runner, so the same retry that
+    // covers `fields` covers this key.
+    const data = await liveField(
+      'pro_opendata_count',
+      { dataset: '8wbx-tsch', min: 'vehicle_license_number', max: 'vehicle_license_number' },
+      'column_naming',
     );
     expect(data.column_naming).toEqual(expect.stringContaining('min_ustun'));
     expect('min_vehicle_license_number' in ((data.rows as unknown[])[0] as object)).toBe(true);
