@@ -59,6 +59,15 @@ export interface SearchEngine {
 
 const MAX_BYTES = 2_000_000;
 
+/**
+ * Search requests get their own budget: 25 s, not the 15 s page-fetch default.
+ *
+ * Measured on a loaded machine: `www.ebi.ac.uk` exceeded 15 s and the engine was reported broken, when what
+ * had actually happened is that a public academic index answered slowly. Fetching a document and querying an
+ * index are different work; sharing one timeout makes the slower one look like a failure.
+ */
+const SEARCH_TIMEOUT_MS = 25_000;
+
 function fail(status: number, blocked?: string): Error {
   return new Error(`HTTP ${status}${blocked ? ' ' + blocked : ''}`);
 }
@@ -67,6 +76,7 @@ async function getJson<T>(url: string, headers: Record<string, string> = {}): Pr
   const response = await fetchWithOptions(url, {
     headers: { accept: 'application/json', ...headers },
     maxBytes: MAX_BYTES,
+    timeoutMs: SEARCH_TIMEOUT_MS,
     cache: false,
   });
   if (response.status >= 400) throw fail(response.status, response.blocked?.kind);
@@ -79,6 +89,7 @@ async function postJson<T>(url: string, body: unknown, headers: Record<string, s
     headers: { accept: 'application/json', 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
     maxBytes: MAX_BYTES,
+    timeoutMs: SEARCH_TIMEOUT_MS,
     cache: false,
   });
   if (response.status >= 400) throw fail(response.status, response.blocked?.kind);
@@ -89,6 +100,7 @@ async function getHtml(url: string, headers: Record<string, string> = {}): Promi
   const response = await fetchWithOptions(url, {
     headers: { accept: 'text/html', ...headers },
     maxBytes: MAX_BYTES,
+    timeoutMs: SEARCH_TIMEOUT_MS,
     cache: false,
   });
   if (response.status >= 400) throw fail(response.status, response.blocked?.kind);
@@ -108,6 +120,7 @@ async function getFeed(url: string): Promise<ReturnType<typeof load>> {
   const response = await fetchWithOptions(url, {
     headers: { accept: 'application/rss+xml, application/atom+xml, text/xml, application/xml' },
     maxBytes: MAX_BYTES,
+    timeoutMs: SEARCH_TIMEOUT_MS,
     cache: false,
   });
   if (response.status >= 400) throw fail(response.status, response.blocked?.kind);

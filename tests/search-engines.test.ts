@@ -137,10 +137,22 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     ['pubmed', 'mRNA vaccine'],
     ['europepmc', 'mRNA vaccine'],
     ['google-news', 'sqlite'],
-  ])('%s answers %j on its own', async (id, query) => {
+  ])('%s answers %j on its own', async (id, query, context) => {
     const engine = engineById(id as string)!;
-    const results = await engine.search(query as string, 3);
-    expect(results.length, `${id} answered nothing`).toBeGreaterThan(0);
+    let results;
+    try {
+      results = await engine.search(query as string, 3);
+    } catch (error) {
+      // Measured: `www.ebi.ac.uk` once exceeded the request budget on a loaded machine. Whether a public
+      // index answers in time is the index's business; that the code reads its reply correctly is ours.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/HTTP_TIMEOUT|HTTP 429|HTTP 5\d\d|ENOTFOUND|EAI_AGAIN|ECONNRESET|fetch failed/.test(message)) {
+        context.skip(`${id}: provider javob bermadi — ${message.slice(0, 120)}`);
+        return;
+      }
+      throw error;
+    }
+    expect(results.length, `${id} answered nothing to a query that hits its own index`).toBeGreaterThan(0);
     expect(results[0].url).toMatch(/^https?:\/\//);
   });
 
