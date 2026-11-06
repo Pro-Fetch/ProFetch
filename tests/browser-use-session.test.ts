@@ -110,11 +110,18 @@ describe.skipIf(!LIVE)('a live session', () => {
     }
     // Nothing in the sample was clickable. The answer must say which kind of node it is and why it is
     // not reachable — never imply a change the engine has no evidence for.
+    //
+    // The forbidden list used to include `hit-test at the centre`, one of the engine's honest reasons
+    // for an on-screen node being unclickable (browser-use-perception.ts). That made the assertion
+    // depend on what the page happened to look like: on Linux the sample's first node reported a
+    // different cause and the job passed, on Windows runners it reported the hit-test and the same
+    // commit failed twice. What must never appear is a claim that the element changed or vanished —
+    // the staleness words below are the actual lie.
     expect(checked.staleness).toBe('CHANGED');
     expect(String(checked.reason)).toMatch(
       /is not an interactive element|not reachable right now|outside the viewport/,
     );
-    expect(String(checked.reason)).not.toMatch(/no longer|hit-test at the centre/);
+    expect(String(checked.reason)).not.toMatch(/no longer|was removed|replaced/);
   });
 
   it('refuses a target the guard blocks, before starting a browser', async () => {
