@@ -54,14 +54,14 @@ lekin 2-qadam (reja) va 9-qadam (dalil) o'tmaydi.
 "Bajarildi", "topildi", "testdan o'tdi" degan matn dalilning o'rnini bosmaydi. Har bir muhim
 vazifa uchun saqlanadi:
 
-| maydon | misol |
-|---|---|
-| qaysi amal bajarildi | `npm test -- tests/x.test.ts` |
-| qaysi fayl o'zgardi | `src/core/tool.ts` |
-| qaysi komanda ishga tushdi | `npm run check` |
-| chiqish kodi va natija | `exit 0, 42/42 test` |
-| tekshirilmagan jihatlar | "live API sinovi credential'siz bajarilmadi" |
-| qoldiq xavf | "GitHub kvotasi 0/60" |
+| maydon                     | misol                                        |
+| -------------------------- | -------------------------------------------- |
+| qaysi amal bajarildi       | `npm test -- tests/x.test.ts`                |
+| qaysi fayl o'zgardi        | `src/core/tool.ts`                           |
+| qaysi komanda ishga tushdi | `npm run check`                              |
+| chiqish kodi va natija     | `exit 0, 42/42 test`                         |
+| tekshirilmagan jihatlar    | "live API sinovi credential'siz bajarilmadi" |
+| qoldiq xavf                | "GitHub kvotasi 0/60"                        |
 
 **Test ishga tushmagan bo'lsa, `not_run` — `passed` emas.** Faqat haqiqiy muvaffaqiyatli natija
 `passed`. Mock bilan tekshirilgan bo'lsa, `mock_verified`; real tashqi servis testi sifatida
@@ -84,13 +84,13 @@ aylantirma.
 
 Yangi topilma tasnifi:
 
-| tasnif | ma'no |
-|---|---|
-| `must_fix` | asosiy maqsadga to'sqinlik qiladi yoki jiddiy xavf tug'diradi |
-| `should_fix` | yakuniy sifatga sezilarli ta'sir qiladi |
-| `report_only` | muhim, ammo hozirgi scope'dan tashqarida |
-| `needs_user_approval` | tashqi yoki qaytarib bo'lmaydigan ta'sir |
-| `false_positive` | dalil bilan bekor qilingan |
+| tasnif                | ma'no                                                         |
+| --------------------- | ------------------------------------------------------------- |
+| `must_fix`            | asosiy maqsadga to'sqinlik qiladi yoki jiddiy xavf tug'diradi |
+| `should_fix`          | yakuniy sifatga sezilarli ta'sir qiladi                       |
+| `report_only`         | muhim, ammo hozirgi scope'dan tashqarida                      |
+| `needs_user_approval` | tashqi yoki qaytarib bo'lmaydigan ta'sir                      |
+| `false_positive`      | dalil bilan bekor qilingan                                    |
 
 ---
 
@@ -162,18 +162,18 @@ emas.**
 
 Bu repo ishi uchun eng foydali tool'lar:
 
-| vazifa | tool |
-|---|---|
-| tool topish | `pro_capability_map` |
-| ko'p tool'ni bajarish | `pro_capability_call` |
-| bitta aniq tool | `pro_fetch_tool_execute` |
-| repo audit | `pro_repo_audit` |
-| PR review | `pro_pr_review` |
-| chuqur tadqiqot | `pro_research_deep` |
-| sayt skanerlash | `pro_site_scan` |
-| sahifa auditi | `pro_audit_page` |
-| dataset tahlili | `pro_data_pipeline` |
-| javoblarni yig'ish | `pro_synthesize` |
+| vazifa                | tool                     |
+| --------------------- | ------------------------ |
+| tool topish           | `pro_capability_map`     |
+| ko'p tool'ni bajarish | `pro_capability_call`    |
+| bitta aniq tool       | `pro_fetch_tool_execute` |
+| repo audit            | `pro_repo_audit`         |
+| PR review             | `pro_pr_review`          |
+| chuqur tadqiqot       | `pro_research_deep`      |
+| sayt skanerlash       | `pro_site_scan`          |
+| sahifa auditi         | `pro_audit_page`         |
+| dataset tahlili       | `pro_data_pipeline`      |
+| javoblarni yig'ish    | `pro_synthesize`         |
 
 To'liq ro'yxat: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`.
 
@@ -186,7 +186,7 @@ shu hujjatni o'qigan agentning majburiyati, server tomonidan majburlash emas.
 ## 9. Texnik cheklovlar
 
 - Profil `PRO_FETCH_PROFILE` orqali tanlanadi: `smart` (12 meta-tool), `minimal` (74),
-  `standard` (188), `full` (746). Modul load paytida o'qilgani uchun o'zgartirish server
+  `standard` (196), `full` (754). Modul load paytida o'qilgani uchun o'zgartirish server
   qayta ishga tushishini talab qiladi.
 - `smart` profili ostida barcha tool'lar `pro_capability_map` / `pro_capability_call` orqali
   ma'lum qilinadi — to'g'ridan-to'g'ri emas.

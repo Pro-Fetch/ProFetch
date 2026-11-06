@@ -65,6 +65,11 @@ const CATEGORY_SCHEMA_CATEGORIES = new Set([
   // `tests/schema-narrowing.test.ts` on the first run after the category was added. Measured across all
   // ten SQL tools: 0 unread properties, so there is nothing to add and nothing to strip.
   'sql',
+  // `index` arrived without this, exactly as `sql`, `time` and `qr` did before it: eight new schemas with
+  // `additionalProperties` unset, which the registry-wide assertions in `tests/schema-narrowing.test.ts`
+  // and `tests/unknown-arguments.test.ts` both caught on the first run. The vocabulary below is empty on
+  // purpose — these tools read only what they declare.
+  'index',
   // `qr` arrived without this and its nine schemas stayed open, which the registry-wide assertion in
   // `tests/schema-narrowing.test.ts` caught on the first run after the category was added. Measured:
   // `pro_qr_encode`, `pro_qr_decode`, `pro_qr_capacity`, `pro_qr_rs_encode`, `pro_qr_rs_decode`,

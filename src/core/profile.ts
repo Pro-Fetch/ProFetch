@@ -64,6 +64,9 @@ export const CATEGORY_LEVELS: Record<string, number> = {
   extract: 2,
   // The receipts a citation rests on: reachable at `standard`, because that is what the API is for.
   evidence: 2,
+  // What this installation has read, and how quickly it can be found again. Same reasoning: a claim is
+  // only useful if the evidence behind it is reachable without asking for the widest profile.
+  index: 2,
   auth: 2,
   git: 3,
   // Drives a real browser and can change a page, so it is not advertised to the smaller profiles.

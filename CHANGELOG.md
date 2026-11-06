@@ -24,7 +24,7 @@ _Hozircha bo'sh._
   bergan (URL, metod va kalit sarlavhasi tasdiqlangan), natijali yo'l esa kalitsiz kuzatilmagan.
   Qo'llab-quvvatlanmaydiganlar yozilmagan: SearchAPI.io va Kagi 404 berdi, Yandex ulanishni rad etdi,
   dev.to qidiruv yo'li o'chirilgan.
-- **`pro_fetch_search_engines`** (746-tool) — qaysi engine hozir ishlatishga tayyor, qaysi biri qaysi
+- **`pro_fetch_search_engines`** (754-tool) — qaysi engine hozir ishlatishga tayyor, qaysi biri qaysi
   kalitni kutayotgani va har biri haqidagi dalil. Kalit qiymatlari chiqarilmaydi.
 - **`pro_fetch_web_search` uchta rejim:** `engine` (bitta indeksni majburiy), `kind` (indeks turi
   bo'yicha cheklash), `combine` (barcha ishlaydigan indekslarni so'rab, URL bo'yicha birlashtirish).
@@ -38,7 +38,7 @@ _Hozircha bo'sh._
 - **Brauzer ochilishini qayta urinish.** `launchManaged` endi transient ochilish muvaffaqatsizligida
   3 martagacha uradi, har biri alohida profil papkasida (`launch-retry-2`, `launch-retry-3`). Belgini
   `isTransientLaunchFailure` ajratadi — Windows runner'dagi matn (`Target page, context or browser has
-  been closed` + pid'ini topolmagan `taskkill`) testda so'zma-so'z qaydlangan. Rad etish (browser
+been closed` + pid'ini topolmagan `taskkill`) testda so'zma-so'z qaydlangan. Rad etish (browser
   o'rnatilmagan, adapter yo'q, argument rad etilgan) qayta urilmaydi.
 
 ### Changed
@@ -65,7 +65,7 @@ _Hozircha bo'sh._
 - Nomi bilan talab qilingan engine'ning kaliti bo'lmasa, endi o'sha kalitni aytadi. Oldin
   `engine: 'google-cse'` kalitsiz `"Hech bir qidiruv engine javob bermadi (0 urinish): ."` deb
   javob berardi — urilmagan zanjir uchun "0 urinish" va bo'sh ro'yxat. Endi: `"Google Custom Search"
-  sozlanmagan — kerak: GOOGLE_API_KEY + GOOGLE_CSE_ID (hech narsa urinishi qilinmadi)`.
+sozlanmagan — kerak: GOOGLE_API_KEY + GOOGLE_CSE_ID (hech narsa urinishi qilinmadi)`.
 - RSS/Atom feedlari HTML rejimida o'qilganda `<link>` void element hisoblanadi — Google News'dagi 50
   ta itemning URL'i bo'sh deb tashlab yuborilayotgan edi; endi XML rejimida.
 - Qidiruv so'rovlari sahifa-fetch 15 s limitini meros olmasligi: 25 s alohida byudjet (Europe PMC
@@ -177,6 +177,7 @@ Ushbu audit qator xavf/nuqsonni o'lchab, sinov bilan tasdiqlab yopdi (suite: 52 
   ketmasligi uchun jazolangan.
 
 ### Added
+
 - `src/core/composite-budget.ts` — `detailMode`, `renderBudgeted`, `isInformative`.
 - `tests/smart-system-quality.test.ts` — 25 ta test: semantik qidiruv, byudjet, parallel izolyatsiya.
 
@@ -256,7 +257,7 @@ Ushbu audit qator xavf/nuqsonni o'lchab, sinov bilan tasdiqlab yopdi (suite: 52 
   ularni avtomatik tasdiqlagan bo'lardi. Ikkala yo'nalish ham 0 ga tushirildi.
 - **Import sikli.** `security-policy` → `loader` → tool index → `core/tool` → `execution-engine` →
   `security-policy`. ESM siklning bir qismini `undefined` ga baholaydi; `boundedEnv is not a
-  function` va `defineTool is not a function` xatolari shundan edi. `boundedEnv` va profil qoidalari
+function` va `defineTool is not a function` xatolari shundan edi. `boundedEnv` va profil qoidalari
   alohida leaf modullarga ko'chirildi.
 - **`<NAME>_FILE` nisbiy yo'llari ishlamasdi** — server har qanday papkadan ishga tushishi
   mumkin. Endi `package.json` ga nisbatan resolve qilinadi.
