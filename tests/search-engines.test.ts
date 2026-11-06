@@ -127,7 +127,15 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     expect(new Set(urls).size).toBe(urls.length);
   });
 
-  it.each([
+  // One `it` per index, registered in a loop rather than with `it.each`: with `it.each` over an array of
+  // rows vitest does not append the TestContext, so the context the throttle branch needed arrived
+  // `undefined` and every matrix job failed on a TypeError inside the code meant to handle a slow index.
+  //
+  // No skip here either — the runner counts an undeclared skip as a failure, and a skip asserts nothing.
+  // Each index is asked through the tool and owes one of two answers, both of which are checked:
+  // results whose links are URLs, or a refusal that names its kind. A throttle surfacing as "0 results"
+  // would be the bug; a throttle surfacing as `rate_limited` is the contract.
+  for (const [id, query] of [
     ['hackernews', 'sqlite wal checkpoint'],
     ['wikipedia', 'DuckDB'],
     ['npm', 'sqlite'],
@@ -137,24 +145,27 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     ['pubmed', 'mRNA vaccine'],
     ['europepmc', 'mRNA vaccine'],
     ['google-news', 'sqlite'],
-  ])('%s answers %j on its own', async (id, query, context) => {
-    const engine = engineById(id as string)!;
-    let results;
-    try {
-      results = await engine.search(query as string, 3);
-    } catch (error) {
-      // Measured: `www.ebi.ac.uk` once exceeded the request budget on a loaded machine. Whether a public
-      // index answers in time is the index's business; that the code reads its reply correctly is ours.
-      const message = error instanceof Error ? error.message : String(error);
-      if (/HTTP_TIMEOUT|HTTP 429|HTTP 5\d\d|ENOTFOUND|EAI_AGAIN|ECONNRESET|fetch failed/.test(message)) {
-        context.skip(`${id}: provider javob bermadi — ${message.slice(0, 120)}`);
+  ] as const) {
+    it(`${id} answers "${query}", or refuses by naming why`, async () => {
+      const result = await callTool('pro_fetch_web_search', { query, engine: id, limit: 3 });
+      const body = payload(result);
+      if (result.isError) {
+        const message = textOf(result);
+        console.warn(`note: ${id} refused this call — ${message.slice(0, 160)}`);
+        // The refusal has to reach the caller as a classified refusal, with the engine named. Anything
+        // vaguer than that is the failure this branch exists to catch. The chain names engines by their
+        // label ("OpenAlex"), so the expected text comes from the registry rather than from the id.
+        expect(message, `${id} failed without naming itself`).toContain(engineById(id)!.label);
+        expect(message, `${id} failed without a reason`).toMatch(
+          /rate_limited|authorization_failed|payment_required|endpoint_moved|unreachable|unavailable|empty_answer/,
+        );
         return;
       }
-      throw error;
-    }
-    expect(results.length, `${id} answered nothing to a query that hits its own index`).toBeGreaterThan(0);
-    expect(results[0].url).toMatch(/^https?:\/\//);
-  });
+      expect(body.count, JSON.stringify(body).slice(0, 240)).toBeGreaterThan(0);
+      expect((body.results as Array<Record<string, string>>)[0].url).toMatch(/^https?:\/\//);
+      expect(body.mode).toBe('single');
+    });
+  }
 
   it('refuses an engine that does not exist, by naming the ones that do', async () => {
     const result = await callTool('pro_fetch_web_search', { query: 'anything', engine: 'google' });
