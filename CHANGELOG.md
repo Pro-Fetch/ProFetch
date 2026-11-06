@@ -8,16 +8,64 @@ versiya semver bo'yicha.
 ### Added
 
 - **Brend: chayon.** `docs/assets/` ichida tanlangan belgi — toza siluet
-  (`pro-fetch-scorpion-white.png` va `pro-fetch-scorpion-black.png`, shaffof fonli) va README
-  uchun tayyor chip (`pro-fetch-chip.png`: qora yumaloq plastinka + oq chayon). Chip qasddan
+  (`pro-fetch-scorpion-white.png` va `pro-fetch-scorpion-black.png`, shaffof fonli) va README sarlavhasi
+  uchun tayyorlangan chip (`pro-fetch-chip.png`: qora yumaloq plastinka + oq chayon). Chip qasddan
   PNG: yalang'och qora belgi GitHub va npm'ning qorong'i rejimida ko'rinmay qoladi, plastinka esa
-  ikkala rejimda ham o'qiladi.
-- **Film.** `docs/assets/pro-fetch-film.mp4` — 120 soniya, 1920x1080, 30 fps, ovozsiz; README
-  tepasida poster orqali havola qilingan. Sahnalar: muammo → bitta buyruq → 673 katak 12 taga
-  siqiladi → bitta round trip → breadth → profillar → uchta REFUSED → MAX → dalilsiz "done" rad
-  etiladi → adapterlar → o'lchangan raqamlar → nom. Ekrandagi har bir son repoda o'lchanadigan
-  son; ovozsiz, chunki u sound-off avtomatik o'ynatish uchun qilingan.
+  ikkala rejimda ham o'qiladi. Hozir README `cover-light.png` / `cover-dark.png` ishlatadi.
+- **23 ta qidiruv engine.** `src/core/search-engines.ts` — bitta reyestr, har qatorda o'z dalili bilan.
+  14 tasi kalitsiz va tirik tekshirilgan (Hacker News, Wikipedia, npm, iTunes, OpenAlex, Crossref,
+  arXiv, PubMed, Europe PMC, DOAJ, Google News, DuckDuckGo; Marginalia brauzer UA talab qiladi,
+  SearXNG operator URL'i talab qiladi), 9 tasi kalit bilan (Serper, Brave, Tavily, Exa, SerpAPI,
+  Linkup, DataForSEO, Google CSE, Perplexity) — ularning holati `endpoint`: provider o'z rad javobini
+  bergan (URL, metod va kalit sarlavhasi tasdiqlangan), natijali yo'l esa kalitsiz kuzatilmagan.
+  Qo'llab-quvvatlanmaydiganlar yozilmagan: SearchAPI.io va Kagi 404 berdi, Yandex ulanishni rad etdi,
+  dev.to qidiruv yo'li o'chirilgan.
+- **`pro_fetch_search_engines`** (746-tool) — qaysi engine hozir ishlatishga tayyor, qaysi biri qaysi
+  kalitni kutayotgani va har biri haqidagi dalil. Kalit qiymatlari chiqarilmaydi.
+- **`pro_fetch_web_search` uchta rejim:** `engine` (bitta indeksni majburiy), `kind` (indeks turi
+  bo'yicha cheklash), `combine` (barcha ishlaydigan indekslarni so'rab, URL bo'yicha birlashtirish).
+  Javobda `failedProviders` (sabab bilan), `enginesConfigured` va `enginesSkipped` (kerakli o'zgaruvchi
+  nomlari bilan). O'lchangan: 12 engine'dan 6 tasi javob berdi, 27 ta dublikat olib tashlandi.
+- **ProHuman: `dispatch_latency_ms`.** `drift()` endi `pointerMove` davomiyligini ham o'lchaydi
+  (max/sum/samples). Sabab: macOS CI runner'da `worstMs 804.1` / `ceilingMs 320` / scheduler lag `3 ms`
+  o'lchandi — driver harakatni deyarli o'z vaqtida boshlagan, qolgan vaqt brauzer uni tashishiga
+  ketgan. `status` va `verify` endi ikkala sonni beradi va breach atributsiyasi `lag + carry`.
+  Bu mashinada 3 s ichida: 15 drift, lag max 13 ms, carry max 6 ms, eng yomon gap 261.7 ms.
+- **Brauzer ochilishini qayta urinish.** `launchManaged` endi transient ochilish muvaffaqatsizligida
+  3 martagacha uradi, har biri alohida profil papkasida (`launch-retry-2`, `launch-retry-3`). Belgini
+  `isTransientLaunchFailure` ajratadi — Windows runner'dagi matn (`Target page, context or browser has
+  been closed` + pid'ini topolmagan `taskkill`) testda so'zma-so'z qaydlangan. Rad etish (browser
+  o'rnatilmagan, adapter yo'q, argument rad etilgan) qayta urilmaydi.
 
+### Changed
+
+- **Ochiq ma'lumot rad javoblari endi nomlanadi.** `pro_opendata_*` tool'lari portal rad etganini
+  `failJson` bilan qaytaradi (`dispatch` shundan `structuredContent.ok` hisoblaydi), 429 esa
+  `rate_limited: true` va portalning o'z `Retry-After` soni bilan chiqadi. Guruhlash bo'sh qaytса,
+  javob `empty: true` bilan birga **shu filtrlarda** portalning o'z qator sonini so'raydi va
+  `dataset_rows` ni yozadi — `0` (filtrga mos qator yo'q), aniq son (portal agregatsiyani bajarmagan)
+  yoki `null` (son ham kelmagan).
+- **`pro_fetch_json_path` o'z tavsifidagi grammatikani ishlatadi.** Boshidagi `$` root marker qabul
+  qilinadi, `[n]` va `.n` indeks, `[*]` massiv ustidan xarita (maydoni bo'lmagan element `null`
+  bo'ladi), to'xtagan bo'lim nomlanadi, `{a,b}` esa "qo'llab-quvvatlanmaydi" deb grammatika ko'rsatib
+  rad etiladi. Eski xatti-harakat git'dan olib qayta ishga tushirilib tekshirildi:
+  `$.repository.owner.login` → "Path topilmadi", `repository.owner.login` → ishlaydi edi.
+- **HTTP gateway repodan olindi.** `src/http/`, `src/core/dispatch-guard.ts`, gateway testlari,
+  `deploy/`, `Dockerfile`, `fly.toml`, `site/`, gateway dokumentatsiyasi va usage-eksport skripti
+  chiqarib tashlandi; paket endi bitta stdio MCP serverini chiqaradi. Kod tarixda ham qoldirmasligi
+  uchun commit'lar qayta yozildi (`git filter-repo`), ishchi nusxa fayllari o'zgarmadi — daraxt
+  hashi `de579307662d6b2ed2528178cb0cf45927f52d0d` qayta yozishdan oldin va keyin bir xil.
+
+### Fixed
+
+- RSS/Atom feedlari HTML rejimida o'qilganda `<link>` void element hisoblanadi — Google News'dagi 50
+  ta itemning URL'i bo'sh deb tashlab yuborilayotgan edi; endi XML rejimida.
+- Qidiruv so'rovlari sahifa-fetch 15 s limitini meros olmasligi: 25 s alohida byudjet (Europe PMC
+  yuklangan mashinada 15 s dan oshib, engine buzuq deb hisoblangan edi).
+- ProHuman hisobi: lateness namunasi brauzer round trip'dan **oldin**, drift esa keyin yozilardi —
+  bitta `status` o'qishida 3 namuna / 2 drift (macOS) va 7 / 6 (Windows). Ikkalasi endi harakat
+  yetib kelgach, bitta sinkron blokda. `lastPointerAtMs` ham yetkazib berish vaqti bilan belgilanadi,
+  `status`ga `tick_running_ms` qo'shildi.
 
 ## [1.0.0] - 2026-10-31
 
