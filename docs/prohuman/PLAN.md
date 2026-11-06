@@ -23,17 +23,17 @@ This section is the reason the pack exists in the open rather than as a tuning k
   process, so it cannot be a feature.
 - **Not a licence to ignore a site's terms.** The disclosure layer below is a requirement, not a suggestion.
 
-The measurable claim is narrower and is the only one the tools make: *the events ProHuman produced are
-recorded from the page, and their geometry and timing look like a person's, here are the numbers.*
+The measurable claim is narrower and is the only one the tools make: _the events ProHuman produced are
+recorded from the page, and their geometry and timing look like a person's, here are the numbers._
 
 ## Disclosure layer (required, not optional)
 
-| field | meaning |
-| --- | --- |
-| `identity` | `name` + `contact_url` + `purpose`, attached to the session and surfaced in `User-Agent`; `attach` refuses without it |
-| `consent` | `own-site` \| `authorized` \| `public-read-only`; writing actions (click, type, submit) are refused unless consent is `own-site` or `authorized` |
-| `robots` | the target's `robots.txt` and `crawl-delay` are read before the session starts; a `disallow` is obeyed, not hidden from |
-| `identity_echo` | every tool answer repeats what was disclosed, so an agent can see it is not anonymous |
+| field           | meaning                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `identity`      | `name` + `contact_url` + `purpose`, attached to the session and surfaced in `User-Agent`; `attach` refuses without it                            |
+| `consent`       | `own-site` \| `authorized` \| `public-read-only`; writing actions (click, type, submit) are refused unless consent is `own-site` or `authorized` |
+| `robots`        | the target's `robots.txt` and `crawl-delay` are read before the session starts; a `disallow` is obeyed, not hidden from                          |
+| `identity_echo` | every tool answer repeats what was disclosed, so an agent can see it is not anonymous                                                            |
 
 A behavioural layer that also hides the identity it was given is the thing we are not building; the two are
 separated deliberately, and the separation is enforced in code, not in prose.
@@ -41,7 +41,7 @@ separated deliberately, and the separation is enforced in code, not in prose.
 ## Architecture decisions
 
 1. **Resident driver, not a synchronous tool.** A human-like click takes 1.2–3.5 s; twenty of them eat the
-   transport timeout. Worse, between two MCP calls a synchronous tool leaves the pointer *perfectly still*
+   transport timeout. Worse, between two MCP calls a synchronous tool leaves the pointer _perfectly still_
    for as long as the model thinks — which is the opposite of the premise. `start` launches a loop that
    schedules its own next event (never a fixed interval: a metronome is its own tell), and `status`, `trace`,
    `report`, `verify`, `stop` observe it.
@@ -49,7 +49,7 @@ separated deliberately, and the separation is enforced in code, not in prose.
    driver or an `act` call may move the pointer; while the driver holds it, `act` refuses (or pauses the
    driver on request) rather than silently queuing behind it.
 3. **An input surface, not a Playwright dependency.** `pointerMove / pointerDown / pointerUp / wheel / key /
-   readTrace / focusTab / viewport` is the seam. The first implementation wraps a `browser_use` session
+readTrace / focusTab / viewport` is the seam. The first implementation wraps a `browser_use` session
    through `livePage()`; another engine can be added without touching the behaviour model.
 4. **Evidence is the page's own event log.** A recorder installed with `addInitScript` captures
    `timeStamp`, `isTrusted` and coordinates from the events the browser dispatched. The driver's intent is
@@ -74,12 +74,12 @@ separated deliberately, and the separation is enforced in code, not in prose.
 Command: `npx tsx scripts/prohuman-spike.mts` · chrome (headless) · `https://example.com/` · seeded PRNG.
 Artefacts: `spike-*.json` and `spike-log.md` in this directory.
 
-| assumption | result |
-| --- | --- |
-| the page records the events the driver produced, as trusted events | **HOLDS** — 109 events, `isTrusted` ratio **1.000** |
-| the pointer keeps moving while no MCP call is in flight | **HOLDS** — 23 events recorded during a 2.6 s gap |
-| the path is curved, not a straight interpolation | **HOLDS** — 39 pointer events, 588 px, mean turn **42.4 mrad** |
-| the timing is not a metronome | **HOLDS** — inter-event CV **0.50**; key holds mean 88.1 ms, CV **0.38** |
+| assumption                                                         | result                                                                   |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| the page records the events the driver produced, as trusted events | **HOLDS** — 109 events, `isTrusted` ratio **1.000**                      |
+| the pointer keeps moving while no MCP call is in flight            | **HOLDS** — 23 events recorded during a 2.6 s gap                        |
+| the path is curved, not a straight interpolation                   | **HOLDS** — 39 pointer events, 588 px, mean turn **42.4 mrad**           |
+| the timing is not a metronome                                      | **HOLDS** — inter-event CV **0.50**; key holds mean 88.1 ms, CV **0.38** |
 
 Four defects the spike found and fixed, each of which would have shipped as a wrong measurement:
 
@@ -94,7 +94,7 @@ Four defects the spike found and fixed, each of which would have shipped as a wr
    metric correctly refused to call it a path. The side is now chosen once per movement.
 
 And one design consequence, not a bug: **the pointer sat still for 4.2 s while the keyboard was busy.** A
-fidget loop that only runs between calls is not enough — it must run *concurrently* with typing and
+fidget loop that only runs between calls is not enough — it must run _concurrently_ with typing and
 scrolling, which changes the driver from "an action queue" into "a small scheduler with priorities".
 
 ## M1–M4 — what the pack measured on a live page (2026-11-04)
@@ -102,15 +102,15 @@ scrolling, which changes the driver from "an action queue" into "a small schedul
 `tests/prohuman-driver.test.ts` runs the pack against `https://example.com/` in a headless Chrome and
 asserts the claims rather than the plumbing. Five cases, all passing on this machine:
 
-| case | what it proves |
-| --- | --- |
-| alive between calls | 1.4 s with no call in flight: drifts > 1, `pointer_last_moved_ms_ago` ≤ 1200, `verify` passes |
-| evidence is the page's | `report.measured.trusted_ratio` = 1.000, pointer events > 3, path length > 0, curvature > 0 |
-| named elements | `identity` resolves to the centre and width the engine measured, and the answer names what it aimed at |
-| consent | `public-read-only` refuses the click, records the refusal on the driver, and still allows reading |
-| one writer | `pro_browser_use_act` refuses while a driver holds the cursor; with `pause_driver=true` it takes over and the driver ends as `yielded to pro_browser_use_act` |
+| case                   | what it proves                                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| alive between calls    | 1.4 s with no call in flight: drifts > 1, `pointer_last_moved_ms_ago` ≤ 1200, `verify` passes, and `scheduler_lag_ms.samples` equals the drift count          |
+| evidence is the page's | `report.measured.trusted_ratio` = 1.000, pointer events > 3, path length > 0, curvature > 0                                                                   |
+| named elements         | `identity` resolves to the centre and width the engine measured, and the answer names what it aimed at                                                        |
+| consent                | `public-read-only` refuses the click, records the refusal on the driver, and still allows reading                                                             |
+| one writer             | `pro_browser_use_act` refuses while a driver holds the cursor; with `pause_driver=true` it takes over and the driver ends as `yielded to pro_browser_use_act` |
 
-Four defects the live tests found, each fixed rather than worked around:
+Five defects the live tests found, each fixed rather than worked around:
 
 1. **A driver could not clean itself up.** Teardown routed through the same guard that refuses a driver
    whose session is gone, so pruning a dead driver threw instead of releasing its cursor — an unhandled
@@ -123,16 +123,23 @@ Four defects the live tests found, each fixed rather than worked around:
 4. **The fixture's only link is below the fold** at 1280×720, so aiming at it was correctly refused. The
    test scrolls it into view first — the two steps a real caller takes — rather than aiming at bare
    coordinates and calling that coverage.
+5. **A busy machine looked like a frozen cursor.** Measured: `verify` reported a stillness of 390.5 ms
+   against a 320 ms ceiling while four suites shared one event loop — the driver had planned the move on
+   time and the loop delivered it late, and nothing in the answer could tell the two apart. The driver now
+   times every drift against its planned moment and keeps worst/mean/sample counts; `status` and `verify`
+   both report `scheduler_lag_ms`, and the test asserts the sample count equals the drift count so the two
+   surfaces cannot disagree. An attributed breach is still a breach: `ok` stays false, because the promise
+   was about the cursor, not about the load.
 
 ## Milestones
 
-| | |
-| --- | --- |
-| **M0** | spike: trusted events, resident loop, measurable geometry — **done, all four assumptions hold** |
-| **M1** | core: profile + seeded PRNG, path math, input surface, session lock, recorder — **built, unit-tested** |
-| **M2** | driver: concurrent idle/fidget scheduler, `attach/start/stop/status`, runtime ceiling, self-stop — **built, live-tested** |
-| **M3** | action tools: `move/hover/click/type/press/scroll/read/tab_churn/sequence` — **built, live-tested** |
-| **M4** | measurement: `trace/report/verify`, per-document metrics, disclosure in every answer — **built** |
+|        |                                                                                                                                                       |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M0** | spike: trusted events, resident loop, measurable geometry — **done, all four assumptions hold**                                                       |
+| **M1** | core: profile + seeded PRNG, path math, input surface, session lock, recorder — **built, unit-tested**                                                |
+| **M2** | driver: concurrent idle/fidget scheduler, `attach/start/stop/status`, runtime ceiling, self-stop — **built, live-tested**                             |
+| **M3** | action tools: `move/hover/click/type/press/scroll/read/tab_churn/sequence` — **built, live-tested**                                                   |
+| **M4** | measurement: `trace/report/verify`, per-document metrics, disclosure in every answer — **built**                                                      |
 | **M5** | registry: category `prohuman` at level 3 (`full` only), 717→737 tools and 43→44 categories, README row, schema gate, mutation table, docs — **wired** |
 
 Each milestone ends with a live run and `npm run check` green.

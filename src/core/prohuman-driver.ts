@@ -111,6 +111,14 @@ export interface DriverState {
     actionsFinished: number;
     actionsRefused: number;
     lockRenewals: number;
+    /**
+     * The driver's own lateness, in ms: how far behind the planned moment a pointer move actually
+     * happened. A busy event loop delays the move, and the trace then shows a stillness the behaviour
+     * never intended — without this, `verify` cannot tell a frozen cursor from a saturated machine.
+     */
+    schedulerLagMaxMs: number;
+    schedulerLagSumMs: number;
+    schedulerLagSamples: number;
   };
   log: DriverLogEntry[];
   /** Requests that were refused, with the reason: a silent refusal is a lost instruction. */
@@ -172,6 +180,9 @@ export async function attach(input: {
       actionsFinished: 0,
       actionsRefused: 0,
       lockRenewals: 0,
+      schedulerLagMaxMs: 0,
+      schedulerLagSumMs: 0,
+      schedulerLagSamples: 0,
     },
     log: [],
     refusals: [],
@@ -350,6 +361,13 @@ async function tick(state: DriverState): Promise<void> {
 /** Micro-drift: the pointer is never perfectly still while a driver is alive. */
 async function drift(state: DriverState, now: number): Promise<void> {
   const gap = nextIdleGap(state.profile, state.rng);
+  // How late this move is compared with the moment it was planned for. Positive only when the event
+  // loop kept the driver waiting — the difference between a cursor that sat still and a machine that
+  // could not move it.
+  const lag = Math.max(0, now - state.nextIdleAtMs);
+  state.stats.schedulerLagMaxMs = Math.max(state.stats.schedulerLagMaxMs, lag);
+  state.stats.schedulerLagSumMs += lag;
+  state.stats.schedulerLagSamples += 1;
   const next = planDrift(state.pointer, state.viewport, state.profile, state.rng);
   await state.surface.pointerMove(next.x, next.y);
   state.pointer = next;
@@ -631,6 +649,14 @@ export function statusOf(state: DriverState): Record<string, unknown> {
     queued: state.queue.length,
     pending_events: state.events.length,
     stats: state.stats,
+    /** Derived from the stats above: the driver's own worst and average lateness behind plan time. */
+    scheduler_lag_ms: {
+      max_ms: state.stats.schedulerLagMaxMs,
+      mean_ms: state.stats.schedulerLagSamples
+        ? Math.round(state.stats.schedulerLagSumMs / state.stats.schedulerLagSamples)
+        : 0,
+      samples: state.stats.schedulerLagSamples,
+    },
     refusals: state.refusals.slice(-10),
     log: state.log.slice(-20),
     profile: {

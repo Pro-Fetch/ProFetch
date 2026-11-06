@@ -82,6 +82,11 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     expect(status.running).toBe(true);
     expect(status.stats.drifts).toBeGreaterThan(1);
     expect(status.pointer_last_moved_ms_ago).toBeLessThanOrEqual(1200);
+    // Every drift is one lateness sample — the number that turns "the cursor sat still" into
+    // "the cursor sat still, and the driver was itself N ms behind plan at its worst".
+    expect(status.scheduler_lag_ms.samples, JSON.stringify(status.scheduler_lag_ms)).toBe(status.stats.drifts);
+    expect(status.scheduler_lag_ms.max_ms).toBeGreaterThanOrEqual(0);
+    expect(status.scheduler_lag_ms.mean_ms).toBeGreaterThanOrEqual(0);
 
     const report = payload(await callTool('pro_human_report', { driver_id: driverId }));
     expect(report.measured.trusted_ratio ?? report.measured.trustedRatio).toBe(1);
@@ -95,6 +100,9 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     // A driver that really froze would blow straight through twice the ceiling.
     const ceiling = verdict.verdict.ceilingMs;
     expect(verdict.verdict.worstMs, JSON.stringify(verdict)).toBeLessThanOrEqual(ceiling * 2);
+    // The verifier has to carry the same lateness the status reports, or a breach attributed to load
+    // would be an opinion instead of a measurement.
+    expect(verdict.scheduler_lag_ms.samples, JSON.stringify(verdict.scheduler_lag_ms)).toBe(status.stats.drifts);
     if (!verdict.ok) {
       console.warn(
         `note: strict stillness verdict breached under load — worst ${verdict.verdict.worstMs} ms over a ${ceiling} ms ceiling`,

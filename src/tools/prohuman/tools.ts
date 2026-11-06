@@ -769,16 +769,30 @@ const tools = [
         input.ceiling_ms !== undefined ? num(input, 'ceiling_ms', 0, 1) : found.value.profile.pointer.idleStillnessMs;
       const verdict = stillnessVerdict(events, ceiling);
       const measured = measureTrace(events, found.value.profile.pointer.noiseFloorPx);
+      const lag = {
+        max_ms: found.value.stats.schedulerLagMaxMs,
+        mean_ms: found.value.stats.schedulerLagSamples
+          ? Math.round(found.value.stats.schedulerLagSumMs / found.value.stats.schedulerLagSamples)
+          : 0,
+        samples: found.value.stats.schedulerLagSamples,
+      };
+      // A breach smaller than the driver's own measured lateness is the machine, not the behaviour:
+      // the move was planned on time and the event loop delivered it late. Saying so is not a pass —
+      // `ok` stays false, because what the customer asked for was a cursor that never waits that long.
+      const explainedByLoad = !verdict.ok && verdict.samples >= 2 && verdict.worstMs - ceiling <= lag.max_ms;
       return jsonBlock(
         verdict.ok ? `no stillness over ${verdict.ceilingMs} ms` : `the pointer held still for ${verdict.worstMs} ms`,
         {
           ok: verdict.ok,
           verdict,
+          scheduler_lag_ms: lag,
           trusted_ratio: measured.trustedRatio,
           explanation:
             verdict.samples < 2
               ? 'fewer than two recorded pointer events: this says the recorder or the session is broken, not that the pointer was steady'
-              : '',
+              : explainedByLoad
+                ? `the gap is ${verdict.worstMs} ms over a ${ceiling} ms ceiling, and the driver itself ran up to ${lag.max_ms} ms late against its plan — the machine was busy, not the behaviour. Reported as a breach anyway: the promise was about the cursor, not about the load.`
+                : '',
         },
       );
     },
