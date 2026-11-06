@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import '../src/loader.js';
-import { dispatch } from '../src/core/tool.js';
+import { allTools, dispatch } from '../src/core/tool.js';
+import { isToolVisibleInProfile } from '../src/core/profile.js';
 import { getReceipt } from '../src/core/evidence-store.js';
-import { exposedTools } from '../src/http/exposure.js';
 import { hostReachable } from './helpers/liveGate.js';
 import type { ToolResult } from '../src/core/types.js';
 
@@ -168,11 +168,17 @@ describe('reseal, bundle and the appendix', () => {
   });
 });
 
-describe('the receipts are sellable over the public door', () => {
-  it('keeps every evidence tool reachable in the default webdata tier', () => {
-    const webdata = exposedTools('webdata', 'full', false).filter((t) => t.category === 'evidence');
-    expect(webdata.length).toBe(8);
-    expect(webdata.map((t) => t.name)).toContain('pro_evidence_seal');
+describe('the receipt tools are in the profiles that carry them', () => {
+  it('registers eight evidence tools and reaches every one in the standard profile', () => {
+    // Measured against the live registry: `minimal` carries 0 of them, `standard` and `full` carry all 8.
+    // What used to be asserted here was the HTTP door's cheapest tier, and that door no longer ships with
+    // this package — the profile rule is the exposure question this repository still answers.
+    const evidence = allTools().filter((t) => t.category === 'evidence');
+    expect(evidence.length).toBe(8);
+    expect(evidence.map((t) => t.name)).toContain('pro_evidence_seal');
+    expect(evidence.filter((t) => isToolVisibleInProfile(t, 'standard')).length).toBe(8);
+    expect(evidence.filter((t) => isToolVisibleInProfile(t, 'full')).length).toBe(8);
+    expect(evidence.filter((t) => isToolVisibleInProfile(t, 'minimal')).length).toBe(0);
   });
 
   it('does not let a receipt tool reach a mutation', async () => {

@@ -8,7 +8,7 @@
 </h1>
 
 <p align="center">
-  <b>745 MCP tools behind one server — stdio locally, HTTP and MCP when it is a product.</b> Fetch,
+  <b>745 MCP tools behind one server — one stdio process, no sidecar, no account.</b> Fetch,
   crawl, extract, convert, OCR, web and academic
   search, deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV
   and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12

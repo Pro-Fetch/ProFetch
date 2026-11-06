@@ -1,7 +1,7 @@
 {
   "name": "@pro-fetch/mcp",
   "version": "1.0.0",
-  "description": "Professional fetch, deep-research va GitHub MCP serveri - 745 MCP tool, HTTP gateway va MCP-over-HTTP eshigi, tool-pack profillari",
+  "description": "Professional fetch, deep-research va GitHub MCP serveri - 745 MCP tool, 45 kategoriya, tool-pack profillari (stdio MCP)",
   "type": "module",
   "license": "MIT",
   "author": "Shuhratbek",
@@ -62,12 +62,7 @@
     "browser-use:bench:mcp": "tsx scripts/browser-use-bench.mts",
     "browser-use:bench:live": "tsx scripts/browser-use-bench.mts --live",
     "browser-use:bench:fixtures": "tsx scripts/browser-use-fixture-bench.mts",
-    "browser-use:map": "tsx scripts/browser-use-coordinate-map.mts",
-    "http": "node dist/http/server.js",
-    "http:dev": "tsx src/http/server.ts",
-    "http:key": "tsx scripts/http-key.mts",
-    "bench:http": "tsx scripts/http-bench.mts",
-    "billing:stripe": "tsx scripts/stripe-usage.mts"
+    "browser-use:map": "tsx scripts/browser-use-coordinate-map.mts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",
