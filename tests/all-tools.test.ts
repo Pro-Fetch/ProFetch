@@ -72,7 +72,9 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
 
   it('scoped tool categories publish closed input schemas', () => {
     const schemaTools = allTools().filter((tool) => SCHEMA_CATEGORIES.has(tool.category));
-    expect(schemaTools).toHaveLength(439);
+    // Counted from the registry: every tool in a category whose schema `applyCategorySchema` closes.
+    // 440 = 439 plus pro_fetch_search_engines, which joined the search category.
+    expect(schemaTools).toHaveLength(440);
     for (const tool of schemaTools) {
       expect(tool.inputSchema.additionalProperties, tool.name).toBe(false);
       expect(tool.inputSchema.properties, tool.name).toBeDefined();
@@ -118,11 +120,21 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
 
   it('search tool schemas distinguish text queries from image URLs', () => {
     const tools = allTools().filter((tool) => tool.category === 'search');
-    expect(tools).toHaveLength(20);
-    for (const tool of tools.filter((item) => item.name !== 'pro_fetch_reverse_image_search')) {
+    expect(tools).toHaveLength(21);
+    // Two tools are exempt, for two different reasons: `reverse_image_search` sends an image rather than a
+    // query, and `search_engines` reports on this server's own registry, so requiring a query from it
+    // would mean the tool that lists the engines could only be reached by inventing a search term.
+    const noQuery = ['pro_fetch_reverse_image_search', 'pro_fetch_search_engines'];
+    for (const tool of tools.filter((item) => !noQuery.includes(item.name))) {
       expect(tool.inputSchema.required, tool.name).toContain('query');
       expect(tool.inputSchema.properties, tool.name).not.toHaveProperty('password');
     }
+    expect(
+      tools
+        .find((tool) => tool.name === 'pro_fetch_search_engines')
+        ?.inputSchema.required?.filter((key) => key !== 'query'),
+      'the engine listing must not demand a query',
+    ).toEqual([]);
     const reverse = tools.find((tool) => tool.name === 'pro_fetch_reverse_image_search');
     expect(reverse?.inputSchema.required).toEqual(['image_url']);
     expect(reverse?.inputSchema.properties).toHaveProperty('image_url');

@@ -4,8 +4,12 @@ import { result } from '../../core/format.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
 
 /**
- * pro_fetch_academic_search — Search academic papers on arXiv and Semantic Scholar
+ * pro_fetch_academic_search — scholarly works through Crossref, with authors, year, DOI and venue
  * Pack: search (pro-fetch)
+ *
+ * One source on purpose: this tool's value is the *fields* it returns, and only Crossref carries all of
+ * them. For breadth across indexes — OpenAlex, arXiv, PubMed, Europe PMC, DOAJ — use
+ * `pro_fetch_web_search` with `kind: 'academic'` or `combine: true`; those return title, link and snippet.
  */
 export default defineTool({
   name: 'pro_fetch_academic_search',

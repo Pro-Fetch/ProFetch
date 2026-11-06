@@ -457,7 +457,8 @@ const AUTH_TOOL_REQUIREMENTS: Record<string, { required?: string[]; anyOf?: stri
   pro_fetch_session_revoke: { required: ['session_id'] },
 };
 const SEARCH_TOOL_PROPERTIES: Record<string, readonly string[]> = {
-  pro_fetch_web_search: ['query', 'limit'],
+  pro_fetch_web_search: ['query', 'limit', 'engine', 'kind', 'combine'],
+  pro_fetch_search_engines: ['kind', 'usable_only'],
   pro_fetch_news_search: ['query', 'limit'],
   pro_fetch_academic_search: ['query', 'limit'],
   pro_fetch_code_search: ['query', 'limit'],
@@ -732,7 +733,12 @@ function applyCategorySchema(def: ToolDefinition): void {
         ? ['image_url']
         : def.name === 'pro_fetch_site_search'
           ? ['query', 'site']
-          : ['query'];
+          : // The engine registry answers a question about this server, not about a query. Requiring
+            // `query` here would mean the one tool that tells a caller which engines exist could only be
+            // reached by inventing a search term.
+            def.name === 'pro_fetch_search_engines'
+            ? []
+            : ['query'];
     if (def.name === 'pro_fetch_reverse_image_search') delete def.inputSchema.anyOf;
   }
   if (def.category === 'convert') {

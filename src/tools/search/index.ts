@@ -18,6 +18,7 @@ import cached_search from './cached_search.js';
 import reverse_image_search from './reverse_image_search.js';
 import market_search from './market_search.js';
 import jobs_search from './jobs_search.js';
+import search_engines from './search_engines.js';
 
 export default [
   web_search,
@@ -40,4 +41,5 @@ export default [
   reverse_image_search,
   market_search,
   jobs_search,
+  search_engines,
 ];

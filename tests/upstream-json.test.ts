@@ -48,7 +48,10 @@ describe('no upstream decode is left unguarded', () => {
   // the `Unexpected token` failure returns.
   it('every network-body decode goes through the helper', () => {
     const files = [
-      'src/core/search-providers.ts',
+      // The decode lives in the engine registry now: `search-providers.ts` picks engines and merges their
+      // answers, `search-engines.ts` is the file that reads a body. Naming the wrong one here would let a
+      // bare JSON.parse come back through the file that actually parses.
+      'src/core/search-engines.ts',
       'src/core/research-tools.ts',
       'src/core/archive-monitoring-tools.ts',
       'src/tools/auth/oauth_device_flow.ts',
