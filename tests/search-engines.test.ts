@@ -174,6 +174,22 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     for (const id of ['serper', 'tavily', 'exa', 'duckduckgo']) expect(textOf(result)).toContain(id);
   });
 
+  it('names the variable an unconfigured engine waits for, instead of a chain failure', async () => {
+    const tavily = engineById('tavily')!;
+    const result = await callTool('pro_fetch_web_search', { query: 'sqlite', engine: 'tavily', limit: 3 });
+    if (tavily.configured()) {
+      // A machine that has the key takes the other branch; the assertion below would be a lie here.
+      expect(result.isError, 'configured, so the call should have answered').toBeFalsy();
+      return;
+    }
+    const message = textOf(result);
+    expect(result.isError).toBe(true);
+    expect(message).toContain('Tavily');
+    expect(message).toContain('TAVILY_API_KEY');
+    // The old wording reported a chain that never ran: "(0 urinish): ." with an empty list.
+    expect(message).not.toMatch(/0 urinish\): \./);
+  });
+
   it('lists what this server can search with, without being asked a query', async () => {
     const result = await callTool('pro_fetch_search_engines', {});
     expect(result.isError).toBeUndefined();

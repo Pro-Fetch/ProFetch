@@ -106,6 +106,13 @@ export async function searchWeb(
         `noma’lum qidiruv engine "${options.engine}". Borlari: ${SEARCH_ENGINES.map((item) => item.id).join(', ')}.`,
       );
     }
+    if (!named.configured()) {
+      const needs = [...named.credentials, ...named.settings];
+      throw new Error(
+        `"${named.label}" sozlanmagan — ${needs.length ? `kerak: ${needs.join(' + ')}` : 'bu engine sozlama talab qiladi'} ` +
+          `(hech qanday urinish qilinmadi). Ro‘yxat va holati: pro_fetch_search_engines.`,
+      );
+    }
     chain = [named];
   } else {
     chain = enginesFor(options.kind);

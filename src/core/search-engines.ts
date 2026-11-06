@@ -415,7 +415,7 @@ const marginalia: SearchEngine = {
   label: 'Marginalia',
   kind: 'general',
   credentials: [],
-  settings: [],
+  settings: ['PRO_FETCH_HTTP_COMPAT_UA'],
   verified: 'live',
   evidence:
     'Measured 2026-11-06: 2 external links with the product user-agent, 69 with a browser one. It is a user-agent filter, so it is only used when PRO_FETCH_HTTP_COMPAT_UA is on.',
