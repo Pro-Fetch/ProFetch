@@ -99,6 +99,8 @@ export interface DriverState {
   queue: ActionRequest[];
   activeAction: { kind: ActionKind; startedAtMs: number; detail: string } | null;
   ticking: boolean;
+  /** When the tick now in flight started, 0 when none is. A move that has not landed yet is not a still cursor. */
+  tickStartedAtMs: number;
   timer?: ReturnType<typeof setTimeout>;
   stats: {
     pointerMoves: number;
@@ -169,6 +171,7 @@ export async function attach(input: {
     queue: [],
     activeAction: null,
     ticking: false,
+    tickStartedAtMs: 0,
     stats: {
       pointerMoves: 0,
       drifts: 0,
@@ -309,6 +312,7 @@ async function tick(state: DriverState): Promise<void> {
   if (!state.running || state.ticking) return;
   state.ticking = true;
   const now = Date.now();
+  state.tickStartedAtMs = now;
   try {
     if (now >= state.deadlineMs) {
       stop(state.id, `expired: the profile's ${state.profile.maxRuntimeMs} ms runtime ceiling ran out`);
@@ -355,6 +359,7 @@ async function tick(state: DriverState): Promise<void> {
     state.refusals.push({ kind: 'tick', reason: message, atMs: Date.now() - state.startedAtMs });
   } finally {
     state.ticking = false;
+    state.tickStartedAtMs = 0;
   }
 }
 
@@ -365,15 +370,21 @@ async function drift(state: DriverState, now: number): Promise<void> {
   // loop kept the driver waiting — the difference between a cursor that sat still and a machine that
   // could not move it.
   const lag = Math.max(0, now - state.nextIdleAtMs);
+  const next = planDrift(state.pointer, state.viewport, state.profile, state.rng);
+  await state.surface.pointerMove(next.x, next.y);
+  // Everything the outside can read is accounted after the move lands, and in one synchronous block:
+  // `drifts` and the lateness sample count are the same event counted twice, and recording the sample
+  // before the browser round trip let a reader of one status call see 3 samples with 2 drifts (macOS
+  // runner) or 7 with 6 (Windows). `lastPointerAtMs` moved here for the same reason — stamped with the
+  // tick's start, a move that had not finished yet read as a cursor that had already been still that long.
+  const delivered = Date.now();
   state.stats.schedulerLagMaxMs = Math.max(state.stats.schedulerLagMaxMs, lag);
   state.stats.schedulerLagSumMs += lag;
   state.stats.schedulerLagSamples += 1;
-  const next = planDrift(state.pointer, state.viewport, state.profile, state.rng);
-  await state.surface.pointerMove(next.x, next.y);
-  state.pointer = next;
-  state.lastPointerAtMs = now;
-  state.nextIdleAtMs = now + gap;
   state.stats.drifts += 1;
+  state.pointer = next;
+  state.lastPointerAtMs = delivered;
+  state.nextIdleAtMs = delivered + gap;
 }
 
 function refuse(state: DriverState, kind: string, reason: string): void {
@@ -645,6 +656,8 @@ export function statusOf(state: DriverState): Record<string, unknown> {
     runtime_left_ms: Math.max(0, state.deadlineMs - now),
     pointer: state.pointer,
     pointer_last_moved_ms_ago: now - state.lastPointerAtMs,
+    /** How long the tick currently in flight has been running. 0 when no move is being dispatched. */
+    tick_running_ms: state.ticking ? Math.max(0, now - state.tickStartedAtMs) : 0,
     active_action: state.activeAction,
     queued: state.queue.length,
     pending_events: state.events.length,

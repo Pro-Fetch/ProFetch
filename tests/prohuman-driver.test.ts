@@ -103,10 +103,12 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     // Two drifts, unasked, is the continuity claim. The number is the driver's; the patience above is
     // the runner's. A driver that stops after one fails here with its own lateness attached.
     expect(status.stats.drifts, JSON.stringify(status.scheduler_lag_ms)).toBeGreaterThan(1);
-    // Stillness is allowed the ceiling the profile declares plus the lateness the driver measured in
-    // itself — the machine's share of the gap, taken from a number it recorded, not from an excuse.
+    // Stillness is allowed the ceiling the profile declares, doubled, plus the lateness the driver
+    // measured in itself, plus the tick currently in flight. Measured on a macOS runner: 1510 ms since
+    // the last recorded move with a move still waiting on the browser — a dispatch in progress is not a
+    // cursor nobody moved, and the driver now says how long that dispatch has been running.
     expect(status.pointer_last_moved_ms_ago, JSON.stringify(status)).toBeLessThanOrEqual(
-      ceilingMs * 2 + Number(status.scheduler_lag_ms.max_ms ?? 0),
+      ceilingMs * 2 + Number(status.scheduler_lag_ms.max_ms ?? 0) + Number(status.tick_running_ms ?? 0),
     );
     // Every drift is one lateness sample — the number that turns "the cursor sat still" into
     // "the cursor sat still, and the driver was itself N ms behind plan at its worst".
@@ -126,9 +128,14 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     // A driver that really froze would blow straight through twice the ceiling.
     const ceiling = verdict.verdict.ceilingMs;
     expect(verdict.verdict.worstMs, JSON.stringify(verdict)).toBeLessThanOrEqual(ceiling * 2);
-    // The verifier has to carry the same lateness the status reports, or a breach attributed to load
-    // would be an opinion instead of a measurement.
-    expect(verdict.scheduler_lag_ms.samples, JSON.stringify(verdict.scheduler_lag_ms)).toBe(status.stats.drifts);
+    // The verifier has to carry the same lateness series the status reports, or a breach attributed to
+    // load would be an opinion instead of a measurement. The two reads happen a moment apart and the
+    // driver drifts in between, so what the test owns is the ordering, not an equality: measured as
+    // `3 samples vs 2 drifts` (macOS) and `7 vs 6` (Windows) when this asserted equality of two counters
+    // read at different times.
+    expect(verdict.scheduler_lag_ms.samples, JSON.stringify(verdict.scheduler_lag_ms)).toBeGreaterThanOrEqual(
+      status.scheduler_lag_ms.samples,
+    );
     if (!verdict.ok) {
       console.warn(
         `note: strict stillness verdict breached under load — worst ${verdict.verdict.worstMs} ms over a ${ceiling} ms ceiling`,
@@ -136,6 +143,14 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     }
 
     await callTool('pro_human_stop', { driver_id: driverId, reason: 'test finished' });
+    // With the loop stopped, nothing can land between the two fields of one read, and the pair that counts
+    // the same event has to agree exactly. This is the invariant the accounting broke on: a lateness
+    // sample was recorded before the browser round trip and the drift after it.
+    const stopped = payload(await callTool('pro_human_status', { driver_id: driverId }));
+    expect(stopped.running).toBe(false);
+    expect(stopped.tick_running_ms, JSON.stringify(stopped)).toBe(0);
+    expect(stopped.scheduler_lag_ms.samples, JSON.stringify(stopped)).toBe(stopped.stats.drifts);
+    expect(verdict.scheduler_lag_ms.samples).toBeLessThanOrEqual(stopped.stats.drifts);
     const closed = await callTool('pro_browser_use_session_close', { session_id: sessionId });
     expect(!!closed.isError, textOf(closed)).toBe(false);
   });
