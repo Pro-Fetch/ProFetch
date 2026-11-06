@@ -13,6 +13,8 @@ export interface SearchProviderResult {
   provider: string;
   results: WebSearchResult[];
   failedProviders: Array<{ provider: string; reason: string }>;
+  /** Engines this server can use right now: the credentialed ones, plus the keyless scraper. */
+  configured: string[];
 }
 
 interface SearchProvider {
@@ -100,11 +102,17 @@ const duckDuckGoProvider: SearchProvider = {
 /** Provider chain allows a credentialed primary engine to fall back to an unauthenticated one. */
 export async function searchWeb(query: string, limit = 10): Promise<SearchProviderResult> {
   const providers = [serperProvider, braveProvider, duckDuckGoProvider].filter((provider) => provider.configured());
+  const configured = providers.map((provider) => provider.label);
   const failedProviders: SearchProviderResult['failedProviders'] = [];
   for (const provider of providers) {
     try {
       const results = await provider.search(query, limit);
-      return { provider: provider.label + (failedProviders.length ? ' (fallback)' : ''), results, failedProviders };
+      return {
+        provider: provider.label + (failedProviders.length ? ' (fallback)' : ''),
+        results,
+        failedProviders,
+        configured,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const reason = /429/.test(message)

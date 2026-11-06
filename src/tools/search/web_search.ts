@@ -28,6 +28,7 @@ export default defineTool({
     const results = searched.results;
     const provider = searched.provider;
     const ranked = rankAndDedupeSearchResults(query, results, limit);
+    const empty = ranked.length === 0;
     return result(
       JSON.stringify(
         {
@@ -36,6 +37,18 @@ export default defineTool({
           count: ranked.length,
           deduplicated: results.length - ranked.length,
           failedProviders: searched.failedProviders,
+          enginesConfigured: searched.configured,
+          ...(empty
+            ? {
+                empty: true,
+                note:
+                  `"${provider}" javob berdi, lekin 0 natija qaytardi — bu xato emas, bu bo‘sh javob. ` +
+                  (searched.configured.length < 3
+                    ? `Bu serverda hozir ${searched.configured.length} ta engine sozlangan (${searched.configured.join(', ') || 'hech qaysi biri'}); SERPER_API_KEY yoki BRAVE_API_KEY qo‘ysa indekslangan natijalar keladi. `
+                    : '') +
+                  'Muayyan manba kerak bo‘lsa pro_fetch_wiki_search / pro_fetch_academic_search / pro_fetch_news_search ishlating.',
+              }
+            : {}),
           results: ranked,
         },
         null,
