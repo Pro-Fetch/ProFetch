@@ -355,6 +355,35 @@ describe('the test runner reads a summary that includes skipped tests', () => {
     expect(declared.envSkips[0].capability).toBe('chromium');
   });
 
+  it('recognises the worker crash that the retry policy is written for', () => {
+    // Measured on 2026-11-06: `npm publish --dry-run` died with `Error: Worker exited unexpectedly` after
+    // 103 of 104 files, and `run-tests.mjs` printed `attempts: 1` — it reads `result.nativeAbort` to decide
+    // whether to retry, and nothing in the summariser had ever set that field. A retry policy that cannot
+    // trigger is a comment, so the signature is now pinned here.
+    const crashed = evaluateSummary(
+      summarise('103 passed (104)', '1793 passed (1808)') +
+        '\n⎯⎯ Unhandled Errors ⎯\nError: Worker exited unexpectedly\n' +
+        ' ❯ ChildProcess.onUnexpectedExit node_modules/tinypool/dist/index.js:118:30\n',
+      { expectedTestFiles: 104, expectedTests: 1808 },
+    );
+    expect(crashed.nativeAbort).toBe(true);
+    expect(crashed.abortSignature).toContain('Worker exited unexpectedly');
+    // Truncated *and* recognised: the runner's `onlyEnvironmentFault` needs exactly this pair.
+    expect(crashed.failures.join(' ')).toMatch(/only 103 of 104/);
+    expect(crashed.failedTests).toBe(0);
+    expect(crashed.failedFiles).toBe(0);
+  });
+
+  it('does not raise the abort flag for a run that finished', () => {
+    // A flag that is always true would turn every real failure into a silent retry.
+    const clean = evaluateSummary(summarise('104 passed (104)', '1808 passed (1808)'), {
+      expectedTestFiles: 104,
+      expectedTests: 1808,
+    });
+    expect(clean.nativeAbort).toBe(false);
+    expect(clean.failures).toEqual([]);
+  });
+
   it('refuses a declaration whose tests then ran', () => {
     // A guard that prints a skip line while nothing is skipped has stopped guarding.
     const stale = evaluateSummary(

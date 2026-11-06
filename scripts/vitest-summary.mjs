@@ -43,6 +43,23 @@ function parseCounts(rest) {
   };
 }
 
+/**
+ * The crash signatures this runner is written to retry.
+ *
+ * `run-tests.mjs` gates its environment-fault retry on `result.nativeAbort` and `vitest.config.ts`
+ * explains at length why the abort happens (Node 24 + the forks pool + a resident native N-API module,
+ * `MultiIsolatePlatform::DisposeIsolate`). Neither file ever *set* the flag, so the retry could never
+ * fire: measured on 2026-11-06, `npm publish --dry-run` died with `Error: Worker exited unexpectedly`
+ * after 103 of 104 files and the runner printed `attempts: 1`. A policy that cannot trigger is not a
+ * policy — it is a comment.
+ */
+const ABORT_SIGNATURES = [
+  /Worker exited unexpectedly/i,
+  /MultiIsolatePlatform::DisposeIsolate/,
+  /Assertion failed: \(env\) != nullptr/,
+  /ChildProcess\.onUnexpectedExit/,
+];
+
 /** Parse raw Vitest output, with or without ANSI escapes. */
 export function parseSummary(output) {
   const plain = String(output).replace(/\x1b\[[0-9;]*m/g, '');
@@ -51,7 +68,8 @@ export function parseSummary(output) {
   const envSkips = [...plain.matchAll(/^ENV_SKIP file=(\S+) capability=(\S+) reason=(.*)$/gm)].map(
     ([, file, capability, reason]) => ({ file, capability, reason: reason.trim() }),
   );
-  return { files, tests, envSkips };
+  const abort = ABORT_SIGNATURES.find((pattern) => pattern.test(plain));
+  return { files, tests, envSkips, nativeAbort: Boolean(abort), abortSignature: abort ? String(abort) : '' };
 }
 
 /**
@@ -61,7 +79,7 @@ export function parseSummary(output) {
  * rewrites when a run reports *more* than expected - see the stale-manifest note below.
  */
 export function evaluateSummary(output, { expectedTestFiles, expectedTests }) {
-  const { files, tests, envSkips } = parseSummary(output);
+  const { files, tests, envSkips, nativeAbort, abortSignature } = parseSummary(output);
 
   const failures = [];
   const reportedFiles = files ? files.total : null;
@@ -131,6 +149,9 @@ export function evaluateSummary(output, { expectedTestFiles, expectedTests }) {
     reportedFiles,
     reportedTests,
     skippedTests,
+    /** The run died in a worker rather than failing an assertion — retryable, and named. */
+    nativeAbort,
+    abortSignature,
     /** Declared environment skips, from `ENV_SKIP` lines printed by the suites themselves. */
     envSkips,
     failedFiles,
