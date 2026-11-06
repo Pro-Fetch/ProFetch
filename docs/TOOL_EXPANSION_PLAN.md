@@ -10,34 +10,34 @@
 572 tools across 26 categories. The 428-tool gap is not a shortage of ideas — it is concentrated in
 whole categories that do not exist yet, plus depth in categories that stopped at the obvious CRUD.
 
-| Category | Count | Note |
-|---|---:|---|
-| github | 49 | deepest category; genuinely covered |
-| browser | 41 | deep |
-| convert | 30 | deep |
-| collaboration | 28 | Slack-shaped |
-| research | 26 | good |
-| data | 26 | good |
-| codehost | 25 | GitLab + Gitea + Bitbucket |
-| extract | 24 | good |
-| admin | 24 | meta-executor |
-| devops | 24 | Docker + K8s |
-| database | 24 | SQLite-shaped |
-| security | 24 | good |
-| git | 23 | local git |
-| crawl | 22 | good |
-| search | 20 | good |
-| http | 19 | good |
-| knowledge | 18 | good |
-| productivity | 18 | Gmail-shaped |
-| storage | 16 | Dropbox-shaped |
-| media | 15 | good |
-| archive | 15 | cache + Wayback |
-| docs | 15 | arXiv/DOI/PubMed/RFC |
-| auth | 12 | thin |
-| apitest | 12 | thin |
-| i18n | 12 | thin |
-| monitoring | 10 | thinnest |
+| Category      | Count | Note                                |
+| ------------- | ----: | ----------------------------------- |
+| github        |    49 | deepest category; genuinely covered |
+| browser       |    41 | deep                                |
+| convert       |    30 | deep                                |
+| collaboration |    28 | Slack-shaped                        |
+| research      |    26 | good                                |
+| data          |    26 | good                                |
+| codehost      |    25 | GitLab + Gitea + Bitbucket          |
+| extract       |    24 | good                                |
+| admin         |    24 | meta-executor                       |
+| devops        |    24 | Docker + K8s                        |
+| database      |    24 | SQLite-shaped                       |
+| security      |    24 | good                                |
+| git           |    23 | local git                           |
+| crawl         |    22 | good                                |
+| search        |    20 | good                                |
+| http          |    19 | good                                |
+| knowledge     |    18 | good                                |
+| productivity  |    18 | Gmail-shaped                        |
+| storage       |    16 | Dropbox-shaped                      |
+| media         |    15 | good                                |
+| archive       |    15 | cache + Wayback                     |
+| docs          |    15 | arXiv/DOI/PubMed/RFC                |
+| auth          |    12 | thin                                |
+| apitest       |    12 | thin                                |
+| i18n          |    12 | thin                                |
+| monitoring    |    10 | thinnest                            |
 
 ## What the research showed is missing
 
@@ -60,58 +60,58 @@ whole job becomes possible that no combination of existing tools can do today.
 
 ### Tier 1 — whole jobs that are impossible today (≈ 180)
 
-| Category | Target | Why it cannot be assembled from what exists |
-|---|---:|---|
-| `llm` | 26 | No provider can be called. No embeddings, no rerank, no model routing, no token accounting. |
-| `finance` | 22 | Stripe/ledger/invoice/rate/tax. Payments is the single largest SaaS integration surface. |
-| `crm` | 20 | Salesforce/HubSpot objects, deals, contacts, activities. |
-| `calendar` | 18 | Google/Outlook/CalDAV events, free-busy, recurrence. `productivity` is Gmail only. |
-| `hr` | 18 | HRIS/ATS — jobs, candidates, offers, payroll exports. |
-| `maps` | 16 | geocode, reverse-geocode, routes, places, elevation, distance-matrix. |
-| `ticketing` | 16 | Jira/Linear/YouTrack — issues, boards, transitions. `codehost` covers the git side only. |
-| `design` | 14 | Figma files, nodes, variables, export. |
-| `queues` | 14 | Kafka/SQS/RabbitMQ/NATS produce, consume, ack, dead-letter. |
-| `vector` | 14 | index, upsert, query, filter, hybrid search. |
+| Category    | Target | Why it cannot be assembled from what exists                                                 |
+| ----------- | -----: | ------------------------------------------------------------------------------------------- |
+| `llm`       |     26 | No provider can be called. No embeddings, no rerank, no model routing, no token accounting. |
+| `finance`   |     22 | Stripe/ledger/invoice/rate/tax. Payments is the single largest SaaS integration surface.    |
+| `crm`       |     20 | Salesforce/HubSpot objects, deals, contacts, activities.                                    |
+| `calendar`  |     18 | Google/Outlook/CalDAV events, free-busy, recurrence. `productivity` is Gmail only.          |
+| `hr`        |     18 | HRIS/ATS — jobs, candidates, offers, payroll exports.                                       |
+| `maps`      |     16 | geocode, reverse-geocode, routes, places, elevation, distance-matrix.                       |
+| `ticketing` |     16 | Jira/Linear/YouTrack — issues, boards, transitions. `codehost` covers the git side only.    |
+| `design`    |     14 | Figma files, nodes, variables, export.                                                      |
+| `queues`    |     14 | Kafka/SQS/RabbitMQ/NATS produce, consume, ack, dead-letter.                                 |
+| `vector`    |     14 | index, upsert, query, filter, hybrid search.                                                |
 
 ### Tier 2 — formats and protocols the pipeline cannot yet speak (≈ 130)
 
-| Category | Target | Gap |
-|---|---:|---|
-| `graphqlish` | 14 | GraphQL schema introspect, query, persisted queries. |
-| `binary` | 16 | Parquet, Arrow, Avro, MessagePack, CBOR, Protobuf, gRPC reflection. |
-| `spreadsheet` | 16 | xlsx/ods read+write, formulas, sheets, ranges. |
-| `imageproc` | 16 | resize, crop, convert, watermark, sprite, EXIF write, colour space. |
-| `audiovideo` | 14 | FFmpeg wrapper: transcode, trim, concat, thumbnails, waveform, loudness. |
-| `emailparse` | 12 | RFC822/MIME parse, attachments, DKIM/SPF headers, thread reconstruction. |
-| `document` | 14 | PDF merge/split/rotate/form-fill/watermark, DOCX read/write. |
-| `datastore` | 12 | Redis, Elasticsearch, ClickHouse, InfluxDB, Neo4j, Postgres wire. |
-| `schema` | 10 | JSON Schema validate/coerce/generate, OpenAPI generate from code. |
-| `encoding` | 6 | base64/32/58/85, URL, HTML entity, punycode, JWT decode, JWT verify. |
+| Category      | Target | Gap                                                                      |
+| ------------- | -----: | ------------------------------------------------------------------------ |
+| `graphqlish`  |     14 | GraphQL schema introspect, query, persisted queries.                     |
+| `binary`      |     16 | Parquet, Arrow, Avro, MessagePack, CBOR, Protobuf, gRPC reflection.      |
+| `spreadsheet` |     16 | xlsx/ods read+write, formulas, sheets, ranges.                           |
+| `imageproc`   |     16 | resize, crop, convert, watermark, sprite, EXIF write, colour space.      |
+| `audiovideo`  |     14 | FFmpeg wrapper: transcode, trim, concat, thumbnails, waveform, loudness. |
+| `emailparse`  |     12 | RFC822/MIME parse, attachments, DKIM/SPF headers, thread reconstruction. |
+| `document`    |     14 | PDF merge/split/rotate/form-fill/watermark, DOCX read/write.             |
+| `datastore`   |     12 | Redis, Elasticsearch, ClickHouse, InfluxDB, Neo4j, Postgres wire.        |
+| `schema`      |     10 | JSON Schema validate/coerce/generate, OpenAPI generate from code.        |
+| `encoding`    |      6 | base64/32/58/85, URL, HTML entity, punycode, JWT decode, JWT verify.     |
 
 ### Tier 3 — verticals with thin-but-present roots (≈ 80)
 
-| Category | Target | Existing root to deepen |
-|---|---:|---|
-| `weather` | 12 | none — new, but small and self-contained |
-| `geo_data` | 10 | none — OpenStreetMap, Nominatim, Overpass |
-| `govdata` | 12 | none — data.gov, CKAN, SEC EDGAR, Congress, USPTO |
-| `science` | 10 | `docs` has arXiv/PubMed; add NASA, NOAA, USGS, PDB, Crossref, OpenAlex |
-| `finance_data` | 10 | none — quotes, fundamentals, FX, crypto prices, indices |
-| `legal` | 8 | none — CourtListener, EUR-Lex, patents |
-| `education` | 8 | none — course catalogs, standards, open textbooks |
-| `seofit` | 8 | `monitoring` has URL watch; add SERP, backlinks, Core Web Vitals |
-| `identity` | 8 | `auth` is 12 tools of credentials; add SCIM, OIDC discovery, JWKS, SAML metadata |
-| `ads` | 8 | none — Google/Meta Ads read + reporting |
+| Category       | Target | Existing root to deepen                                                          |
+| -------------- | -----: | -------------------------------------------------------------------------------- |
+| `weather`      |     12 | none — new, but small and self-contained                                         |
+| `geo_data`     |     10 | none — OpenStreetMap, Nominatim, Overpass                                        |
+| `govdata`      |     12 | none — data.gov, CKAN, SEC EDGAR, Congress, USPTO                                |
+| `science`      |     10 | `docs` has arXiv/PubMed; add NASA, NOAA, USGS, PDB, Crossref, OpenAlex           |
+| `finance_data` |     10 | none — quotes, fundamentals, FX, crypto prices, indices                          |
+| `legal`        |      8 | none — CourtListener, EUR-Lex, patents                                           |
+| `education`    |      8 | none — course catalogs, standards, open textbooks                                |
+| `seofit`       |      8 | `monitoring` has URL watch; add SERP, backlinks, Core Web Vitals                 |
+| `identity`     |      8 | `auth` is 12 tools of credentials; add SCIM, OIDC discovery, JWKS, SAML metadata |
+| `ads`          |      8 | none — Google/Meta Ads read + reporting                                          |
 
 ### Tier 4 — depth in existing categories (≈ 40)
 
-| Category | Target | Specific holes |
-|---|---:|---|
-| `devops` | +12 | Helm, Terraform plan/state, ArgoCD, Prometheus queries, Grafana, Vault |
-| `security` | +10 | Semgrep, Trivy, Gitleaks, nuclei, CVSS scoring, SBOM generation |
-| `browser` | +8 | CDP sessions, network interception, HAR capture, cookie jars, storage state |
-| `git` | +6 | bisect, worktree, sparse-checkout, submodules, notes, hooks |
-| `media` | +4 | sprite sheets, colour extraction, dominant colour, thumbnail grid |
+| Category   | Target | Specific holes                                                              |
+| ---------- | -----: | --------------------------------------------------------------------------- |
+| `devops`   |    +12 | Helm, Terraform plan/state, ArgoCD, Prometheus queries, Grafana, Vault      |
+| `security` |    +10 | Semgrep, Trivy, Gitleaks, nuclei, CVSS scoring, SBOM generation             |
+| `browser`  |     +8 | CDP sessions, network interception, HAR capture, cookie jars, storage state |
+| `git`      |     +6 | bisect, worktree, sparse-checkout, submodules, notes, hooks                 |
+| `media`    |     +4 | sprite sheets, colour extraction, dominant colour, thumbnail grid           |
 
 **Total: 180 + 130 + 80 + 40 = 430.** 572 + 430 = 1002, then reconcile to 1000 by trimming the two
 weakest Tier 4 entries — the number should land on 1000 by measurement, not by assertion.

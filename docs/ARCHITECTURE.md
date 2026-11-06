@@ -6,12 +6,12 @@
 
 ## 1. Kirish nuqtasi va ishga tushish
 
-| Bosqich | Fayl | Nima qiladi |
-|---|---|---|
-| Server | `src/server.ts` | stdio MCP serveri; JSON-RPC `initialize`, `tools/list`, `tools/call`. |
-| Env loader | `src/env.ts` | loyiha `.env`ini o'qiydi (mavjud env ustun); `env`dan oldin ishlaydi. |
-| Loader | `src/loader.ts` | barcha tool pack'larini `import` qilib, reestrni to'ldiradi. |
-| Versiya | `src/core/version.ts` | versiyani `package.json`dan oladi (User-Agent va serverInfo bir manbadan). |
+| Bosqich    | Fayl                  | Nima qiladi                                                                |
+| ---------- | --------------------- | -------------------------------------------------------------------------- |
+| Server     | `src/server.ts`       | stdio MCP serveri; JSON-RPC `initialize`, `tools/list`, `tools/call`.      |
+| Env loader | `src/env.ts`          | loyiha `.env`ini o'qiydi (mavjud env ustun); `env`dan oldin ishlaydi.      |
+| Loader     | `src/loader.ts`       | barcha tool pack'larini `import` qilib, reestrni to'ldiradi.               |
+| Versiya    | `src/core/version.ts` | versiyani `package.json`dan oladi (User-Agent va serverInfo bir manbadan). |
 
 ## 2. Reestr va profil
 
@@ -69,26 +69,26 @@ Native bog'liqliklar (`sharp`, `@napi-rs/canvas`, `tesseract.js`, Playwright, gi
 
 ## 10. Test va tekshiruv (`npm run check`)
 
-`verify:static` (struktur invariantlar) · `verify:registry` (745/45, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1802) · `audit:schema` (e'lon qilingan, lekin kodda o'qilmaydigan xususiyat = qizil; `applyCategorySchema` qayta yozadigan kategoriyalar o'lchanadi, lekin darvozaga kirmaydi) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`.
+`verify:static` (struktur invariantlar) · `verify:registry` (745/45, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1810) · `audit:schema` (e'lon qilingan, lekin kodda o'qilmaydigan xususiyat = qizil; `applyCategorySchema` qayta yozadigan kategoriyalar o'lchanadi, lekin darvozaga kirmaydi) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`.
+
 ## 11. Ish-oqimi yadrosi: Bigfoot (`src/core/workflow/`, `src/tools/workflow/`)
 
 Bitta MCP tool (`pro_fetch_workflow`) butun hayot siklini yuritadi — MexaPlan (reja) → SmartToDo
 (audit) → MaxEffort (ijro). Model fikrlaydi, kod hakamlik qiladi.
 
-| Fayl | Vazifasi |
-|---|---|
-| `core/workflow/types.ts` | Ma'lumot modeli: Task/Finding/GoalSpec/Source, `requirements()` orqali E1·I1·C1·D1·A1·U1 idlari, tekshiruv turlari va ularning kuchi (§12.1) |
+| Fayl                             | Vazifasi                                                                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/workflow/types.ts`         | Ma'lumot modeli: Task/Finding/GoalSpec/Source, `requirements()` orqali E1·I1·C1·D1·A1·U1 idlari, tekshiruv turlari va ularning kuchi (§12.1)          |
 | `core/workflow/state-machine.ts` | Faza o'tishlari (13 faza: ... REPAIR, FINAL_AUDIT, PAUSED ...), `transition()` yagona o'zgarish yo'li, `completionEligible()` — halol yakun darvozasi |
-| `core/workflow/store.ts` | Diskdagi holat: atomik yozish (tmp+rename), sirlarni yashirish (redact), id xavfsizligi |
-| `core/workflow/validate.ts` | Plan/topilma validatsiyasi: DAG va sikl, acceptance/verification majburiy, takrorlangan ish (§5.4), `verificationWeakness()` — kuchsiz dalil (§12.2) |
-| `core/workflow/risk.ts` | Rejadagi xavf **registrydan** olchanadi (`isMutationTool`), host'ning `sensitivity` yozuviga ishonilmaydi; tasdiq darvozasi (§14.2/§14.5) |
-| `core/workflow/risks.ts` | §5.3: plan nimani qilishiga qarab xavf bandlari ro'yxatini chiqaradi va har biri yopilganini tekshiradi |
-| `core/workflow/schedule.ts` | §5.5: bitta resursni parallel yozadigan tasklar serialashtiriladi; `parallelisable()` — haqiqatan birga yugura oladiganlar |
-| `tools/workflow/workflow.ts` | 24 ta action, bitta tool; har rad `state.stats` hisoblagichiga yoziladi (§20.5) |
+| `core/workflow/store.ts`         | Diskdagi holat: atomik yozish (tmp+rename), sirlarni yashirish (redact), id xavfsizligi                                                               |
+| `core/workflow/validate.ts`      | Plan/topilma validatsiyasi: DAG va sikl, acceptance/verification majburiy, takrorlangan ish (§5.4), `verificationWeakness()` — kuchsiz dalil (§12.2)  |
+| `core/workflow/risk.ts`          | Rejadagi xavf **registrydan** olchanadi (`isMutationTool`), host'ning `sensitivity` yozuviga ishonilmaydi; tasdiq darvozasi (§14.2/§14.5)             |
+| `core/workflow/risks.ts`         | §5.3: plan nimani qilishiga qarab xavf bandlari ro'yxatini chiqaradi va har biri yopilganini tekshiradi                                               |
+| `core/workflow/schedule.ts`      | §5.5: bitta resursni parallel yozadigan tasklar serialashtiriladi; `parallelisable()` — haqiqatan birga yugura oladiganlar                            |
+| `tools/workflow/workflow.ts`     | 24 ta action, bitta tool; har rad `state.stats` hisoblagichiga yoziladi (§20.5)                                                                       |
 
 **Kafolat va chegarasi (§15.4).** Server holatni, darvozalarni va dalillarni boshqaradi; host modelining
 ichki fikrlash jarayonini boshqara olmaydi. Shuning uchun “har katta so'rov avtomatik uch bosqichdan
 o'tadi” degan kafolat **berilmaydi** — u host instruction/skill yoki subagent imkoniga bog'liq. Agent
 faqat MCP serverni ulay olib, majburiy yo'riqnoma qo'yolmasa, siklni host o'zi boshlashi kerak; bu
 loyihaning ochiq chegarasi.
-

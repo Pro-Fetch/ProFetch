@@ -11,53 +11,53 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 
 ## Kategoriya xulosasi
 
-| Kategoriya | Tool | Nima bor |
-|---|---:|---|
-| `github` | 49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories |
-| `browser_use` | 44 | — |
-| `browser` | 41 | Playwright automation: navigate, click, fill, extract, tabs, cookies |
-| `convert` | 30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc. |
-| `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
-| `data` | 26 | Load, profile, query, join, transform datasets (tables) |
-| `research` | 26 | Deep research pipeline: search → read → facts → verify → report |
-| `admin` | 25 | Smart System meta-tools, registry/config, diagnostics, batching |
-| `codehost` | 25 | GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases |
-| `database` | 24 | SQLite / Postgres / MySQL / Redis query & inspect (read-only gated) |
-| `devops` | 24 | Docker / Kubernetes / Terraform / CI operations (COMMAND_NOT_FOUND safe) |
-| `extract` | 24 | DOM/selector/regex/table/metadata extraction from HTML |
-| `security` | 24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups |
-| `git` | 23 | Local git: status, diff, log, blame, branch operations |
-| `crawl` | 22 | Site crawl, sitemap/robots, link graph, site explain |
-| `prohuman` | 20 | — |
-| `search` | 20 | Web, news, image, academic & vertical search (Serper/Brave/DDG) |
-| `http` | 19 | HTTP client verbs, headers, retries, multipart, SSE/websocket |
-| `knowledge` | 18 | Local knowledge store / embeddings / retrieval |
-| `productivity` | 18 | Tasks, notes, calendars, snippets (provider-backed) |
-| `storage` | 16 | S3 / Drive / Dropbox / OneDrive file operations |
-| `archive` | 15 | Wayback + Internet Archive, local cache store, snapshots & diffs |
-| `docs` | 15 | arXiv / npm / PyPI / RFC / PubMed package & paper metadata |
-| `media` | 15 | Audio/video/image info, transcode, thumbnails, waveform |
-| `document` | 13 | PDF / DOCX / XLSX / PPTX parse & text extraction |
-| `apitest` | 12 | REST/GraphQL/OpenAPI/SOAP: fetch, parse, validate, mock, diff, probe |
-| `auth` | 12 | Sessions, cookies, basic/bearer fetch, OAuth device flow, scope audit |
-| `i18n` | 12 | Translate, transliterate, locale & RTL helpers |
-| `sql` | 11 | — |
-| `monitoring` | 10 | Watches, health checks, scheduled fetch & change alerts |
-| `encoding` | 9 | Base64/URL/hex/hash/compress codecs |
-| `imageproc` | 9 | Image processing: resize, crop, EXIF, QR, OCR pre/post |
-| `qr` | 9 | — |
-| `evidence` | 8 | — |
-| `schema` | 6 | JSON Schema / validation / inference helpers |
-| `llm` | 5 | LLM gateway: complete, embed, structured output |
-| `opendata` | 5 | Public open-data providers (Crossref, OpenLibrary, Patents, GDELT) |
-| `time` | 5 | Date/time parsing, diff, relative formatting, cron helpers |
-| `units` | 5 | Unit & number formatting/normalization |
-| `zip` | 5 | Archive (zip/tar) list, extract, create |
-| `binary` | 4 | Parquet / Arrow / Avro / Protobuf readers (schema + rows) |
-| `chess` | 4 | FEN parse/validate, legal moves, perft, square & position analysis |
-| `geo_data` | 4 | Geo / maps / timezone / country helpers |
-| `color` | 3 | Color conversion & contrast helpers |
-| `phonetics` | 3 | Phonetic transcription helpers |
+| Kategoriya      | Tool | Nima bor                                                                 |
+| --------------- | ---: | ------------------------------------------------------------------------ |
+| `github`        |   49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories      |
+| `browser_use`   |   44 | —                                                                        |
+| `browser`       |   41 | Playwright automation: navigate, click, fill, extract, tabs, cookies     |
+| `convert`       |   30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc.      |
+| `collaboration` |   28 | Slack / Jira / Linear / Notion issues, comments, transitions             |
+| `data`          |   26 | Load, profile, query, join, transform datasets (tables)                  |
+| `research`      |   26 | Deep research pipeline: search → read → facts → verify → report          |
+| `admin`         |   25 | Smart System meta-tools, registry/config, diagnostics, batching          |
+| `codehost`      |   25 | GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases        |
+| `database`      |   24 | SQLite / Postgres / MySQL / Redis query & inspect (read-only gated)      |
+| `devops`        |   24 | Docker / Kubernetes / Terraform / CI operations (COMMAND_NOT_FOUND safe) |
+| `extract`       |   24 | DOM/selector/regex/table/metadata extraction from HTML                   |
+| `security`      |   24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups              |
+| `git`           |   23 | Local git: status, diff, log, blame, branch operations                   |
+| `crawl`         |   22 | Site crawl, sitemap/robots, link graph, site explain                     |
+| `prohuman`      |   20 | —                                                                        |
+| `search`        |   20 | Web, news, image, academic & vertical search (Serper/Brave/DDG)          |
+| `http`          |   19 | HTTP client verbs, headers, retries, multipart, SSE/websocket            |
+| `knowledge`     |   18 | Local knowledge store / embeddings / retrieval                           |
+| `productivity`  |   18 | Tasks, notes, calendars, snippets (provider-backed)                      |
+| `storage`       |   16 | S3 / Drive / Dropbox / OneDrive file operations                          |
+| `archive`       |   15 | Wayback + Internet Archive, local cache store, snapshots & diffs         |
+| `docs`          |   15 | arXiv / npm / PyPI / RFC / PubMed package & paper metadata               |
+| `media`         |   15 | Audio/video/image info, transcode, thumbnails, waveform                  |
+| `document`      |   13 | PDF / DOCX / XLSX / PPTX parse & text extraction                         |
+| `apitest`       |   12 | REST/GraphQL/OpenAPI/SOAP: fetch, parse, validate, mock, diff, probe     |
+| `auth`          |   12 | Sessions, cookies, basic/bearer fetch, OAuth device flow, scope audit    |
+| `i18n`          |   12 | Translate, transliterate, locale & RTL helpers                           |
+| `sql`           |   11 | —                                                                        |
+| `monitoring`    |   10 | Watches, health checks, scheduled fetch & change alerts                  |
+| `encoding`      |    9 | Base64/URL/hex/hash/compress codecs                                      |
+| `imageproc`     |    9 | Image processing: resize, crop, EXIF, QR, OCR pre/post                   |
+| `qr`            |    9 | —                                                                        |
+| `evidence`      |    8 | —                                                                        |
+| `schema`        |    6 | JSON Schema / validation / inference helpers                             |
+| `llm`           |    5 | LLM gateway: complete, embed, structured output                          |
+| `opendata`      |    5 | Public open-data providers (Crossref, OpenLibrary, Patents, GDELT)       |
+| `time`          |    5 | Date/time parsing, diff, relative formatting, cron helpers               |
+| `units`         |    5 | Unit & number formatting/normalization                                   |
+| `zip`           |    5 | Archive (zip/tar) list, extract, create                                  |
+| `binary`        |    4 | Parquet / Arrow / Avro / Protobuf readers (schema + rows)                |
+| `chess`         |    4 | FEN parse/validate, legal moves, perft, square & position analysis       |
+| `geo_data`      |    4 | Geo / maps / timezone / country helpers                                  |
+| `color`         |    3 | Color conversion & contrast helpers                                      |
+| `phonetics`     |    3 | Phonetic transcription helpers                                           |
 
 ---
 
@@ -1020,4 +1020,3 @@ _Phonetic transcription helpers_
 - `pro_phonetics_compare` `  ·` — Ikki satrni solishtirish: Levenshtein masofasi, Jaro-Winkler va Dice o‘xshatligi (0..1), hamda ikkalasining Soundex kodi. Kodlar bir xil bo‘lsa, nomlar taxminan bir xil degani - lekin Soundex bosh harflarni farqlamaydi, shuning uchun ham o‘xshatlik, ham kod ko‘rsatiladi.
 - `pro_phonetics_match` `  ·` — Ikki ro‘yxatdagi mos ishlarni topish: Soundex kodi bo‘yicha va o‘xshatlik bo‘yicha. Har bir juft uchta raqam bilan baholanadi, shuning uchun caller o‘zi tanlaydi - Soundex "Smith" va "Smit" ni topadi, lekin "Jon" va "Jan" ni topmaydi, chunki birinchi harfni umuman farqlamaydi.
 - `pro_phonetics_soundex` `  ·` — Nomlarga US Census Soundex kodi berish va bir xil kodli nomlarni guruhlash. "Robert" va "Rupert" ikkalasi R163 bo‘ladi. Ro‘yxat berilsa, guruhlar va eng katta guruhlar chiqadi.
-
