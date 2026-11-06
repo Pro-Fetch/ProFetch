@@ -471,7 +471,7 @@ _DOM/selector/regex/table/metadata extraction from HTML_
 - `pro_fetch_hreflang_extract` `  ▸` — Extract hreflang alternate links from HTML
 - `pro_fetch_image_alt_extract` `  ▸` — Extract image src and alt text from HTML
 - `pro_fetch_json_ld_extract` `  ▸` — Extract JSON-LD structured data from a page
-- `pro_fetch_json_path` `  ▸` — Query a JSON document via a dotted JSONPath
+- `pro_fetch_json_path` `  ▸` — Read one path from a JSON document: $.a.b[0].c, with [*] to map over an array. Dotted keys, indexes and the wildcard are the whole grammar; a path that stops halfway names the segment that stopped it.
 - `pro_fetch_link_classify` `  ▸` — Classify links as internal external download or social
 - `pro_fetch_link_domains` `  ▸` — List unique hostnames linked from HTML
 - `pro_fetch_list_extract` `  ▸` — Extract ordered and unordered lists from HTML
