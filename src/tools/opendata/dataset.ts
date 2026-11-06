@@ -1,5 +1,5 @@
 import { defineTool } from '../../core/tool.js';
-import { jsonBlock } from '../../core/format.js';
+import { failJson, jsonBlock } from '../../core/format.js';
 import { bool, strOrEmpty, view } from '../../core/input.js';
 import { datasetMeta, parseReference, resolveDataset } from './_opendata.js';
 
@@ -20,13 +20,22 @@ export default defineTool({
   async handler(input) {
     const p = view(input);
     const reference = parseReference(strOrEmpty(p, 'dataset'));
-    if ('error' in reference) return jsonBlock('Dataset', { error: reference.error });
+    if ('error' in reference) return failJson('Dataset', { error: reference.error });
 
     const resolved = await resolveDataset(reference.id, reference.domain);
-    if (!resolved.ok) return jsonBlock('Dataset', { id: reference.id, error: resolved.message });
+    if (!resolved.ok) {
+      return failJson('Dataset', { id: reference.id, error: resolved.message, rate_limited: resolved.rate_limited });
+    }
 
     const meta = await datasetMeta(resolved.domain, reference.id);
-    if (!meta.ok) return jsonBlock('Dataset', { id: reference.id, domain: resolved.domain, error: meta.message });
+    if (!meta.ok) {
+      return failJson('Dataset', {
+        id: reference.id,
+        domain: resolved.domain,
+        error: meta.message,
+        rate_limited: meta.rate_limited,
+      });
+    }
 
     const value = meta.value;
     const columns = Array.isArray(value.columns) ? (value.columns as Array<Record<string, unknown>>) : [];

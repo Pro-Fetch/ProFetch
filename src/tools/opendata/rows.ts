@@ -1,5 +1,5 @@
 import { defineTool } from '../../core/tool.js';
-import { jsonBlock } from '../../core/format.js';
+import { failJson, jsonBlock } from '../../core/format.js';
 import { num, strOrEmpty, view } from '../../core/input.js';
 import { emptyResult, parseReference, resolveDataset, soqlIdentifier, sodaRows } from './_opendata.js';
 
@@ -25,10 +25,16 @@ export default defineTool({
   async handler(input) {
     const p = view(input);
     const reference = parseReference(strOrEmpty(p, 'dataset'));
-    if ('error' in reference) return jsonBlock('Qatorlar', { error: reference.error });
+    if ('error' in reference) return failJson('Qatorlar', { error: reference.error });
 
     const resolved = await resolveDataset(reference.id, reference.domain);
-    if (!resolved.ok) return jsonBlock('Qatorlar', { id: reference.id, error: resolved.message });
+    if (!resolved.ok) {
+      return failJson('Qatorlar', {
+        id: reference.id,
+        error: resolved.message,
+        rate_limited: resolved.rate_limited,
+      });
+    }
 
     const limit = Math.max(1, Math.min(num(p, 'limit', 10) || 10, 1000));
     const offset = Math.max(0, num(p, 'offset', 0));
@@ -46,13 +52,15 @@ export default defineTool({
 
     const rows = await sodaRows(resolved.domain, reference.id, params);
     if (!rows.ok) {
-      return jsonBlock('Qatorlar', {
+      return failJson('Qatorlar', {
         id: reference.id,
         domain: resolved.domain,
         error: rows.message,
         // Named separately: "the portal has no data API" and "your query is wrong" need different
         // next steps, and a single error string loses that.
         portal_without_data_api: rows.html,
+        // A third kind of next step: the query was fine and the portal is throttling this caller.
+        rate_limited: rows.rate_limited,
       });
     }
 

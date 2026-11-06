@@ -1,7 +1,7 @@
 import { defineTool } from '../../core/tool.js';
-import { jsonBlock } from '../../core/format.js';
+import { failJson, jsonBlock } from '../../core/format.js';
 import { num, strOrEmpty, view } from '../../core/input.js';
-import { parseReference, resolveDataset, soqlIdentifier, sodaRows } from './_opendata.js';
+import { parseReference, resolveDataset, sodaTotalRows, soqlIdentifier, sodaRows } from './_opendata.js';
 
 export default defineTool({
   name: 'pro_opendata_count',
@@ -26,10 +26,16 @@ export default defineTool({
   async handler(input) {
     const p = view(input);
     const reference = parseReference(strOrEmpty(p, 'dataset'));
-    if ('error' in reference) return jsonBlock('Hisob', { error: reference.error });
+    if ('error' in reference) return failJson('Hisob', { error: reference.error });
 
     const resolved = await resolveDataset(reference.id, reference.domain);
-    if (!resolved.ok) return jsonBlock('Hisob', { id: reference.id, error: resolved.message });
+    if (!resolved.ok) {
+      return failJson('Hisob', {
+        id: reference.id,
+        error: resolved.message,
+        rate_limited: resolved.rate_limited,
+      });
+    }
 
     const groupBy = strOrEmpty(p, 'group_by');
     const min = strOrEmpty(p, 'min');
@@ -55,11 +61,12 @@ export default defineTool({
 
     const result = await sodaRows(resolved.domain, reference.id, params);
     if (!result.ok) {
-      return jsonBlock('Hisob', {
+      return failJson('Hisob', {
         id: reference.id,
         domain: resolved.domain,
         error: result.message,
         portal_without_data_api: result.html,
+        rate_limited: result.rate_limited,
       });
     }
 
@@ -73,6 +80,36 @@ export default defineTool({
       }
       return parsed;
     });
+
+    // An aggregate that answered nothing is not the same statement as a dataset that holds nothing, and
+    // the two were measured indistinguishable: the same group-by query returned `[]` on one runner and
+    // 105,003 rows on another, seconds apart, with no code between them. So the portal is asked for the
+    // row total it reports for itself, and the answer says which case this is. `dataset_rows: null` is
+    // kept as unknown rather than folded into zero, because zero here would be the same lie in a new box.
+    if (rows.length === 0) {
+      const datasetRows = await sodaTotalRows(resolved.domain, reference.id, where || undefined);
+      const note =
+        datasetRows === null
+          ? `Portal "${groupBy || 'count(*)'}" so‘rovi uchun hech narsa qaytarmadi va qatorlar sonini ham` +
+            ` ayta olmadi (${resolved.domain}). Bu "mos qiymat yo‘q" emas — portal javobi to‘liq emas.`
+          : datasetRows === 0
+            ? where
+              ? `Shart (“${where}”) hech bir qatorga mos kelmadi: guruhlash bo‘yicha qiymat yo‘q, chunki` +
+                ` mos qator yo‘q. Bu portal xatosi emas.`
+              : `Datasetda guruhlanadigan qator yo‘q (${resolved.domain} o‘zi ham 0 deyapti).`
+            : `${reference.id} da ${datasetRows} qator bor, lekin guruhlash bo‘yicha birorta qiymat` +
+              ` qaytmadi. Agregatsiya portal tomonida bajarilmagan — so‘rovni o‘zgartirish kerak emas,` +
+              ` keyinroq qayta urilishi mumkin.`;
+      return jsonBlock("Hisob: ma'lumot yo'q", {
+        id: reference.id,
+        domain: resolved.domain,
+        grouped_by: groupBy || undefined,
+        empty: true,
+        rows: [],
+        dataset_rows: datasetRows,
+        note,
+      });
+    }
 
     return jsonBlock(`Hisob: ${reference.id}`, {
       id: reference.id,

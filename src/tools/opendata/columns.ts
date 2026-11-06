@@ -1,5 +1,5 @@
 import { defineTool } from '../../core/tool.js';
-import { jsonBlock } from '../../core/format.js';
+import { failJson, jsonBlock } from '../../core/format.js';
 import { num, strOrEmpty, view } from '../../core/input.js';
 import { datasetMeta, parseReference, resolveDataset, soqlIdentifier, sodaRows } from './_opendata.js';
 
@@ -24,14 +24,25 @@ export default defineTool({
   async handler(input) {
     const p = view(input);
     const reference = parseReference(strOrEmpty(p, 'dataset'));
-    if ('error' in reference) return jsonBlock('Ustunlar', { error: reference.error });
+    if ('error' in reference) return failJson('Ustunlar', { error: reference.error });
 
     const resolved = await resolveDataset(reference.id, reference.domain);
-    if (!resolved.ok) return jsonBlock('Ustunlar', { id: reference.id, error: resolved.message });
+    if (!resolved.ok) {
+      return failJson('Ustunlar', {
+        id: reference.id,
+        error: resolved.message,
+        rate_limited: resolved.rate_limited,
+      });
+    }
 
     const meta = await datasetMeta(resolved.domain, reference.id);
     if (!meta.ok) {
-      return jsonBlock('Ustunlar', { id: reference.id, domain: resolved.domain, error: meta.message });
+      return failJson('Ustunlar', {
+        id: reference.id,
+        domain: resolved.domain,
+        error: meta.message,
+        rate_limited: meta.rate_limited,
+      });
     }
     const columns = Array.isArray(meta.value.columns) ? (meta.value.columns as Array<Record<string, unknown>>) : [];
 
@@ -50,7 +61,7 @@ export default defineTool({
 
     if (selected.length === 0) {
       const available = columns.map((column) => String(column.fieldName ?? column.name ?? ''));
-      return jsonBlock('Ustunlar', {
+      return failJson('Ustunlar', {
         id: reference.id,
         error: wanted ? `"${wanted}" nomli ustun topilmadi.` : 'Metama’lumotda ustunlar yo‘q.',
         available,
@@ -75,7 +86,7 @@ export default defineTool({
     }
 
     const profiled: Array<Record<string, unknown>> = [];
-    const failed: Array<{ field_name: string; reason: string }> = [];
+    const failed: Array<{ field_name: string; reason: string; rate_limited: boolean }> = [];
 
     for (const column of listed) {
       // `listed` is the projected shape built above, so the fields are snake_case here. Reading
@@ -83,7 +94,7 @@ export default defineTool({
       // `string | undefined` from nothing at best and to nothing at all at worst.
       const fieldName = String(column.field_name ?? '');
       if (!fieldName) {
-        failed.push({ field_name: String(column.name ?? ''), reason: 'field_name yo‘q' });
+        failed.push({ field_name: String(column.name ?? ''), reason: 'field_name yo‘q', rate_limited: false });
         continue;
       }
       const identifier = soqlIdentifier(fieldName);
@@ -102,7 +113,11 @@ export default defineTool({
         $limit: String(top),
       });
       if (!distinct.ok) {
-        failed.push({ field_name: fieldName, reason: distinct.message.slice(0, 160) });
+        failed.push({
+          field_name: fieldName,
+          reason: distinct.message.slice(0, 160),
+          rate_limited: distinct.rate_limited,
+        });
         continue;
       }
       entry.top_values = distinct.rows.map((row) => ({
@@ -110,6 +125,23 @@ export default defineTool({
         count: Number(row.count ?? 0),
       }));
       profiled.push(entry);
+    }
+
+    if (profiled.length === 0 && failed.length > 0) {
+      // Measured on a CI runner: `profiled: 0` with the reason buried in a `failed` array, delivered as a
+      // success. A caller that branches on `ok` reads that as "this column has no values" and rewrites a
+      // query that was already right. Nothing was profiled, every reason is the portal's own text, and
+      // the answer says which of them it is.
+      return failJson('Ustunlar: birorta ustun tekshirilmadi', {
+        id: reference.id,
+        domain: resolved.domain,
+        total: columns.length,
+        profiled: 0,
+        requested: listed.length,
+        error: failed[0].reason,
+        rate_limited: failed.some((item) => item.rate_limited),
+        failed,
+      });
     }
 
     return jsonBlock(`Ustunlar: ${reference.id}`, {

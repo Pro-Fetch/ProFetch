@@ -1,5 +1,5 @@
 import { defineTool } from '../../core/tool.js';
-import { fail, jsonBlock } from '../../core/format.js';
+import { fail, failJson, jsonBlock } from '../../core/format.js';
 import { num, strOrEmpty, view } from '../../core/input.js';
 import { searchCatalog } from './_opendata.js';
 
@@ -46,7 +46,7 @@ export default defineTool({
     }
 
     const found = await searchCatalog({ query, domains: domain || undefined, limit, offset, type });
-    if (!found.ok) return jsonBlock('Socrata katalog', { error: found.message });
+    if (!found.ok) return failJson('Socrata katalog', { error: found.message, rate_limited: found.rate_limited });
 
     return jsonBlock(`Socrata: "${query || domain}"`, {
       query: query || undefined,

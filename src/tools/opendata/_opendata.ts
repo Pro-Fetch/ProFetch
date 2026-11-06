@@ -137,7 +137,8 @@ export function htmlInsteadOfJson(contentType: string, text: string): boolean {
 }
 
 export type Fetched<T> =
-  { ok: true; value: T; status: number } | { ok: false; message: string; status: number; html: boolean };
+  | { ok: true; value: T; status: number }
+  | { ok: false; message: string; status: number; html: boolean; rate_limited: boolean };
 
 async function request<T>(url: string, label: string, timeoutMs = 30_000): Promise<Fetched<T>> {
   let response;
@@ -151,6 +152,7 @@ async function request<T>(url: string, label: string, timeoutMs = 30_000): Promi
       ok: false,
       status: 0,
       html: false,
+      rate_limited: false,
       message: `${label}: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
@@ -167,11 +169,20 @@ async function request<T>(url: string, label: string, timeoutMs = 30_000): Promi
     if (decoded.ok) {
       detail = decoded.value.message ?? (decoded.value.code ? String(decoded.value.code) : detail);
     }
+    const rateLimited = response.status === 429 || response.blocked?.kind === 'rate_limited';
+    const retryAfter = response.headers['retry-after'];
     return {
       ok: false,
       status: response.status,
       html: looksHtml,
-      message: `${label}: HTTP ${response.status} - ${detail}`,
+      rate_limited: rateLimited,
+      message:
+        `${label}: HTTP ${response.status} - ${detail}` +
+        (rateLimited
+          ? `. So‘rov chegarasiga urilindi${
+              retryAfter ? `; portal ${retryAfter} soniyadan keyin qayta urinishni so‘rayapti` : ''
+            }. Bu dataset bo‘sh degani emas — portal javob bermadi.`
+          : ''),
     };
   }
 
@@ -180,6 +191,7 @@ async function request<T>(url: string, label: string, timeoutMs = 30_000): Promi
       ok: false,
       status: response.status,
       html: true,
+      rate_limited: false,
       message:
         `${label}: JSON o‘rniga HTML qaytdi. Bu portal ma’lumot API sini yopiq qo‘ygan bo‘lishi mumkin - ` +
         'katalog ishlaydi, qatorlarga esa kirish yo‘q.',
@@ -189,7 +201,7 @@ async function request<T>(url: string, label: string, timeoutMs = 30_000): Promi
   try {
     return { ok: true, value: parseUpstreamJson<T>(response, label), status: response.status };
   } catch (error) {
-    return { ok: false, status: response.status, html: false, message: (error as Error).message };
+    return { ok: false, status: response.status, html: false, rate_limited: false, message: (error as Error).message };
   }
 }
 
@@ -236,7 +248,9 @@ export async function searchCatalog(options: {
   limit: number;
   offset?: number;
   type?: string;
-}): Promise<{ ok: true; results: CatalogResult[]; total: number } | { ok: false; message: string }> {
+}): Promise<
+  { ok: true; results: CatalogResult[]; total: number } | { ok: false; message: string; rate_limited: boolean }
+> {
   const params = new URLSearchParams();
   if (options.query) params.set('q', options.query);
   if (options.domains) params.set('domains', options.domains);
@@ -248,7 +262,7 @@ export async function searchCatalog(options: {
     `${CATALOG}?${params.toString()}`,
     'Socrata katalog',
   );
-  if (!response.ok) return { ok: false, message: response.message };
+  if (!response.ok) return { ok: false, message: response.message, rate_limited: response.rate_limited };
 
   const entries = Array.isArray(response.value?.results) ? response.value.results : [];
   return {
@@ -268,12 +282,12 @@ export async function searchCatalog(options: {
  */
 export async function lookupByIds(
   ids: string[],
-): Promise<{ ok: true; found: Map<string, CatalogResult> } | { ok: false; message: string }> {
+): Promise<{ ok: true; found: Map<string, CatalogResult> } | { ok: false; message: string; rate_limited: boolean }> {
   const response = await fetchJson<{ results?: RawCatalogEntry[] }>(
     `${CATALOG}?ids=${ids.join(',')}`,
     'Socrata dataset izohi',
   );
-  if (!response.ok) return { ok: false, message: response.message };
+  if (!response.ok) return { ok: false, message: response.message, rate_limited: response.rate_limited };
 
   const found = new Map<string, CatalogResult>();
   for (const entry of response.value?.results ?? []) {
@@ -289,7 +303,7 @@ export async function resolveDataset(
   hint?: string,
 ): Promise<
   | { ok: true; domain: string; name?: string; permalink?: string; from_catalog: boolean }
-  | { ok: false; message: string }
+  | { ok: false; message: string; rate_limited: boolean }
 > {
   const looked = await lookupByIds([id]);
   if (!looked.ok) return looked;
@@ -301,6 +315,7 @@ export async function resolveDataset(
   if (!domain) {
     return {
       ok: false,
+      rate_limited: false,
       message:
         `"${id}" uchun domen topilmadi. Bu id katalogda yo‘q yoki maxfiy dataset bo‘lishi mumkin. ` +
         'To‘liq permalinkni bering (masalan https://data.cityofnewyork.us/d/8wbx-tsch).',
@@ -314,33 +329,58 @@ export async function sodaRows(
   domain: string,
   id: string,
   params: Record<string, string>,
-): Promise<{ ok: true; rows: Array<Record<string, unknown>> } | { ok: false; message: string; html: boolean }> {
+): Promise<
+  | { ok: true; rows: Array<Record<string, unknown>> }
+  | { ok: false; message: string; html: boolean; rate_limited: boolean }
+> {
   const response = await fetchJson<Array<Record<string, unknown>>>(
     `https://${domain}/resource/${id}.json?${new URLSearchParams(params).toString()}`,
     `${domain} SODA`,
     45_000,
   );
-  if (!response.ok) return { ok: false, message: response.message, html: response.html };
+  if (!response.ok) {
+    return { ok: false, message: response.message, html: response.html, rate_limited: response.rate_limited };
+  }
   if (!Array.isArray(response.value)) {
     return {
       ok: false,
       html: false,
+      rate_limited: false,
       message: `SODA massiv qaytarmadi, ${typeof response.value}: ${JSON.stringify(response.value).slice(0, 120)}`,
     };
   }
   return { ok: true, rows: response.value };
 }
 
+/**
+ * The portal's own row total for a dataset, asked with a plain `count(*)`.
+ *
+ * This exists for the aggregate case: `?$select=license_type,count(*)&$group=license_type` was measured
+ * answering HTTP 200 with `[]` on a runner while the same query returned 105,003 rows seconds later from
+ * another machine. An empty array alone cannot tell "this grouping has no members" from "the portal did
+ * not run the aggregation", and the difference decides whether the caller rewrites the query or not.
+ *
+ * Returns `null` when the total itself did not arrive, which is reported as unknown rather than as zero.
+ */
+export async function sodaTotalRows(domain: string, id: string, where?: string): Promise<number | null> {
+  const params: Record<string, string> = { $select: 'count(*)', $limit: '1' };
+  if (where) params.$where = where;
+  const result = await sodaRows(domain, id, params);
+  if (!result.ok || result.rows.length === 0) return null;
+  const value = Number(Object.values(result.rows[0])[0]);
+  return Number.isFinite(value) ? value : null;
+}
+
 /** Dataset metadata from the portal's own API. */
 export async function datasetMeta(
   domain: string,
   id: string,
-): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; message: string }> {
+): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; message: string; rate_limited: boolean }> {
   const response = await fetchJson<Record<string, unknown>>(
     `https://${domain}/api/views/${id}`,
     `${domain} dataset metama'lumoti`,
   );
-  if (!response.ok) return { ok: false, message: response.message };
+  if (!response.ok) return { ok: false, message: response.message, rate_limited: response.rate_limited };
   return { ok: true, value: response.value };
 }
 
