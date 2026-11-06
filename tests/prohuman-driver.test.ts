@@ -71,11 +71,28 @@ async function waitDrifts(driverId: string, count: number, deadlineMs: number): 
   return status;
 }
 
+/**
+ * Read the status until no tick is in flight, or `deadlineMs` runs out.
+ *
+ * `stop` ends the schedule; it does not cancel a move already dispatched. Measured on the Windows runner:
+ * the status taken straight after the stop said `running: false` and `tick_running_ms: 4`. Comparing the
+ * drift count with the lateness sample count in that moment compares a race, not the driver.
+ */
+async function waitQuiescent(driverId: string, deadlineMs: number): Promise<Record<string, any>> {
+  const deadline = Date.now() + deadlineMs;
+  let status = payload(await callTool('pro_human_status', { driver_id: driverId }));
+  while (((status.tick_running_ms as number) ?? 0) > 0 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    status = payload(await callTool('pro_human_status', { driver_id: driverId }));
+  }
+  return status;
+}
+
 afterAll(async () => {
   await closeAll();
 });
 
-describe.skipIf(!LIVE)('a driver on a real page', () => {
+describe.skipIf(!LIVE)('a driver on a real page', { timeout: 150_000 }, () => {
   it('attaches, keeps the pointer alive between calls, and can prove it from the page', async () => {
     const sessionId = await openSession();
     const attached = payload(
@@ -143,10 +160,10 @@ describe.skipIf(!LIVE)('a driver on a real page', () => {
     }
 
     await callTool('pro_human_stop', { driver_id: driverId, reason: 'test finished' });
-    // With the loop stopped, nothing can land between the two fields of one read, and the pair that counts
-    // the same event has to agree exactly. This is the invariant the accounting broke on: a lateness
-    // sample was recorded before the browser round trip and the drift after it.
-    const stopped = payload(await callTool('pro_human_status', { driver_id: driverId }));
+    // Only once nothing is in flight can the two counters be compared exactly: they count the same event,
+    // and the invariant the accounting broke on is that one was recorded before the browser round trip and
+    // the other after it.
+    const stopped = await waitQuiescent(driverId, 5_000);
     expect(stopped.running).toBe(false);
     expect(stopped.tick_running_ms, JSON.stringify(stopped)).toBe(0);
     expect(stopped.scheduler_lag_ms.samples, JSON.stringify(stopped)).toBe(stopped.stats.drifts);

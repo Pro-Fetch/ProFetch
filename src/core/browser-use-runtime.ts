@@ -16,12 +16,36 @@
  */
 
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { DetectedBrowser, LaunchOptions, OperatingSystem, ResolvedConnection } from './browser-use-contract.js';
 import { detectBrowsers } from './browser-use-detect.js';
 import { ADAPTERS, adapterFor, planFor, type LaunchPlan } from './browser-use-adapters.js';
 import { buildRegistry, selectBrowser } from './browser-use-registry.js';
 import { unsearchableOn } from './browser-use-detect.js';
 import type { Registry } from './browser-use-registry.js';
+
+/** How many times a transiently-failing launch is tried, into a fresh profile directory each time. */
+export const LAUNCH_ATTEMPTS = 3;
+
+/**
+ * A launch that died the way launches die under load, not a launch that was refused.
+ *
+ * Measured on the Windows CI runner, verbatim: the browser process started, then Playwright reported
+ * "Target page, context or browser has been closed" and the cleanup's taskkill said the pid no longer
+ * existed — while the same build passed on the other five matrix jobs. That is a race, and a race is
+ * retried. A *refusal* — the executable missing, the profile undecodable, a permanent argument error —
+ * is not, because retrying it would only repeat it.
+ *
+ * Exported so a unit test can pin the shapes without faking a browser crash.
+ */
+export function isTransientLaunchFailure(message: string): boolean {
+  // `Timeout \d+ms exceeded` is Playwright's own wording — the first version of this pattern looked for
+  // "timed out", which is what a human writes and not what this library emits, so a launch that ran out of
+  // time was classified as permanent and never retried.
+  return /Target page, context or browser has been closed|browser has been closed|Timeout \d+ ?ms exceeded|process (did not exit|exit code)|kill ENOENT|ENOENT[^\n]*pid|EACCES|[Cc]annot allocate|out of memory|ENOMEM|ECONNREFUSED|connection refused|will force kill|gracefully close start/i.test(
+    message,
+  );
+}
 
 export function currentOs(): OperatingSystem {
   if (process.platform === 'win32') return 'windows';
@@ -156,37 +180,58 @@ export async function launchManaged(
   const plan: LaunchPlan = planned.plan;
 
   const engine = adapter.engine;
-  try {
-    const playwright = await import('playwright');
-    const launcher = engine === 'firefox' ? playwright.firefox : playwright.chromium;
-    // `--user-data-dir` is rejected by `launch()` — Playwright owns that switch there. Profile
-    // isolation is expressed by launching a persistent context at the directory the adapter chose,
-    // which is the same guarantee in the API that supports it.
-    const args = plan.args.filter((a) => !a.startsWith('--user-data-dir'));
-    const context = await launcher.launchPersistentContext(plan.userDataDir, {
-      executablePath: plan.executablePath,
-      headless: options.headless ?? true,
-      args,
-      timeout: 45_000,
-      // Emulated, not pretended: the host's own ratio is untouched, and a caller that needs to know the
-      // physical display can read `window.devicePixelRatio` before asking for either.
-      ...(options.deviceScaleFactor ? { deviceScaleFactor: options.deviceScaleFactor } : {}),
-    } as never);
-    const browser = context.browser();
-    return {
-      ok: true,
-      session: {
-        product,
+  const playwright = await import('playwright');
+  const launcher = engine === 'firefox' ? playwright.firefox : playwright.chromium;
+
+  let reason = '';
+  for (let attempt = 1; attempt <= LAUNCH_ATTEMPTS; attempt += 1) {
+    // A second launch into the first attempt's profile directory inherits whatever it left behind
+    // (SingletonLock, DevToolsActivePort, an unclean exit). Each attempt gets its own directory, inside
+    // the caller's dataRoot so the caller's own cleanup still removes all of them.
+    const profileDir = attempt === 1 ? plan.userDataDir : join(options.dataRoot, `launch-retry-${attempt}`);
+    try {
+      // `--user-data-dir` is rejected by `launch()` — Playwright owns that switch there. Profile
+      // isolation is expressed by launching a persistent context at the directory the adapter chose,
+      // which is the same guarantee in the API that supports it.
+      const args = plan.args.filter((a) => !a.startsWith('--user-data-dir'));
+      const context = await launcher.launchPersistentContext(profileDir, {
         executablePath: plan.executablePath,
-        userDataDir: plan.userDataDir,
-        notes: plan.notes,
-        browser: browser as unknown as ManagedSession['browser'],
-        context,
-      },
-    };
-  } catch (error) {
-    return { ok: false, reason: `${adapter.label} launch failed: ${(error as Error).message}` };
+        headless: options.headless ?? true,
+        args,
+        timeout: 45_000,
+        // Emulated, not pretended: the host's own ratio is untouched, and a caller that needs to know the
+        // physical display can read `window.devicePixelRatio` before asking for either.
+        ...(options.deviceScaleFactor ? { deviceScaleFactor: options.deviceScaleFactor } : {}),
+      } as never);
+      const browser = context.browser();
+      return {
+        ok: true,
+        session: {
+          product,
+          executablePath: plan.executablePath,
+          userDataDir: profileDir,
+          notes:
+            attempt === 1
+              ? plan.notes
+              : [...plan.notes, `launched on attempt ${attempt}/${LAUNCH_ATTEMPTS} after: ${reason}`],
+          browser: browser as unknown as ManagedSession['browser'],
+          context,
+        },
+      };
+    } catch (error) {
+      reason = `${adapter.label} launch failed: ${(error as Error).message}`;
+      if (!isTransientLaunchFailure(reason)) break;
+      if (attempt < LAUNCH_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+    }
   }
+  return {
+    ok: false,
+    reason: `${reason} — ${LAUNCH_ATTEMPTS} urinish${
+      isTransientLaunchFailure(reason)
+        ? ' (launch race like the one ' + 'the Windows runner reports: the process starts and the connection dies)'
+        : ' (this failure is not a ' + 'launch race, retrying would not help)'
+    }`,
+  };
 }
 
 /** Resolve a request against this machine — the same call the MCP tools will make. */
