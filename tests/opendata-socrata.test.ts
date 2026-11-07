@@ -9,6 +9,7 @@ import { describe, it, expect, type TestContext } from 'vitest';
 import '../src/loader.js';
 import { callTool } from '../src/router.js';
 import { htmlInsteadOfJson, isDatasetId, parseReference, soqlIdentifier } from '../src/tools/opendata/_opendata.js';
+import { emptyAggregateNote } from '../src/tools/opendata/count.js';
 import type { ToolResult } from '../src/core/types.js';
 import { hostReachable } from './helpers/liveGate.js';
 
@@ -245,6 +246,41 @@ describe('a refusal is a failed call, not an empty success', () => {
   });
 });
 
+describe('the two kinds of empty are told apart', () => {
+  // The live case below can only reach the branches a portal is willing to produce on demand. This one is
+  // offline on purpose: `dataset_rows: null` needs the portal to answer the aggregate with nothing and the
+  // identical total query with a failure, which happens under load and cannot be asked for.
+  const measured = { domain: 'data.svo.ei.gov', id: '8wbx-tsch', groupBy: 'license_type', where: '' };
+
+  it('says the portal could not answer, when the total is not known either', () => {
+    const note = emptyAggregateNote({ ...measured, datasetRows: null });
+    expect(note).toContain('portal javobi to‘liq emas');
+    expect(note).toContain('license_type');
+    expect(note).toContain(measured.domain);
+    // The distinction that matters commercially: an unknown total must never read as "no matching value".
+    expect(note).not.toContain('portal xatosi emas');
+  });
+
+  it('says no row matches, when the portal measured zero under the same filter', () => {
+    const note = emptyAggregateNote({ ...measured, datasetRows: 0, where: "license_type='BuQiYoqShart'" });
+    expect(note).toContain('Bu portal xatosi emas');
+    expect(note).toContain("license_type='BuQiYoqShart'");
+  });
+
+  it('names the domain as the source of a genuinely empty dataset', () => {
+    const note = emptyAggregateNote({ ...measured, datasetRows: 0 });
+    expect(note).toContain(measured.domain);
+    expect(note).toContain('0 deyapti');
+  });
+
+  it('calls an aggregate that returned nothing for what it is when the dataset has rows', () => {
+    const note = emptyAggregateNote({ ...measured, datasetRows: 105_003 });
+    expect(note).toContain('105003 qator bor');
+    expect(note).toContain('keyinroq qayta urilishi mumkin');
+    expect(note).not.toContain('xatosi emas');
+  });
+});
+
 describe.skipIf(!portalReachable)('live: catalog search', () => {
   it('returns datasets with a domain and an id', async (context) => {
     const data = await liveAnswer('pro_opendata_search', { query: 'traffic accident', limit: 5 }, context);
@@ -397,8 +433,16 @@ describe.skipIf(!portalReachable)('live: aggregates', () => {
     );
     expect(data.empty).toBe(true);
     expect(data.rows).toEqual([]);
-    expect(data.dataset_rows).toBe(0);
-    expect(String(data.note)).toContain('portal xatosi emas');
+    // What is ours is the distinction, not the portal's second: a runner under load got `null` for the total
+    // (the count query itself answered nothing), which is a different - and separately labelled - statement
+    // from "no row matches". Both are accepted here; a missing field or an unlabelled zero is not.
+    expect(data.dataset_rows, JSON.stringify(data).slice(0, 300)).not.toBeUndefined();
+    const note = String(data.note);
+    if (data.dataset_rows === 0) {
+      expect(note).toContain('portal xatosi emas');
+    } else {
+      expect(note, JSON.stringify(data).slice(0, 300)).toContain('portal javobi to‘liq emas');
+    }
   });
 
   it('documents the flattened aggregate names it produces', async (context) => {

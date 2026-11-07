@@ -29,6 +29,13 @@ versiya semver bo'yicha.
   saqlagan sahifani hech qachon topa olmas edi — "yo'q" deb javob berardi, ro'yxat rejimida esa URL
   oxiriga `|t8000` yopishib yurardi. Endi manzil bo'yicha oila qidiriladi, so'nggi o'qish tanlanadi va
   qaysi bosqich bergani aytiladi.
+- **Opendata: bo'sh agregatning ikki xili.** Tirik test portaldan o'z qatorlar sonini so'rovida aniq `0`
+  kutardi — to'liq suite bosib turganda portal ikkinchi so'rovga javob bermadi va `dataset_rows: null`
+  qaytdi. Test endi bizning garovimizni tekshiradi: son yo'q bo'lsa ham maydon bo'lishi va matn qaysi
+  xil bo'shlik ekanini ataylab aytishi (`portal javobi to‘liq emas` bilan `Bu portal xatosi emas`
+  — bir-biriga almashtirilmaydi). Matn tanlovi `emptyAggregateNote` deb alohida chiqarildi, chunki
+  `null` tugmasini jonli portalda ataylab qo'lga kiritib bo'lmaydi: portal o'zi bilan o'zi ziddiyatga
+  kirishi kerak.
 
 ## [1.1.0] - 2026-11-06
 

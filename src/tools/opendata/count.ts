@@ -3,6 +3,41 @@ import { failJson, jsonBlock } from '../../core/format.js';
 import { num, strOrEmpty, view } from '../../core/input.js';
 import { parseReference, resolveDataset, sodaTotalRows, soqlIdentifier, sodaRows } from './_opendata.js';
 
+/**
+ * Which kind of "nothing" an empty aggregate is, in the caller's language.
+ *
+ * Kept apart from the handler for one reason: the `datasetRows === null` branch cannot be provoked against a
+ * live portal — it needs the portal to disagree with itself between two near-identical queries, which is what
+ * a loaded runner did once and what a test must never depend on. A label nobody has been able to read is a
+ * claim, so the mapping from measurement to sentence is checked here instead.
+ */
+export function emptyAggregateNote(measured: {
+  datasetRows: number | null;
+  where: string;
+  groupBy: string;
+  domain: string;
+  id: string;
+}): string {
+  const { datasetRows, where, groupBy, domain, id } = measured;
+  if (datasetRows === null) {
+    return (
+      `Portal "${groupBy || 'count(*)'}" so‘rovi uchun hech narsa qaytarmadi va qatorlar sonini ham` +
+      ` ayta olmadi (${domain}). Bu "mos qiymat yo‘q" emas — portal javobi to‘liq emas.`
+    );
+  }
+  if (datasetRows === 0) {
+    return where
+      ? `Shart (“${where}”) hech bir qatorga mos kelmadi: guruhlash bo‘yicha qiymat yo‘q, chunki` +
+          ` mos qator yo‘q. Bu portal xatosi emas.`
+      : `Datasetda guruhlanadigan qator yo‘q (${domain} o‘zi ham 0 deyapti).`;
+  }
+  return (
+    `${id} da ${datasetRows} qator bor, lekin guruhlash bo‘yicha birorta qiymat` +
+    ` qaytmadi. Agregatsiya portal tomonida bajarilmagan — so‘rovni o‘zgartirish kerak emas,` +
+    ` keyinroq qayta urilishi mumkin.`
+  );
+}
+
 export default defineTool({
   name: 'pro_opendata_count',
   description:
@@ -88,18 +123,7 @@ export default defineTool({
     // kept as unknown rather than folded into zero, because zero here would be the same lie in a new box.
     if (rows.length === 0) {
       const datasetRows = await sodaTotalRows(resolved.domain, reference.id, where || undefined);
-      const note =
-        datasetRows === null
-          ? `Portal "${groupBy || 'count(*)'}" so‘rovi uchun hech narsa qaytarmadi va qatorlar sonini ham` +
-            ` ayta olmadi (${resolved.domain}). Bu "mos qiymat yo‘q" emas — portal javobi to‘liq emas.`
-          : datasetRows === 0
-            ? where
-              ? `Shart (“${where}”) hech bir qatorga mos kelmadi: guruhlash bo‘yicha qiymat yo‘q, chunki` +
-                ` mos qator yo‘q. Bu portal xatosi emas.`
-              : `Datasetda guruhlanadigan qator yo‘q (${resolved.domain} o‘zi ham 0 deyapti).`
-            : `${reference.id} da ${datasetRows} qator bor, lekin guruhlash bo‘yicha birorta qiymat` +
-              ` qaytmadi. Agregatsiya portal tomonida bajarilmagan — so‘rovni o‘zgartirish kerak emas,` +
-              ` keyinroq qayta urilishi mumkin.`;
+      const note = emptyAggregateNote({ datasetRows, where, groupBy, domain: resolved.domain, id: reference.id });
       return jsonBlock("Hisob: ma'lumot yo'q", {
         id: reference.id,
         domain: resolved.domain,
