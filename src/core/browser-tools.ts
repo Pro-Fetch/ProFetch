@@ -3,13 +3,14 @@ import { mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Browser, Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { assertSafeUrl, assertStableSafeUrl } from './ssrf-guard.js';
 import { assertWritable } from './read-only-guard.js';
 import { assertActionAllowed } from './security-policy.js';
 import { assertReadablePath, assertWritablePath } from './path-containment.js';
 import { outputFileName } from './output-dir.js';
 import { createProxyRouteHandler } from './pinned-proxy.js';
+import { browserPool, browserPoolStats, closeBrowserPool } from './browser-pool.js';
 import { result } from './format.js';
 import type { ToolResult } from './types.js';
 
@@ -72,52 +73,88 @@ export async function playwrightAvailable(): Promise<boolean> {
   }
 }
 
+/**
+ * Start a browser process. Everything about it is the policy the session path has always used: headless,
+ * no sandbox inside the container, and the automation-controlled blink flag off.
+ */
+export async function launchGuardedBrowser(): Promise<Browser> {
+  const { chromium } = await import('playwright');
+  const channel = (process.env.PRO_FETCH_BROWSER_CHANNEL || '').trim();
+  return chromium.launch({
+    headless: true,
+    ...(channel ? { channel } : {}),
+    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox', '--disable-infobars'],
+  });
+}
+
+/**
+ * A context that enforces this repository's network policy on every request it makes.
+ *
+ * SSRF protection applies to sub-resources, not only to the first navigation: the route handler serves
+ * everything from this process over a connection pinned to the address that was just validated, so Chromium
+ * never resolves the name and there is no second DNS answer left to disagree with. The two-lookup check on
+ * `assertStableSafeUrl` only narrowed the window; a resolver answering public, public, private still won.
+ * Pinning is what closes it.
+ */
+export async function newGuardedContext(browser: Browser, input: Input = {}): Promise<BrowserContext> {
+  const statePath = browserStatePath();
+  const storageState = existsSync(statePath) ? statePath : undefined;
+  const context = await browser.newContext({
+    userAgent: string(input, 'user_agent') || BROWSER_UA,
+    locale: 'en-US',
+    timezoneId: process.env.PRO_FETCH_BROWSER_TZ || 'America/New_York',
+    viewport: { width: Number(input.width ?? 1280), height: Number(input.height ?? 800) },
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+    ...(storageState ? { storageState } : {}),
+  });
+  await context.addInitScript({ content: STEALTH_INIT });
+  await context.route(
+    '**/*',
+    createProxyRouteHandler(context as unknown as Parameters<typeof createProxyRouteHandler>[0], {
+      validate: async (url: string) => {
+        await validateBrowserRequest(url);
+      },
+      validateNavigation: async (url: string) => {
+        await assertStableSafeUrl(url);
+      },
+    }),
+  );
+  return context;
+}
+
+/**
+ * One page, in a context that belongs to no other read.
+ *
+ * This is what the pool runs per acquisition. The context is created here and closed here, so cookies,
+ * localStorage and service-worker state cannot walk from one site to the next; reusing the process is the
+ * only thing carried between reads, and a process carries no session of anybody's.
+ */
+export async function withFreshContext<T>(browser: Browser, input: Input, fn: (page: Page) => Promise<T>): Promise<T> {
+  const context = await newGuardedContext(browser, input);
+  try {
+    const page = await context.newPage();
+    try {
+      return await fn(page);
+    } finally {
+      await page.close().catch(() => {});
+    }
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
 async function createSession(id: string, url?: string, input: Input = {}, persist = true): Promise<Session> {
   if (!sessions.has(id) && sessions.size >= maxBrowserSessions()) {
     throw new Error(
       `Browser session limit reached (${maxBrowserSessions()}). Avval foydalanilmayotgan session'ni yoping.`,
     );
   }
-  const { chromium } = await import('playwright');
-  const channel = (process.env.PRO_FETCH_BROWSER_CHANNEL || '').trim();
-  const browser = await chromium.launch({
-    headless: true,
-    ...(channel ? { channel } : {}),
-    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox', '--disable-infobars'],
-  });
+  const browser = await launchGuardedBrowser();
   try {
-    const statePath = browserStatePath();
-    const storageState = existsSync(statePath) ? statePath : undefined;
-    const context = await browser.newContext({
-      userAgent: string(input, 'user_agent') || BROWSER_UA,
-      locale: 'en-US',
-      timezoneId: process.env.PRO_FETCH_BROWSER_TZ || 'America/New_York',
-      viewport: { width: Number(input.width ?? 1280), height: Number(input.height ?? 800) },
-      deviceScaleFactor: 1,
-      isMobile: false,
-      hasTouch: false,
-      ...(storageState ? { storageState } : {}),
-    });
-    await context.addInitScript({ content: STEALTH_INIT });
-    // Declared before the route handler so the handler can tell a top-level navigation from a sub-resource.
-    let page: Page | undefined;
-    // SSRF protection must apply to every browser request, not only the first navigation URL.
-    // Served from this process over a connection pinned to the address that was just validated, so
-    // Chromium never resolves the name and there is no second DNS answer left to disagree with. The
-    // two-lookup check on `assertStableSafeUrl` only narrowed the window; a resolver answering public,
-    // public, private still won. Pinning is what closes it.
-    await context.route(
-      '**/*',
-      createProxyRouteHandler(context as unknown as Parameters<typeof createProxyRouteHandler>[0], {
-        validate: async (url: string) => {
-          await validateBrowserRequest(url);
-        },
-        validateNavigation: async (url: string) => {
-          await assertStableSafeUrl(url);
-        },
-      }),
-    );
-    page = await context.newPage();
+    const context = await newGuardedContext(browser, input);
+    const page = await context.newPage();
     const session: Session = { browser, page, console: [], network: [], persist };
     page.on('console', (message) => session.console.push(`[${message.type()}] ${message.text()}`));
     page.on('pageerror', (error) => session.console.push('[pageerror] ' + error.message));
@@ -151,21 +188,44 @@ async function createSession(id: string, url?: string, input: Input = {}, persis
  * `http://169.254.169.254/` while the browser category could not — the guard is only as strong as the
  * widest door.
  *
- * This reuses the session machinery rather than copying it, so a future change to the policy applies
- * here automatically. The session is ephemeral (`persist: false`) and always torn down.
+ * This reuses the same guarded machinery rather than copying it, so a change to the policy applies here
+ * automatically. What changed since is the cost: the read runs on a process taken from `browserPool()`
+ * instead of starting and stopping its own Chromium. The page and its context are still always discarded —
+ * what is reused is the process, never the session.
  */
 export async function withGuardedPage<T>(url: string, input: Input, fn: (page: Page) => Promise<T>): Promise<T> {
-  // Validate before spawning: a URL that policy will refuse must not cost the caller a browser
-  // process, and `createSession` only checks the address after launching.
-  await assertSafeUrl(url);
-  const id = 'guarded-' + randomUUID();
-  const session = await createSession(id, url, input, false);
-  try {
-    return await fn(session.page);
-  } finally {
-    sessions.delete(id);
-    await session.browser.close().catch(() => {});
-  }
+  // Validate before spawning: a URL that policy will refuse must not cost the caller a browser process,
+  // and the pool hands a process over before anything navigates.
+  const safe = await assertSafeUrl(url);
+  const timeout = Number(input.timeout_ms ?? 20000);
+  return browserPool().run(input, async (page) => {
+    await page.goto(safe.toString(), { waitUntil: 'domcontentloaded', timeout });
+    return fn(page);
+  });
+}
+
+/**
+ * Release every browser process this process owns.
+ *
+ * A stdio server is normally killed rather than stopped politely, and Chromium does not go when its parent
+ * does: an orphaned `chrome.exe` keeps the profile directory locked and a few hundred megabytes. The counts
+ * come back because a shutdown that reports nothing cannot be told apart from one that did nothing.
+ */
+export async function closeBrowsers(): Promise<{ sessions: number; pool: number }> {
+  const ids = Array.from(sessions.keys());
+  const closed = await Promise.allSettled(
+    ids.map(async (id) => {
+      const session = sessions.get(id);
+      sessions.delete(id);
+      if (session) await session.browser.close();
+    }),
+  );
+  const before = browserPoolStats().size;
+  await closeBrowserPool();
+  return {
+    sessions: closed.filter((outcome) => outcome.status === 'fulfilled').length,
+    pool: before,
+  };
 }
 
 async function persistState(session: Session): Promise<void> {

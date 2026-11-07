@@ -27,8 +27,40 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
 async function main(): Promise<void> {
   installProcessGuards();
+  installShutdownHook();
   await server.connect(new StdioServerTransport());
   console.error('[pro-fetch] profil: ' + currentProfile() + ', tool: ' + listTools().length + ' — tayyor');
+}
+
+/**
+ * Let go of browser processes when the client stops us.
+ *
+ * A pool keeps a Chromium alive between reads on purpose — that is the whole saving — and a stdio server is
+ * usually killed rather than asked politely. Without this hook the child outlives the parent: an orphan
+ * `chrome.exe` holds its profile directory and a few hundred megabytes with no caller left to serve.
+ *
+ * `browser-tools.js` is loaded only here. Playwright is an optional dependency, and importing it at the top
+ * would put it on the startup path of a server that may never render a page.
+ */
+function installShutdownHook(): void {
+  let closing = false;
+  const stop = (signal: string): void => {
+    if (closing) return;
+    closing = true;
+    void (async () => {
+      try {
+        const { closeBrowsers } = await import('./core/browser-tools.js');
+        const closed = await closeBrowsers();
+        console.error(`[pro-fetch] ${signal} — yopildi: session=${closed.sessions}, pool=${closed.pool}`);
+      } catch (error) {
+        // A browser that will not close is not a reason to keep a killed server running.
+        console.error('[pro-fetch] ' + signal + ': browser jarayonlari to‘liq yopilmadi:', describe(error));
+      }
+      process.exit(0);
+    })();
+  };
+  process.on('SIGTERM', () => stop('SIGTERM'));
+  process.on('SIGINT', () => stop('SIGINT'));
 }
 
 /**

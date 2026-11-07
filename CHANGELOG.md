@@ -18,9 +18,25 @@ versiya semver bo'yicha.
   host "yo'q" degan joyga brauzer bilan borilmaydi. Playwright bo'lmasa HTTP hujjati sababi bilan
   qaytadi, chaqiruv ochilib qolmaydi. `PRO_FETCH_BROWSER_ESCALATION=0` — server bo'ylab o'chirish;
   `escalate` argumenti — chaqiruv bo'yicha.
+- **Brauzer jarayonlari uchun havza.** `src/core/browser-pool.ts`: chizilgan o'qishlar endi sahifa boshiga
+  Chromium ochib-yopmaydi, bir necha jarayonni qayta ishlatadi. O'lchangan (3 ta JS bilan chizilgan sahifa,
+  ketma-ket, bir mashinada): birinchi o'qish 2380 ms (ochilish 331 ms), ikkinchi 1501 ms, uchinchi 1496 ms —
+  barchasi uchun **bitta** jarayon, ya'ni har o'qishda ~880 ms ochilish narxi to'lanmaydi. Qayta ishlatiladigan
+  narsa — jarayon; **kontekst emas**: har o'qish o'z kontekstini ochadi va qaytarib bo'lgach yopadi, shuning
+  uchun cookie, `localStorage` va service-worker holati bir saytdan ikkinchisiga yurib bora olmaydi.
+  `PRO_FETCH_BROWSER_POOL_SIZE` (2), `PRO_FETCH_BROWSER_POOL_MAX_PAGES` (50), `PRO_FETCH_BROWSER_POOL_IDLE_MS`
+  (60000), `PRO_FETCH_BROWSER_POOL_WAIT_MS` (30000). O'lcham va sahifa chegaralari MAX rejim ko'tarmaydigan
+  chegaralarga qo'shildi (`HELD_IN_MAX_MODE`): bu yerda ular tezlikni emas, mashina egallaydigan xotirani
+  belgilaydi. To'zalash taymer bilan emas, o'qish olish paytida bo'ladi — ishlatilmayotgan havza o'zini
+  tirik ushlab turmaydi; ichida o'qish ketayotgan jarayon umuman tozalanmaydi.
 
 ### Fixed
 
+- **SIGTERM/SIGINT endi brauzerlarini yopadi.** stdio serveri ko'pincha iltimos bilan to'xtatilmaydi, kill
+  bilan to'xtatiladi; oldin Chromium bolasi ota jarayon bilan birga ketmas edi — yetim `chrome.exe` profil
+  papkasini va yuzlab megabaytni ushlab qolardi. `closeBrowsers()` nechta session va nechta havza jarayoni
+  yopilganini stderr'a yozadi, chunki hisobotsiz yopilgan shutdown hech narsa qilmagan shutdown'dan
+  ajratilmaydi.
 - **Fetch cache kaliti endi o'qiladigan formatda.** Kalit `fetch:t<limit>|e<mode>|<url>` ko'rinishiga
   keldi (URL eng oxirida — URL'ning o'zida `|` bo'lishi mumkin) va `fetchCacheKey` / `fetchCacheKeyUrl`
   deb tashqariga chiqarildi. Ikki xato shu yerda yashirin edi: brauzerda o'qilgan javob HTTP javobi bilan

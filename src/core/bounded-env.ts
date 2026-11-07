@@ -16,15 +16,24 @@ import { MAX_MODE_CEILING, maxMode } from './mode.js';
 /**
  * Capacity limits MAX mode deliberately does not lift.
  *
- * Every other number this module reads bounds how much work *this* process can do, so raising it makes
- * a job faster and reaches nothing new. This one bounds how many requests go to a *single remote host*.
- * Raised to a billion, a batch stops being a workload and becomes a denial-of-service aimed at somebody
- * else's server - and unlike the rest, the damage lands outside the machine running the request.
+ * Most numbers this module reads bound how much work *this* process can do, so raising them makes a job
+ * faster and reaches nothing new. Two kinds of number do not work that way, and both are held:
  *
- * It is listed by name rather than hidden in a comment so that changing this decision is a visible,
- * greppable edit instead of something a reader has to reconstruct.
+ * - `PRO_FETCH_MAX_PER_HOST_CONCURRENCY` bounds requests to a *single remote host*. Raised to a billion, a
+ *   batch stops being a workload and becomes a denial of service aimed at somebody else's server — the
+ *   damage lands outside the machine running the request.
+ * - The browser pool bounds what this machine is allowed to claim. Every entry is a separate process worth
+ *   hundreds of megabytes, so lifting the size cap does not make rendering faster past the point where the
+ *   runner is swapped out: MAX mode asking for 1000 browsers gets an out-of-memory crash and no extra pages.
+ *
+ * They are listed by name rather than hidden in a comment so that changing any of these decisions is a
+ * visible, greppable edit instead of something a reader has to reconstruct.
  */
-const HELD_IN_MAX_MODE = new Set<string>(['PRO_FETCH_MAX_PER_HOST_CONCURRENCY']);
+const HELD_IN_MAX_MODE = new Set<string>([
+  'PRO_FETCH_MAX_PER_HOST_CONCURRENCY',
+  'PRO_FETCH_BROWSER_POOL_SIZE',
+  'PRO_FETCH_BROWSER_POOL_MAX_PAGES',
+]);
 
 /** Read a positive integer from the environment, clamped to `[min, max]`.
  *

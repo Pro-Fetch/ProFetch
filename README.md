@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1889%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1902%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -244,6 +244,37 @@ document still comes back with the reason attached instead of the call failing.
 way per request with `escalate`. The two readings are stored in separate cache slots: an HTTP-only answer
 is never handed to someone who asked for the rendered page.
 
+### What the browser stage costs, and what is reused
+
+Starting Chromium costs time and memory, so rendered reads run on a small pool of processes rather than one
+process per page. Measured on three JavaScript-rendered pages in a row, same machine, same build:
+
+| Read        | Cold start | Browser stage | Pool after the read |
+| ----------- | ---------- | ------------- | ------------------- |
+| first page  | 331 ms     | 2380 ms       | 1 process, 1 read   |
+| second page | —          | 1501 ms       | 1 process, 2 reads  |
+| third page  | —          | 1496 ms       | 1 process, 3 reads  |
+
+One process served all three, and the saving on the second and third read is the ~880 ms of startup that is
+no longer paid. Reuse stops at the process: **every read gets a fresh browser context, and that context is
+closed when the read returns**, so cookies, `localStorage` and service-worker state cannot walk from one site
+into the next answer. A pool that shared a context between sites would be a cross-site leak built to save a
+millisecond.
+
+| Variable                           | Default | What it bounds                                            |
+| ---------------------------------- | ------- | --------------------------------------------------------- |
+| `PRO_FETCH_BROWSER_POOL_SIZE`      | 2       | memory — every entry is a separate process                |
+| `PRO_FETCH_BROWSER_POOL_MAX_PAGES` | 50      | growth — a process is retired and restarted past this     |
+| `PRO_FETCH_BROWSER_POOL_IDLE_MS`   | 60000   | an untouched process is swept on the next acquisition     |
+| `PRO_FETCH_BROWSER_POOL_WAIT_MS`   | 30000   | queue deadline, then `BRAUSER_HAVZASI_TOYIB` names itself |
+
+The size and page ceilings are two of the limits MAX mode refuses to lift: they bound what this machine may
+claim, not how fast it works. Sweeping runs on acquisition rather than on a timer, so a pool that is not being
+used cannot keep itself alive, and a process with a read inside it is never swept — that read finishes and its
+answer comes back intact. On `SIGTERM`/`SIGINT` the server closes every browser it owns and says how many in
+the log, because a killed stdio server would otherwise leave Chromium children behind holding their profile
+directories.
+
 ## Verification
 
 ```bash
@@ -255,7 +286,7 @@ npm run check
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **757 tools / 46 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **1889 tests** across 109 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `test`            | **1902 tests** across 110 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (637 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 
