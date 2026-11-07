@@ -39,6 +39,7 @@ export interface EngineOutcome {
  * key or rewrite a query that was already right.
  */
 function refusalReason(message: string): string {
+  if (/BUDGET_EXCEEDED/.test(message)) return 'budget_exceeded';
   if (/429/.test(message)) return 'rate_limited';
   if (/HTTP 40[13]/.test(message)) return 'authorization_failed';
   if (/HTTP 402/.test(message)) return 'payment_required';
@@ -166,6 +167,28 @@ export async function searchWeb(
 }
 
 /**
+ * A deadline for one engine inside a fan-out.
+ *
+ * Without it the whole call is only as fast as its slowest provider, and one index having a bad minute
+ * costs the caller twenty-five seconds they did not ask for. A timed-out engine is reported as
+ * `budget_exceeded` with its own elapsed time — an accounting entry, not a dropped result.
+ */
+async function withBudget<T>(work: Promise<T>, budgetMs: number): Promise<T> {
+  if (!budgetMs || budgetMs <= 0) return work;
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), budgetMs);
+  });
+  try {
+    const outcome = await Promise.race([work.then((value) => ({ value }) as const), deadline]);
+    if (outcome === null) throw new Error('BUDGET_EXCEEDED');
+    return outcome.value;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Several engines at once, merged.
  *
  * This is what makes an answer broader than any single index: every usable engine is asked in parallel,
@@ -176,7 +199,7 @@ export async function searchWeb(
 export async function searchAcross(
   query: string,
   limit = 10,
-  options: { engines?: string[]; kind?: SearchEngineKind } = {},
+  options: { engines?: string[]; kind?: SearchEngineKind; budgetMs?: number } = {},
 ): Promise<{
   provider: string;
   results: WebSearchResult[];
@@ -213,7 +236,7 @@ export async function searchAcross(
     async (engine): Promise<EngineOutcome & { items: WebSearchResult[] }> => {
       const started = Date.now();
       try {
-        const items = await attempt(engine, query, limit);
+        const items = await withBudget(attempt(engine, query, limit), options.budgetMs ?? 0);
         return {
           engine: engine.id,
           label: engine.label,

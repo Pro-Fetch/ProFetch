@@ -39,6 +39,10 @@ export default defineTool({
         description: `Faqat shu engine (${SEARCH_ENGINES.map((item) => item.id).join(', ')}). Bo‘sh = zanjir.`,
       },
       kind: { type: 'string', description: `Engine turini cheklash: ${KINDS.join(', ')}.` },
+      budget_ms: {
+        type: 'number',
+        description: 'combine=true da bitta engine uchun maksimal kutish (ms). 0 = cheklov yo‘q. Standart: 0',
+      },
       combine: {
         type: 'boolean',
         description: "Hamda ishlaydigan barcha engine'larni so‘rab, natijalarni birlashtirish (default: false)",
@@ -57,7 +61,10 @@ export default defineTool({
     const combine = input.combine === true;
 
     if (combine) {
-      const merged = await searchAcross(query, limit, { kind: kind || undefined });
+      const merged = await searchAcross(query, limit, {
+        kind: kind || undefined,
+        budgetMs: Math.max(0, Number(input.budget_ms) || 0),
+      });
       return result(
         JSON.stringify(
           {

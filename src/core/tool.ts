@@ -462,7 +462,7 @@ const AUTH_TOOL_REQUIREMENTS: Record<string, { required?: string[]; anyOf?: stri
   pro_fetch_session_revoke: { required: ['session_id'] },
 };
 const SEARCH_TOOL_PROPERTIES: Record<string, readonly string[]> = {
-  pro_fetch_web_search: ['query', 'limit', 'engine', 'kind', 'combine'],
+  pro_fetch_web_search: ['query', 'limit', 'engine', 'kind', 'combine', 'budget_ms'],
   pro_fetch_search_engines: ['kind', 'usable_only'],
   pro_fetch_query_understand: ['query', 'network'],
   pro_fetch_answer_packet: ['query', 'engine', 'sources', 'max_fragment_chars', 'rank'],

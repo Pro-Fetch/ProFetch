@@ -184,6 +184,22 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     });
   }
 
+  it('cuts the tail off a fan-out without losing the accounting', async () => {
+    // Measured: combine without a budget reached 11530 ms on one query because a single index was slow;
+    // with budget_ms=800 the same queries finished under 1.3 s with the same number of results. The
+    // deadline is only honest if the timed-out engines are still reported — so a 1 ms budget, which no
+    // network call can meet, must account for every engine that ran.
+    const result = await callTool('pro_fetch_web_search', { query: 'sqlite', combine: true, budget_ms: 1, limit: 5 });
+    expect(result.isError).toBeFalsy();
+    const body = payload(result);
+    expect(body.count).toBe(0);
+    expect(body.perEngine.length).toBeGreaterThan(3);
+    for (const engine of body.perEngine) {
+      expect(engine.reason, `${engine.engine} vanished instead of reporting the deadline`).toBe('budget_exceeded');
+      expect(engine.ms).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it('refuses an engine that does not exist, by naming the ones that do', async () => {
     const result = await callTool('pro_fetch_web_search', { query: 'anything', engine: 'google' });
     expect(result.isError).toBe(true);

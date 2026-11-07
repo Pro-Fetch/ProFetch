@@ -51,6 +51,7 @@
     "probe:browser-use": "tsx scripts/browser-use-probe.mts",
     "gen:mutation-sinks": "tsx scripts/generate-mutation-sinks.mts",
     "lint": "tsc --noEmit",
+    "measure:latency": "tsx scripts/measure-latency.mts",
     "measure:coverage": "tsx scripts/measure-composite-coverage.mts",
     "prepublishOnly": "npm run check",
     "start": "node dist/server.js",
