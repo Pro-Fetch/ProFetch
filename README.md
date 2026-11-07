@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1912%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1916%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -118,6 +118,14 @@ the registry, not from what a caller declares, so a tool cannot talk its way out
 Credentials go in a `.env` next to the server, or in `*_FILE` variables pointing at a file — never in
 the value of a shell variable. `.env` is never committed and never ships in the package. Diagnostics
 report only whether a credential is present and where it came from.
+
+One gate is applied to the environment rather than to the caller. `NODE_TLS_REJECT_UNAUTHORIZED=0` turns
+off certificate verification for a whole Node process, and it is the kind of thing that arrives inherited —
+a desktop application or an agent runner exports it and every server spawned from it silently accepts any
+certificate. pro-fetch sets verification back on at boot and says so on stderr, because a security property
+that no tool result shows is a security property nobody can audit. `PRO_FETCH_ALLOW_INSECURE_TLS=true` is
+the explicit opt-out for a trusted local network with self-signed certificates; while it is set the server
+warns on every boot instead of fixing it quietly.
 
 ## One round trip instead of three
 
@@ -281,7 +289,7 @@ A page asks for far more than text: photographs at full resolution, web fonts, v
 purpose is `innerText` cannot use any of them, so the reader refuses them by default — `image, media, font`
 (`PRO_FETCH_BLOCK_RESOURCES`, `none` to switch off).
 
-Three kinds are deliberately protected, because refusing them changes *what the page says* rather than how
+Three kinds are deliberately protected, because refusing them changes _what the page says_ rather than how
 fast it arrives: `document` is never refused (a blocked frame is a missing part of the answer), and
 `script` / `xhr` / `fetch` are how a JavaScript-rendered page gets its data at all — blocking them produces
 the empty shell the second stage exists to avoid. `stylesheet` is also protected in practice: `innerText` is
@@ -289,11 +297,11 @@ layout-dependent, so what CSS hides, the DOM reports as hidden.
 
 Measured on this machine, same build, alternating order so the warm cache cannot flatter one side:
 
-| Page | Refused | With blocking | Without | Text returned |
-| --- | --- | --- | --- | --- |
-| `wikipedia.org` | 2 images | 1141 ms | 1688 ms | 259 words both ways |
-| `quotes.toscrape.com/js/` | 1 font | 1492 ms | 1827 ms | 247 words both ways |
-| `github.com` repo page | 18–20 images | 3550 ms | 3467 ms | 2501 words both ways |
+| Page                      | Refused      | With blocking | Without | Text returned        |
+| ------------------------- | ------------ | ------------- | ------- | -------------------- |
+| `wikipedia.org`           | 2 images     | 1141 ms       | 1688 ms | 259 words both ways  |
+| `quotes.toscrape.com/js/` | 1 font       | 1492 ms       | 1827 ms | 247 words both ways  |
+| `github.com` repo page    | 18–20 images | 3550 ms       | 3467 ms | 2501 words both ways |
 
 Two honest readings of that table. The text was **identical** in every case — the policy removes bytes, not
 content, which is the only reason it is allowed to be a default. And the speed win is not universal: it came
@@ -316,7 +324,7 @@ npm run check
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **757 tools / 46 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **1912 tests** across 111 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `test`            | **1916 tests** across 112 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (637 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 

@@ -47,6 +47,16 @@ versiya semver bo'yicha.
   sahifalarida UA almashtirish ozgina narx beradi — asosiy chegara DNS o'lik va timeout. Bizning SSRF guardi
   tirik ro'yxatda ham ishladi (internal IPga ishora qiluvchi DNS va HTTPS→HTTP downgrade hostlari bloklandi).
 
+### Security
+
+- **Sertifikat tekshiruvi endi muhitdan meros bo'lib o'chmaydi.** `src/env.ts`: agar
+  `NODE_TLS_REJECT_UNAUTHORIZED=0` (yoki `false`) bo'lsa, server uni yuklanishda `1` qilib qaytaradi va
+  buni stderr'da yozadi — chunki bu belgi tanlanmagan holda keladi: shu mashinadagi desktop ilova MCP
+  serverlarini shu muhitda ochadi, ya'ni pro-fetch'ning har bir HTTPS so'rovi sertifikatni tekshirmasligi
+  mumkin edi. Hech qanday tool javobida buni ko'rib bo'lmas edi. Ataylab o'chirish:
+  `PRO_FETCH_ALLOW_INSECURE_TLS=true` — u holda qiymat saqlanadi, lekin har bir ochilishda ogohlantirish
+  chiqadi. Bu kuzatib qo'yilgan holat, taxmin emas: probe va test ishga tushganda Node o'zi ogohlantirdi.
+
 ### Fixed
 
 - **SIGTERM/SIGINT endi brauzerlarini yopadi.** stdio serveri ko'pincha iltimos bilan to'xtatilmaydi, kill

@@ -44,4 +44,39 @@ function loadEnvFile(): void {
 
 loadEnvFile();
 
+/**
+ * A fetcher that does not check certificates is not a secure fetcher, whatever else it does.
+ *
+ * `NODE_TLS_REJECT_UNAUTHORIZED=0` disables verification for the whole process, and it is inherited rather
+ * than chosen: on this machine the desktop application that spawns MCP servers exports it, so every server
+ * started from that environment — this one included — would silently accept any certificate. A caller cannot
+ * see that in a tool result, so it is corrected here, at the earliest point of our own code, and reported.
+ *
+ * An operator who really needs unverified TLS says so explicitly with `PRO_FETCH_ALLOW_INSECURE_TLS=true`;
+ * that path keeps the host's value and warns on every boot, because a debugging shortcut left set for a
+ * month is exactly how a credential ends up on somebody else's proxy.
+ */
+function enforceTlsVerification(): void {
+  const flag = (process.env.NODE_TLS_REJECT_UNAUTHORIZED ?? '').trim().toLowerCase();
+  if (flag !== '0' && flag !== 'false') return;
+  if (process.env.PRO_FETCH_ALLOW_INSECURE_TLS === 'true') {
+    console.error(
+      '[pro-fetch] OGOHLANTIRISH: NODE_TLS_REJECT_UNAUTHORIZED=' +
+        flag +
+        ' va PRO_FETCH_ALLOW_INSECURE_TLS=true — HTTPS sertifikatlari tekshirilmaydi. ' +
+        'Bu faqat ishonchli lokal tarmoq uchun; boshqa har qanday joyda xavfsizlik buzilishi.',
+    );
+    return;
+  }
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '1';
+  console.error(
+    '[pro-fetch] muhit NODE_TLS_REJECT_UNAUTHORIZED=' +
+      flag +
+      ' edi — sertifikat tekshiruvi qayta yoqildi (1). ' +
+      'Ataylab o‘chirish uchun: PRO_FETCH_ALLOW_INSECURE_TLS=true.',
+  );
+}
+
+enforceTlsVerification();
+
 export {};
