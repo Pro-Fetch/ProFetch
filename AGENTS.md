@@ -185,8 +185,8 @@ shu hujjatni o'qigan agentning majburiyati, server tomonidan majburlash emas.
 
 ## 9. Texnik cheklovlar
 
-- Profil `PRO_FETCH_PROFILE` orqali tanlanadi: `smart` (12 meta-tool), `minimal` (74),
-  `standard` (199), `full` (757). Modul load paytida o'qilgani uchun o'zgartirish server
+- Profil `PRO_FETCH_PROFILE` orqali tanlanadi: `smart` (12 meta-tool), `minimal` (75),
+  `standard` (200), `full` (760). Modul load paytida o'qilgani uchun o'zgartirish server
   qayta ishga tushishini talab qiladi.
 - `smart` profili ostida barcha tool'lar `pro_capability_map` / `pro_capability_call` orqali
   ma'lum qilinadi — to'g'ridan-to'g'ri emas.

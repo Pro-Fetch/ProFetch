@@ -7,6 +7,8 @@ import spa_render from './spa_render.js';
 import robots_check from './robots_check.js';
 import crawl_depth_control from './crawl_depth_control.js';
 import url_queue_manage from './url_queue_manage.js';
+import crawl_job from './crawl_job.js';
+import crawl_job_status from './crawl_job_status.js';
 import crawl_pause_resume from './crawl_pause_resume.js';
 import extract_metadata from './extract_metadata.js';
 import canonical_url from './canonical_url.js';
@@ -35,6 +37,8 @@ export default [
   robots_check,
   crawl_depth_control,
   url_queue_manage,
+  crawl_job,
+  crawl_job_status,
   crawl_pause_resume,
   extract_metadata,
   canonical_url,

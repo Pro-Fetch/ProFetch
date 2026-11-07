@@ -7,6 +7,30 @@ versiya semver bo'yicha.
 
 ### Added
 
+- **Saqlanadigan crawl navbati: `pro_fetch_crawl_job` va `pro_fetch_crawl_job_status` (760-tool).**
+  `src/core/crawl-queue.ts` — navbat SQLite'da yashaydi (`PRO_FETCH_CRAWL_DB`, standart
+  `~/.pro-fetch/crawl-queue.sqlite`). Jarayon o'lsa ish yo'qolmaydi: daʼvo — bu o'zgaruvchi emas, holat
+  (`fetching` + vaqt), `reclaim` esa choradan chiqqan ishchini ortida qoldirgan daʼvoni qaytaradi.
+  **URL — hujjat emas:** `mark` `pro_fetch_document`ning `document_id`'ini oladi va bir xil kontent ikkinchi
+  manzildan kelisa qator `skipped_duplicate` bo'ladi, `first_url` esa kontent birinchi qayerda o'qilganini
+  ko'rsatadi. `stats` jami/holat bo'yicha/ chuqurlik bo'yicha sonlar, `distinct_documents` va
+  `duplicate_rate`ni beradi — "5000 URL ko'rdik" bilan "5000 hujjat o'qidik" endi farqlanadi.
+  O'qish yarimi alohida tool qilingan, chunki read-only rejim qarori action NOMI bilan beriladi: bitta
+  tool'ga `stats`/`list`/`path` qo'shish bu so'zlarning ma'nosini BUTUN server bo'yicha kengaytirardi.
+  Endi `PRO_FETCH_READ_ONLY=true`da holat so'rasa bo'ladi, ish taqsimlash esa rad etiladi. Har yozuv
+  `assertWritable`dan o'tadi.
+- **Hujjat konverti: `pro_fetch_document` (760-tool reyestrida).**
+  `src/core/document.ts` — bir o'qish endi nafaqat
+  matn, balki identifikatorlarni ham oladi: `document_id` (bo'shliqlar siqilgan matn content-hash'ida
+  quriladi — qayta o'qilgan, faqat satrlarga bo'linishi o'zgargan sahifa ESKI id bilan qaytadi) va
+  `revision` (qaytarilgan matunning aniq sha256'i — "bir xil" "bayt-baytga bir xil" deganda kerak).
+  Koordinatalar (title, headings, words, characters, links, tables, code_blocks) matndan sanaladi;
+  provensiya maydonlari (`method`, `escalation_reason`, `browser_ms`, `resources_blocked`, `blocked_kind`)
+  faqat fetch ularni haqiqatan xabar qilganda yoziladi — doim `browser_ms: 0` chiqarish brauzer ishlaganini
+  aytilmagan gap bo'lardi. `include_body: false` — yo'naltirish uchun konvert yetadi, matn ikki marta
+  to'lanmaydi. Konvertda ataylab YO'Q narsalar: author, published_at, summary, sentiment — sahifa buni
+  markup'ida aytmagan bo'lsa, so'rash halol emas. `document_id` qaytarilgan matndan qayta hisoblab bo'ladi
+  (test buni tekshiradi), ya'ni unga ishonish shart emas.
 - **Ikki bosqichli o'qish (HTML shell → brauzer).** `src/core/browser-escalation.ts`: 200 javob hujjat
   bo'lmagan holatda sahifa headless brauzerda qayta o'qiladi. Javob endi kim beraganini aytadi —
   `method: http` (server yuborgan baytlar) yoki `method: browser` (skriptlar chizgan rasm), yoni

@@ -5,60 +5,60 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 757 ta tool · 46 ta kategoriya · smart=12, minimal=74, standard=199, full=757
+**Jami:** 760 ta tool · 46 ta kategoriya · smart=12, minimal=75, standard=200, full=760
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
 ## Kategoriya xulosasi
 
-| Kategoriya      | Tool | Nima bor                                                                 |
-| --------------- | ---: | ------------------------------------------------------------------------ |
-| `github`        |   49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories      |
-| `browser_use`   |   44 | —                                                                        |
-| `browser`       |   41 | Playwright automation: navigate, click, fill, extract, tabs, cookies     |
-| `convert`       |   30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc.      |
-| `collaboration` |   28 | Slack / Jira / Linear / Notion issues, comments, transitions             |
-| `data`          |   26 | Load, profile, query, join, transform datasets (tables)                  |
-| `research`      |   26 | Deep research pipeline: search → read → facts → verify → report          |
-| `admin`         |   25 | Smart System meta-tools, registry/config, diagnostics, batching          |
-| `codehost`      |   25 | GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases        |
-| `database`      |   24 | SQLite / Postgres / MySQL / Redis query & inspect (read-only gated)      |
-| `devops`        |   24 | Docker / Kubernetes / Terraform / CI operations (COMMAND_NOT_FOUND safe) |
-| `extract`       |   24 | DOM/selector/regex/table/metadata extraction from HTML                   |
-| `search`        |   24 | Web, news, image, academic & vertical search (Serper/Brave/DDG)          |
-| `security`      |   24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups              |
-| `git`           |   23 | Local git: status, diff, log, blame, branch operations                   |
-| `crawl`         |   22 | Site crawl, sitemap/robots, link graph, site explain                     |
-| `prohuman`      |   20 | —                                                                        |
-| `http`          |   19 | HTTP client verbs, headers, retries, multipart, SSE/websocket            |
-| `knowledge`     |   18 | Local knowledge store / embeddings / retrieval                           |
-| `productivity`  |   18 | Tasks, notes, calendars, snippets (provider-backed)                      |
-| `storage`       |   16 | S3 / Drive / Dropbox / OneDrive file operations                          |
-| `archive`       |   15 | Wayback + Internet Archive, local cache store, snapshots & diffs         |
-| `docs`          |   15 | arXiv / npm / PyPI / RFC / PubMed package & paper metadata               |
-| `media`         |   15 | Audio/video/image info, transcode, thumbnails, waveform                  |
-| `document`      |   13 | PDF / DOCX / XLSX / PPTX parse & text extraction                         |
-| `apitest`       |   12 | REST/GraphQL/OpenAPI/SOAP: fetch, parse, validate, mock, diff, probe     |
-| `auth`          |   12 | Sessions, cookies, basic/bearer fetch, OAuth device flow, scope audit    |
-| `i18n`          |   12 | Translate, transliterate, locale & RTL helpers                           |
-| `sql`           |   11 | —                                                                        |
-| `monitoring`    |   10 | Watches, health checks, scheduled fetch & change alerts                  |
-| `encoding`      |    9 | Base64/URL/hex/hash/compress codecs                                      |
-| `imageproc`     |    9 | Image processing: resize, crop, EXIF, QR, OCR pre/post                   |
-| `qr`            |    9 | —                                                                        |
-| `evidence`      |    8 | —                                                                        |
-| `index`         |    8 | —                                                                        |
-| `schema`        |    6 | JSON Schema / validation / inference helpers                             |
-| `llm`           |    5 | LLM gateway: complete, embed, structured output                          |
-| `opendata`      |    5 | Public open-data providers (Crossref, OpenLibrary, Patents, GDELT)       |
-| `time`          |    5 | Date/time parsing, diff, relative formatting, cron helpers               |
-| `units`         |    5 | Unit & number formatting/normalization                                   |
-| `zip`           |    5 | Archive (zip/tar) list, extract, create                                  |
-| `binary`        |    4 | Parquet / Arrow / Avro / Protobuf readers (schema + rows)                |
-| `chess`         |    4 | FEN parse/validate, legal moves, perft, square & position analysis       |
-| `geo_data`      |    4 | Geo / maps / timezone / country helpers                                  |
-| `color`         |    3 | Color conversion & contrast helpers                                      |
-| `phonetics`     |    3 | Phonetic transcription helpers                                           |
+| Kategoriya | Tool | Nima bor |
+|---|---:|---|
+| `github` | 49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories |
+| `browser_use` | 44 | — |
+| `browser` | 41 | Playwright automation: navigate, click, fill, extract, tabs, cookies |
+| `convert` | 30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc. |
+| `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
+| `data` | 26 | Load, profile, query, join, transform datasets (tables) |
+| `research` | 26 | Deep research pipeline: search → read → facts → verify → report |
+| `admin` | 25 | Smart System meta-tools, registry/config, diagnostics, batching |
+| `codehost` | 25 | GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases |
+| `crawl` | 24 | Site crawl, sitemap/robots, link graph, site explain |
+| `database` | 24 | SQLite / Postgres / MySQL / Redis query & inspect (read-only gated) |
+| `devops` | 24 | Docker / Kubernetes / Terraform / CI operations (COMMAND_NOT_FOUND safe) |
+| `extract` | 24 | DOM/selector/regex/table/metadata extraction from HTML |
+| `search` | 24 | Web, news, image, academic & vertical search (Serper/Brave/DDG) |
+| `security` | 24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups |
+| `git` | 23 | Local git: status, diff, log, blame, branch operations |
+| `http` | 20 | HTTP client verbs, headers, retries, multipart, SSE/websocket |
+| `prohuman` | 20 | — |
+| `knowledge` | 18 | Local knowledge store / embeddings / retrieval |
+| `productivity` | 18 | Tasks, notes, calendars, snippets (provider-backed) |
+| `storage` | 16 | S3 / Drive / Dropbox / OneDrive file operations |
+| `archive` | 15 | Wayback + Internet Archive, local cache store, snapshots & diffs |
+| `docs` | 15 | arXiv / npm / PyPI / RFC / PubMed package & paper metadata |
+| `media` | 15 | Audio/video/image info, transcode, thumbnails, waveform |
+| `document` | 13 | PDF / DOCX / XLSX / PPTX parse & text extraction |
+| `apitest` | 12 | REST/GraphQL/OpenAPI/SOAP: fetch, parse, validate, mock, diff, probe |
+| `auth` | 12 | Sessions, cookies, basic/bearer fetch, OAuth device flow, scope audit |
+| `i18n` | 12 | Translate, transliterate, locale & RTL helpers |
+| `sql` | 11 | — |
+| `monitoring` | 10 | Watches, health checks, scheduled fetch & change alerts |
+| `encoding` | 9 | Base64/URL/hex/hash/compress codecs |
+| `imageproc` | 9 | Image processing: resize, crop, EXIF, QR, OCR pre/post |
+| `qr` | 9 | — |
+| `evidence` | 8 | — |
+| `index` | 8 | — |
+| `schema` | 6 | JSON Schema / validation / inference helpers |
+| `llm` | 5 | LLM gateway: complete, embed, structured output |
+| `opendata` | 5 | Public open-data providers (Crossref, OpenLibrary, Patents, GDELT) |
+| `time` | 5 | Date/time parsing, diff, relative formatting, cron helpers |
+| `units` | 5 | Unit & number formatting/normalization |
+| `zip` | 5 | Archive (zip/tar) list, extract, create |
+| `binary` | 4 | Parquet / Arrow / Avro / Protobuf readers (schema + rows) |
+| `chess` | 4 | FEN parse/validate, legal moves, perft, square & position analysis |
+| `geo_data` | 4 | Geo / maps / timezone / country helpers |
+| `color` | 3 | Color conversion & contrast helpers |
+| `phonetics` | 3 | Phonetic transcription helpers |
 
 ---
 
@@ -399,6 +399,35 @@ _GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases_
 - `pro_fetch_codehost_gitlab_tags` `  ·` — gitlab: List version tags. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 - `pro_service_ops` `  ·` — Run hosted-provider operations in one call across code hosts (GitLab/Gitea/Forgejo/Bitbucket), collaboration (Slack/Linear/Jira/Notion), cloud storage and productivity (Gmail/Calendar/Todoist). Give a list of operations and get every result together. Credentials must already be configured; an operation without one reports a configuration error rather than failing silently.
 
+## crawl (24)
+
+_Site crawl, sitemap/robots, link graph, site explain_
+
+- `pro_fetch_broken_links` `  ·` — Find broken 40x and 50x links on a page or site
+- `pro_fetch_canonical_url` `  ·` — Resolve the canonical URL of a page
+- `pro_fetch_crawl_depth_control` `  ·` — Set crawl depth and budget for the current session
+- `pro_fetch_crawl_domain_scope` `  ·` — Restrict the crawl to a domain or subdomain scope
+- `pro_fetch_crawl_export` `  ·` — Export crawl results as JSON CSV or Markdown
+- `pro_fetch_crawl_filter` `  ·` — Set include and exclude regex filters for the crawl
+- `pro_fetch_crawl_job` `  ·` — Saqlanadigan crawl navbatiga URL qoʻshish, daʼvo qilish, natijani belgilash, eskirgan daʼvolarni qaytarish
+- `pro_fetch_crawl_job_status` `  ·` — Saqlanadigan crawl navbatining hisobi, fayl manzili va bir holatdagi qatorlari (o‘qish only)
+- `pro_fetch_crawl_pause_resume` `  ·` — Pause or resume a running crawl
+- `pro_fetch_crawl_result_merge` `  ·` — Merge multi-page crawl results into one dataset
+- `pro_fetch_crawl_site` `  ·` — Crawl a site page by page within scope and depth limits
+- `pro_fetch_crawl_speed` `  ·` — Set crawl rate and politeness delay
+- `pro_fetch_extract_links` `  ·` — Extract all links from a page with anchor text
+- `pro_fetch_extract_metadata` `  ·` — Extract title description OG and twitter meta tags
+- `pro_fetch_extract_pagination` `  ·` — Discover the pagination URLs of a listing page
+- `pro_fetch_extract_tables` `  ·` — Extract all HTML tables as dataframes
+- `pro_fetch_link_graph` `  ·` — Build the internal link graph of crawled pages
+- `pro_fetch_page_weight` `  ·` — Measure page size and asset weight
+- `pro_fetch_robots_check` `  ·` — Check robots.txt permissions for a path
+- `pro_fetch_sitemap_read` `  ·` — Parse sitemap.xml or robots sitemaps into a URL list
+- `pro_fetch_spa_render` `  ·` — Render a JavaScript heavy page via headless browser
+- `pro_fetch_url_queue_manage` `  ·` — Inspect add or pause the crawl URL queue
+- `pro_page_diff` `  ·` — Compare two URLs or two texts and report what changed: a text diff, added and removed headings, link changes and a content-size delta. Use it to answer "what changed on this page" without downloading and diffing both pages manually.
+- `pro_site_scan` `S ·` — Crawl a site in one call: start a bounded crawl, check robots compliance, collect page metadata, extract the internal link graph, and summarise the pages it reached. Use this for site overviews, sitemaps and structure discovery.
+
 ## database (24)
 
 _SQLite / Postgres / MySQL / Redis query & inspect (read-only gated)_
@@ -572,32 +601,30 @@ _Local git: status, diff, log, blame, branch operations_
 - `pro_fetch_git_tracked_files` `  ·` — List tracked files. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 - `pro_workspace_ops` `  ·` — Run local workspace operations in one call across git, DevOps (docker/kubectl/terraform/npm), databases (SQLite/PostgreSQL/MySQL/Redis) and security (OSV, secret scan, SBOM). Give a list of operations and get every result together instead of discovering four tools by name. Write operations still require their own confirmation and respect read-only mode.
 
-## crawl (22)
+## http (20)
 
-_Site crawl, sitemap/robots, link graph, site explain_
+_HTTP client verbs, headers, retries, multipart, SSE/websocket_
 
-- `pro_fetch_broken_links` `  ·` — Find broken 40x and 50x links on a page or site
-- `pro_fetch_canonical_url` `  ·` — Resolve the canonical URL of a page
-- `pro_fetch_crawl_depth_control` `  ·` — Set crawl depth and budget for the current session
-- `pro_fetch_crawl_domain_scope` `  ·` — Restrict the crawl to a domain or subdomain scope
-- `pro_fetch_crawl_export` `  ·` — Export crawl results as JSON CSV or Markdown
-- `pro_fetch_crawl_filter` `  ·` — Set include and exclude regex filters for the crawl
-- `pro_fetch_crawl_pause_resume` `  ·` — Pause or resume a running crawl
-- `pro_fetch_crawl_result_merge` `  ·` — Merge multi-page crawl results into one dataset
-- `pro_fetch_crawl_site` `  ·` — Crawl a site page by page within scope and depth limits
-- `pro_fetch_crawl_speed` `  ·` — Set crawl rate and politeness delay
-- `pro_fetch_extract_links` `  ·` — Extract all links from a page with anchor text
-- `pro_fetch_extract_metadata` `  ·` — Extract title description OG and twitter meta tags
-- `pro_fetch_extract_pagination` `  ·` — Discover the pagination URLs of a listing page
-- `pro_fetch_extract_tables` `  ·` — Extract all HTML tables as dataframes
-- `pro_fetch_link_graph` `  ·` — Build the internal link graph of crawled pages
-- `pro_fetch_page_weight` `  ·` — Measure page size and asset weight
-- `pro_fetch_robots_check` `  ·` — Check robots.txt permissions for a path
-- `pro_fetch_sitemap_read` `  ·` — Parse sitemap.xml or robots sitemaps into a URL list
-- `pro_fetch_spa_render` `  ·` — Render a JavaScript heavy page via headless browser
-- `pro_fetch_url_queue_manage` `  ·` — Inspect add or pause the crawl URL queue
-- `pro_page_diff` `  ·` — Compare two URLs or two texts and report what changed: a text diff, added and removed headings, link changes and a content-size delta. Use it to answer "what changed on this page" without downloading and diffing both pages manually.
-- `pro_site_scan` `S ·` — Crawl a site in one call: start a bounded crawl, check robots compliance, collect page metadata, extract the internal link graph, and summarise the pages it reached. Use this for site overviews, sitemaps and structure discovery.
+- `pro_fetch_document` `  ▸` — Fetch a URL as a document envelope: content id, revision checksum, title, headings, counts and provenance
+- `pro_fetch_download_file` `  ▸` — Download a file from URL into the local cache
+- `pro_fetch_fetch_api` `  ▸` — Call a JSON REST API endpoint and return parsed JSON
+- `pro_fetch_fetch_batch` `  ▸` — Fetch many URLs in parallel and return combined results
+- `pro_fetch_fetch_graphql` `  ▸` — Send a GraphQL query to an endpoint and return data
+- `pro_fetch_fetch_head` `  ▸` — Send HEAD request and return headers only
+- `pro_fetch_fetch_options` `  ▸` — Send OPTIONS request to inspect CORS and allowed methods
+- `pro_fetch_fetch_raw` `  ▸` — Fetch URL and return raw body without processing
+- `pro_fetch_fetch_retry` `  ▸` — Fetch URL with a custom retry policy and backoff
+- `pro_fetch_fetch_soap` `  ▸` — Send a SOAP XML request to a web service
+- `pro_fetch_fetch_url` `  ▸` — Fetch any URL and return clean readable content as markdown
+- `pro_fetch_fetch_with_proxy` `  ▸` — Fetch URL through an explicit or env-configured HTTP proxy
+- `pro_fetch_http_status` `  ▸` — Check HTTP status code and response headers of a URL
+- `pro_fetch_ingest` `S ▸` — Fetch any URL and return clean structured data in one call: pages become readable text with metadata and headings, PDFs and Office files become text, CSV/JSON become summarised tables, feeds become markdown, and everything is optionally archived for later citation. Handles format detection so you do not have to choose a converter.
+- `pro_fetch_post_form` `  ▸` — Send POST request with form-urlencoded body
+- `pro_fetch_post_multipart` `  ▸` — Send POST request with multipart form-data
+- `pro_fetch_redirect_trace` `  ▸` — Trace the full redirect chain of a URL
+- `pro_fetch_sse_subscribe` `  ▸` — Subscribe to a Server-Sent Events stream and capture events
+- `pro_fetch_stream_fetch` `  ▸` — Fetch URL with streaming response and return first N bytes
+- `pro_fetch_websocket_listen` `  ▸` — Connect to a WebSocket and capture first N messages
 
 ## prohuman (20)
 
@@ -621,30 +648,6 @@ _Site crawl, sitemap/robots, link graph, site explain_
 - `pro_human_trace` `  ·` — The events the page itself recorded — type, timeStamp, isTrusted, coordinates, keys. This is the evidence; the driver’s log is only intent.
 - `pro_human_type` `  ·` — Type text with a cadence: per-key hold and gap, longer at word boundaries and punctuation, and seeded mistakes that are corrected with backspaces.
 - `pro_human_verify` `  ·` — The one claim this pack can make honestly: did the pointer ever hold still longer than the profile allows? An empty trace is a failure, not a pass.
-
-## http (19)
-
-_HTTP client verbs, headers, retries, multipart, SSE/websocket_
-
-- `pro_fetch_download_file` `  ▸` — Download a file from URL into the local cache
-- `pro_fetch_fetch_api` `  ▸` — Call a JSON REST API endpoint and return parsed JSON
-- `pro_fetch_fetch_batch` `  ▸` — Fetch many URLs in parallel and return combined results
-- `pro_fetch_fetch_graphql` `  ▸` — Send a GraphQL query to an endpoint and return data
-- `pro_fetch_fetch_head` `  ▸` — Send HEAD request and return headers only
-- `pro_fetch_fetch_options` `  ▸` — Send OPTIONS request to inspect CORS and allowed methods
-- `pro_fetch_fetch_raw` `  ▸` — Fetch URL and return raw body without processing
-- `pro_fetch_fetch_retry` `  ▸` — Fetch URL with a custom retry policy and backoff
-- `pro_fetch_fetch_soap` `  ▸` — Send a SOAP XML request to a web service
-- `pro_fetch_fetch_url` `  ▸` — Fetch any URL and return clean readable content as markdown
-- `pro_fetch_fetch_with_proxy` `  ▸` — Fetch URL through an explicit or env-configured HTTP proxy
-- `pro_fetch_http_status` `  ▸` — Check HTTP status code and response headers of a URL
-- `pro_fetch_ingest` `S ▸` — Fetch any URL and return clean structured data in one call: pages become readable text with metadata and headings, PDFs and Office files become text, CSV/JSON become summarised tables, feeds become markdown, and everything is optionally archived for later citation. Handles format detection so you do not have to choose a converter.
-- `pro_fetch_post_form` `  ▸` — Send POST request with form-urlencoded body
-- `pro_fetch_post_multipart` `  ▸` — Send POST request with multipart form-data
-- `pro_fetch_redirect_trace` `  ▸` — Trace the full redirect chain of a URL
-- `pro_fetch_sse_subscribe` `  ▸` — Subscribe to a Server-Sent Events stream and capture events
-- `pro_fetch_stream_fetch` `  ▸` — Fetch URL with streaming response and return first N bytes
-- `pro_fetch_websocket_listen` `  ▸` — Connect to a WebSocket and capture first N messages
 
 ## knowledge (18)
 
@@ -1036,3 +1039,4 @@ _Phonetic transcription helpers_
 - `pro_phonetics_compare` `  ·` — Ikki satrni solishtirish: Levenshtein masofasi, Jaro-Winkler va Dice o‘xshatligi (0..1), hamda ikkalasining Soundex kodi. Kodlar bir xil bo‘lsa, nomlar taxminan bir xil degani - lekin Soundex bosh harflarni farqlamaydi, shuning uchun ham o‘xshatlik, ham kod ko‘rsatiladi.
 - `pro_phonetics_match` `  ·` — Ikki ro‘yxatdagi mos ishlarni topish: Soundex kodi bo‘yicha va o‘xshatlik bo‘yicha. Har bir juft uchta raqam bilan baholanadi, shuning uchun caller o‘zi tanlaydi - Soundex "Smith" va "Smit" ni topadi, lekin "Jon" va "Jan" ni topmaydi, chunki birinchi harfni umuman farqlamaydi.
 - `pro_phonetics_soundex` `  ·` — Nomlarga US Census Soundex kodi berish va bir xil kodli nomlarni guruhlash. "Robert" va "Rupert" ikkalasi R163 bo‘ladi. Ro‘yxat berilsa, guruhlar va eng katta guruhlar chiqadi.
+

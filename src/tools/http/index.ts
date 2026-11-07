@@ -1,4 +1,5 @@
 import fetch_url from './fetch_url.js';
+import fetch_document from './document.js';
 import fetch_batch from './fetch_batch.js';
 import fetch_raw from './fetch_raw.js';
 import fetch_head from './fetch_head.js';
@@ -22,6 +23,7 @@ export default [
   // Smart System composite
   fetch_ingest,
   fetch_url,
+  fetch_document,
   fetch_batch,
   fetch_raw,
   fetch_head,

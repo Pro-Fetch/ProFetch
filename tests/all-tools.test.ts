@@ -73,9 +73,10 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
   it('scoped tool categories publish closed input schemas', () => {
     const schemaTools = allTools().filter((tool) => SCHEMA_CATEGORIES.has(tool.category));
     // Counted from the registry: every tool in a category whose schema `applyCategorySchema` closes.
-    // 441 = 440 plus pro_fetch_query_understand. Each of these two rows has to be moved by whoever adds
-    // the tool, which is the point: the number is a measurement the test re-states, not a guess it inherits.
-    expect(schemaTools).toHaveLength(443);
+    // 445 = 443 plus the two crawl-queue tools (`pro_fetch_crawl_job`, `pro_fetch_crawl_job_status`). This
+    // row has to be moved by whoever adds the tool, which is the point: the number is a measurement the test
+    // re-states, not a guess it inherits.
+    expect(schemaTools).toHaveLength(445);
     for (const tool of schemaTools) {
       expect(tool.inputSchema.additionalProperties, tool.name).toBe(false);
       expect(tool.inputSchema.properties, tool.name).toBeDefined();
