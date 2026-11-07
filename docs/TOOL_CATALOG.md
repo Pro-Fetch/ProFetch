@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 754 ta tool · 46 ta kategoriya · smart=12, minimal=74, standard=196, full=754
+**Jami:** 755 ta tool · 46 ta kategoriya · smart=12, minimal=74, standard=197, full=755
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -28,7 +28,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `security`      |   24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups              |
 | `git`           |   23 | Local git: status, diff, log, blame, branch operations                   |
 | `crawl`         |   22 | Site crawl, sitemap/robots, link graph, site explain                     |
-| `search`        |   21 | Web, news, image, academic & vertical search (Serper/Brave/DDG)          |
+| `search`        |   22 | Web, news, image, academic & vertical search (Serper/Brave/DDG)          |
 | `prohuman`      |   20 | —                                                                        |
 | `http`          |   19 | HTTP client verbs, headers, retries, multipart, SSE/websocket            |
 | `knowledge`     |   18 | Local knowledge store / embeddings / retrieval                           |
@@ -570,7 +570,7 @@ _Site crawl, sitemap/robots, link graph, site explain_
 - `pro_page_diff` `  ·` — Compare two URLs or two texts and report what changed: a text diff, added and removed headings, link changes and a content-size delta. Use it to answer "what changed on this page" without downloading and diffing both pages manually.
 - `pro_site_scan` `S ·` — Crawl a site in one call: start a bounded crawl, check robots compliance, collect page metadata, extract the internal link graph, and summarise the pages it reached. Use this for site overviews, sitemaps and structure discovery.
 
-## search (21)
+## search (22)
 
 _Web, news, image, academic & vertical search (Serper/Brave/DDG)_
 
@@ -595,6 +595,7 @@ _Web, news, image, academic & vertical search (Serper/Brave/DDG)_
 - `pro_fetch_video_search` `  ▸` — Search YouTube videos (requires YOUTUBE_API_KEY)
 - `pro_fetch_web_search` `  ▸` — Web qidiruv: 23 engine — kalit bilan Serper/Brave/Tavily/Exa/SerpAPI/Linkup/DataForSEO/Google CSE/Perplexity, kalitsiz DuckDuckGo/Marginalia/SearXNG/Hacker News/Wikipedia/npm/iTunes/OpenAlex/Crossref/arXiv/PubMed/Europe PMC/DOAJ/Google News. Bitta engine, zanjir yoki hammasini birlashtirib so‘rash mumkin.
 - `pro_fetch_wiki_search` `  ▸` — Search English Wikipedia articles
+- `pro_query_understand` `  ▸` — So'rovni tahlil qiladi: til, niyat (buy|news|code|definition|howto|informational), imla taklifi va bog‘liq so‘zlar. Har maydon qanday usul bilan aniqlangani yozilgan.
 
 ## prohuman (20)
 
