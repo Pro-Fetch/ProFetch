@@ -465,6 +465,7 @@ const SEARCH_TOOL_PROPERTIES: Record<string, readonly string[]> = {
   pro_fetch_web_search: ['query', 'limit', 'engine', 'kind', 'combine'],
   pro_fetch_search_engines: ['kind', 'usable_only'],
   pro_fetch_query_understand: ['query', 'network'],
+  pro_fetch_answer_packet: ['query', 'engine', 'sources', 'max_fragment_chars', 'rank'],
   pro_fetch_rank_results: ['query', 'results', 'engine', 'limit', 'use_index'],
   pro_fetch_news_search: ['query', 'limit'],
   pro_fetch_academic_search: ['query', 'limit'],

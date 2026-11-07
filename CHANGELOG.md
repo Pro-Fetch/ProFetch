@@ -24,7 +24,7 @@ _Hozircha bo'sh._
   bergan (URL, metod va kalit sarlavhasi tasdiqlangan), natijali yo'l esa kalitsiz kuzatilmagan.
   Qo'llab-quvvatlanmaydiganlar yozilmagan: SearchAPI.io va Kagi 404 berdi, Yandex ulanishni rad etdi,
   dev.to qidiruv yo'li o'chirilgan.
-- **`pro_fetch_search_engines`** (756-tool) — qaysi engine hozir ishlatishga tayyor, qaysi biri qaysi
+- **`pro_fetch_search_engines`** (757-tool) — qaysi engine hozir ishlatishga tayyor, qaysi biri qaysi
   kalitni kutayotgani va har biri haqidagi dalil. Kalit qiymatlari chiqarilmaydi.
 - **`pro_fetch_web_search` uchta rejim:** `engine` (bitta indeksni majburiy), `kind` (indeks turi
   bo'yicha cheklash), `combine` (barcha ishlaydigan indekslarni so'rab, URL bo'yicha birlashtirish).

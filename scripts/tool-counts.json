@@ -1,5 +1,5 @@
 {
-  "total": 756,
+  "total": 757,
   "categories": {
     "github": 49,
     "browser_use": 44,
@@ -10,11 +10,11 @@
     "data": 26,
     "admin": 25,
     "codehost": 25,
+    "search": 24,
     "extract": 24,
     "devops": 24,
     "database": 24,
     "security": 24,
-    "search": 23,
     "git": 23,
     "crawl": 22,
     "prohuman": 20,
@@ -51,8 +51,8 @@
   "profiles": {
     "smart": 12,
     "minimal": 74,
-    "standard": 198,
-    "full": 756
+    "standard": 199,
+    "full": 757
   },
   "smartComposites": [
     "pro_capability_call",
@@ -68,8 +68,8 @@
     "pro_data_pipeline",
     "pro_synthesize"
   ],
-  "testFiles": 107,
-  "testCount": 1856,
+  "testFiles": 108,
+  "testCount": 1863,
   "coverageComposites": {
     "pro_workspace_ops": {
       "categories": [
@@ -90,6 +90,6 @@
       "purpose": "One call for hosted-provider operations across the four MAX packs that had no composite."
     }
   },
-  "full": 756,
+  "full": 757,
   "categoryCount": 46
 }

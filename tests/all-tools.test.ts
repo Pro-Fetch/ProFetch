@@ -75,7 +75,7 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
     // Counted from the registry: every tool in a category whose schema `applyCategorySchema` closes.
     // 441 = 440 plus pro_fetch_query_understand. Each of these two rows has to be moved by whoever adds
     // the tool, which is the point: the number is a measurement the test re-states, not a guess it inherits.
-    expect(schemaTools).toHaveLength(442);
+    expect(schemaTools).toHaveLength(443);
     for (const tool of schemaTools) {
       expect(tool.inputSchema.additionalProperties, tool.name).toBe(false);
       expect(tool.inputSchema.properties, tool.name).toBeDefined();
@@ -121,7 +121,7 @@ describe(`pro-fetch MAX - barcha ${TOTAL} tool`, () => {
 
   it('search tool schemas distinguish text queries from image URLs', () => {
     const tools = allTools().filter((tool) => tool.category === 'search');
-    expect(tools).toHaveLength(23);
+    expect(tools).toHaveLength(24);
     // Two tools are exempt, for two different reasons: `reverse_image_search` sends an image rather than a
     // query, and `search_engines` reports on this server's own registry, so requiring a query from it
     // would mean the tool that lists the engines could only be reached by inventing a search term.

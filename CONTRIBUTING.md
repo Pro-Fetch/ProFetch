@@ -21,7 +21,7 @@ that cannot run here and a test somebody turned off.
 | Step              | What it proves                                                                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `verify:static`   | No credential patterns in shipped files, `.env.example` is secret-free, no template dispatcher, declared tool counts are consistent               |
-| `verify:registry` | The **live** registry matches `scripts/tool-counts.json`: 756 tools, 46 categories, 4 profile sizes, unique names, every handler and schema valid |
+| `verify:registry` | The **live** registry matches `scripts/tool-counts.json`: 757 tools, 46 categories, 4 profile sizes, unique names, every handler and schema valid |
 | `build`           | `tsc` compiles clean under `strict`                                                                                                               |
 | `test`            | The full Vitest suite passes                                                                                                                      |
 | `audit:schema`    | Every declared argument is read by the code behind it, and every `required` argument is read — a dead property fails the build                    |
