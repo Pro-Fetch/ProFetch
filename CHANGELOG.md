@@ -29,6 +29,23 @@ versiya semver bo'yicha.
   chegaralarga qo'shildi (`HELD_IN_MAX_MODE`): bu yerda ular tezlikni emas, mashina egallaydigan xotirani
   belgilaydi. To'zalash taymer bilan emas, o'qish olish paytida bo'ladi — ishlatilmayotgan havza o'zini
   tirik ushlab turmaydi; ichida o'qish ketayotgan jarayon umuman tozalanmaydi.
+- **Matn o'quvchi keraksiz resursni tortmaydi.** `src/core/resource-policy.ts`: renderlangan o'qish endi
+  `image, media, font` so'rovlarini bekor qiladi (`PRO_FETCH_BLOCK_RESOURCES`, `none` — o'chirish).
+  `document` hech qachon bloklanmaydi (bloklangan freym — javobning yo'qolgan qismi), `script`/`xhr`/`fetch`
+  esa himoyalangan: ular sahifaning ma'lumot keladigan yo'li, ularni kesish ikkinchi bosqich mavjud bo'lgan
+  bo'sh shell'ni qaytarib beradi. `stylesheet` ham shu sababli o'chilmaydi — `innerText` layout'ga bog'liq.
+  O'lchangan (shu mashina, tartib almashtirib): `wikipedia.org` 2 rasm → 1688 ms o'rniga 1141 ms;
+  `quotes.toscrape.com/js/` 1 shrift → 1827 ms o'rniga 1492 ms; `github.com` 18–20 rasm → 3467 vs 3550 ms,
+  ya'ni bu sahifada foyda yo'q. Uchala holatda ham qaytgan matn bir xil (259 / 247 / 2501 so'z) — siyosat
+  baytni oladi, kontentni emas. Javobda `resources blocked: N` **son** sifatida beriladi: Playwright bekor
+  qilingan so'rov qancha bayt olib kelarini aytmaydi, o'lchab bo'lmagan son esa yozilmaydi.
+- **Blok probe'i: `npm run probe:block`.** `scripts/blockprobe.mjs` — ro'yxatdagi har bir hostga bitta so'rov;
+  proxy rotatsiyasi, CAPTCHA yechish yoki rad javobni aylanib o'tish YO'Q, rad etish hisoblanadi. 500 hostlik
+  Tranco ro'yxatida shu mashinadan o'lchangan natija: 182 host transportda yiqildi (128 tasi DNS yechilmadi —
+  ro'yxatdagi o'lik/CDN domenlar), 318 host ulandi; bot UA bilan 257 muvaffaqiyat (81%) va 40 blok sahifasi
+  (12.6%), brauzer UA bilan 266 (83.6%) va 33 blok (10.4%); p50 1365 ms → 1123 ms. Xulosa: top-500 bosh
+  sahifalarida UA almashtirish ozgina narx beradi — asosiy chegara DNS o'lik va timeout. Bizning SSRF guardi
+  tirik ro'yxatda ham ishladi (internal IPga ishora qiluvchi DNS va HTTPS→HTTP downgrade hostlari bloklandi).
 
 ### Fixed
 

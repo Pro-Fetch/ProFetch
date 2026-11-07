@@ -10,6 +10,7 @@ import { assertActionAllowed } from './security-policy.js';
 import { assertReadablePath, assertWritablePath } from './path-containment.js';
 import { outputFileName } from './output-dir.js';
 import { createProxyRouteHandler } from './pinned-proxy.js';
+import { parseBlockKinds, readerBlockSetting, shouldBlock } from './resource-policy.js';
 import { browserPool, browserPoolStats, closeBrowserPool } from './browser-pool.js';
 import { result } from './format.js';
 import type { ToolResult } from './types.js';
@@ -87,6 +88,14 @@ export async function launchGuardedBrowser(): Promise<Browser> {
   });
 }
 
+/** What each guarded context refused. Per context, so nothing has to be threaded through the callbacks. */
+const blockCounts = new WeakMap<BrowserContext, { total: number; byKind: Record<string, number> }>();
+
+/** How many sub-resources this context aborted and of which kinds. Zero when blocking was not asked for. */
+export function resourceBlockReport(context: BrowserContext): { total: number; byKind: Record<string, number> } {
+  return blockCounts.get(context) ?? { total: 0, byKind: {} };
+}
+
 /**
  * A context that enforces this repository's network policy on every request it makes.
  *
@@ -121,6 +130,27 @@ export async function newGuardedContext(browser: Browser, input: Input = {}): Pr
       },
     }),
   );
+  // Resource blocking is a second handler rather than a branch inside the proxy one: the proxy decides
+  // *where a request goes*, this decides *whether it happens at all*, and keeping them apart means a refused
+  // request can never skip the SSRF check on its way out. Playwright runs the most recently registered
+  // handler first and `fallback()` hands the request to the one underneath, so anything not refused still
+  // travels the pinned path unchanged.
+  const block = parseBlockKinds(input.block_resources);
+  if (block.kinds.size > 0) {
+    const counter = { total: 0, byKind: {} as Record<string, number> };
+    blockCounts.set(context, counter);
+    await context.route('**/*', async (route) => {
+      const request = route.request();
+      const kind = request.resourceType();
+      if (shouldBlock(kind, block.kinds)) {
+        counter.total++;
+        counter.byKind[kind] = (counter.byKind[kind] ?? 0) + 1;
+        await route.abort().catch(() => {});
+        return;
+      }
+      await route.fallback().catch(() => {});
+    });
+  }
   return context;
 }
 
@@ -192,13 +222,20 @@ async function createSession(id: string, url?: string, input: Input = {}, persis
  * automatically. What changed since is the cost: the read runs on a process taken from `browserPool()`
  * instead of starting and stopping its own Chromium. The page and its context are still always discarded —
  * what is reused is the process, never the session.
+ *
+ * A caller that does not name `block_resources` gets the reader default (`image, media, font`): this
+ * function is what the text readers use, and a text reader cannot use those bytes. Interactive tools do not
+ * come through here — they run on sessions, where a screenshot needs its images — so nothing visual is
+ * quietly degraded by this default.
  */
 export async function withGuardedPage<T>(url: string, input: Input, fn: (page: Page) => Promise<T>): Promise<T> {
   // Validate before spawning: a URL that policy will refuse must not cost the caller a browser process,
   // and the pool hands a process over before anything navigates.
   const safe = await assertSafeUrl(url);
   const timeout = Number(input.timeout_ms ?? 20000);
-  return browserPool().run(input, async (page) => {
+  const pooledInput: Input =
+    input.block_resources === undefined ? { ...input, block_resources: readerBlockSetting() } : input;
+  return browserPool().run(pooledInput, async (page) => {
     await page.goto(safe.toString(), { waitUntil: 'domcontentloaded', timeout });
     return fn(page);
   });

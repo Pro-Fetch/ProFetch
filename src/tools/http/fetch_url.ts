@@ -63,7 +63,15 @@ export default defineTool({
             ' | method: ' +
             (r.method ?? 'http') +
             (r.method === 'browser'
-              ? ' (' + (r.escalation_reason ?? '') + ', ' + (r.browser_ms ?? 0) + 'ms)'
+              ? ' (' +
+                (r.escalation_reason ?? '') +
+                ', ' +
+                (r.browser_ms ?? 0) +
+                'ms' +
+                // The read is not a full browser visit: images, media and fonts were refused, and the count
+                // is what was actually aborted rather than a byte figure nobody can measure.
+                (r.resources_blocked ? ', resources blocked: ' + r.resources_blocked : '') +
+                ')'
               : r.escalation_reason
                 ? ' | escalation: ' + r.escalation_reason
                 : '') +

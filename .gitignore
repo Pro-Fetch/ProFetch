@@ -70,3 +70,6 @@ geo-out/
 # the pictures are committed; the per-row CSVs are the numbers behind them, not evidence of a claim.
 benchmarks/browser-use/artifacts/coordinate-map/elements.csv
 benchmarks/browser-use/artifacts/coordinate-map/words.csv
+
+# Measurement output from `npm run probe:block` (regenerable, not a deliverable)
+reports/

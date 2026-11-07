@@ -177,28 +177,40 @@ export function needsBrowser(input: {
 export async function renderWithBrowser(
   url: string,
   maxChars: number,
-): Promise<{ ok: true; markdown: string; ms: number; truncated: boolean } | { ok: false; reason: string }> {
+): Promise<
+  | { ok: true; markdown: string; ms: number; truncated: boolean; blockedRequests: number }
+  | { ok: false; reason: string }
+> {
   const started = Date.now();
   try {
-    const { withGuardedPage } = await import('./browser-tools.js');
-    const text = await withGuardedPage(url, {}, async (page) => {
+    const { withGuardedPage, resourceBlockReport } = await import('./browser-tools.js');
+    const drawn = await withGuardedPage(url, {}, async (page) => {
       // `goto` in this repository resolves on `domcontentloaded`, and a page that asks for its data over the
       // network has not drawn anything at that moment — reading then would report a full page as a shell.
       // The wait is bounded and its failure is not fatal: an SPA that keeps a socket open never reaches
       // networkidle, and the page it has painted by now is still the answer we came for.
       await page.waitForLoadState('networkidle', { timeout: SETTLE_TIMEOUT_MS }).catch(() => {});
       const first = await page.locator('body').innerText();
-      if (countWords(first) >= MIN_WORDS) return first;
+      if (countWords(first) >= MIN_WORDS) return { text: first, blocked: resourceBlockReport(page.context()) };
       // One short second read separates "slow" from "genuinely empty". Without it a page that paints 300 ms
       // later is reported as a shell, and the report is the whole point of this file.
       await new Promise((done) => setTimeout(done, RESTRIKE_MS));
-      return page.locator('body').innerText();
+      const text = await page.locator('body').innerText();
+      return { text, blocked: resourceBlockReport(page.context()) };
     });
     // The caller clips to a token budget; this cap exists so a multi-megabyte single-page app cannot be
     // handed over as a string first. `truncated` reports whichever cut actually happened, because an answer
     // that says "here is the page" about a page we stopped reading at 200 kB would be a lie.
     const cap = Number.isFinite(maxChars) && maxChars > 0 ? maxChars : 200_000;
-    return { ok: true, markdown: text.slice(0, cap), ms: Date.now() - started, truncated: text.length > cap };
+    return {
+      ok: true,
+      markdown: drawn.text.slice(0, cap),
+      ms: Date.now() - started,
+      truncated: drawn.text.length > cap,
+      // A count, not a byte figure: Playwright does not say what an aborted request would have carried, and
+      // a number this file cannot measure is a number this file does not print.
+      blockedRequests: drawn.blocked.total,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // The SSRF refusal is a policy answer and has to survive as itself; the Playwright absence is an

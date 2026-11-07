@@ -52,6 +52,7 @@
     "gen:mutation-sinks": "tsx scripts/generate-mutation-sinks.mts",
     "lint": "tsc --noEmit",
     "bench:search": "tsx scripts/search-bench.mts",
+    "probe:block": "node scripts/blockprobe.mjs",
     "measure:latency": "tsx scripts/measure-latency.mts",
     "measure:coverage": "tsx scripts/measure-composite-coverage.mts",
     "prepublishOnly": "npm run check",

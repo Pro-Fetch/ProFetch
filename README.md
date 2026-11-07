@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1902%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1912%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -275,6 +275,36 @@ answer comes back intact. On `SIGTERM`/`SIGINT` the server closes every browser 
 the log, because a killed stdio server would otherwise leave Chromium children behind holding their profile
 directories.
 
+### What a rendered read refuses to fetch
+
+A page asks for far more than text: photographs at full resolution, web fonts, video manifests. A read whose
+purpose is `innerText` cannot use any of them, so the reader refuses them by default — `image, media, font`
+(`PRO_FETCH_BLOCK_RESOURCES`, `none` to switch off).
+
+Three kinds are deliberately protected, because refusing them changes *what the page says* rather than how
+fast it arrives: `document` is never refused (a blocked frame is a missing part of the answer), and
+`script` / `xhr` / `fetch` are how a JavaScript-rendered page gets its data at all — blocking them produces
+the empty shell the second stage exists to avoid. `stylesheet` is also protected in practice: `innerText` is
+layout-dependent, so what CSS hides, the DOM reports as hidden.
+
+Measured on this machine, same build, alternating order so the warm cache cannot flatter one side:
+
+| Page | Refused | With blocking | Without | Text returned |
+| --- | --- | --- | --- | --- |
+| `wikipedia.org` | 2 images | 1141 ms | 1688 ms | 259 words both ways |
+| `quotes.toscrape.com/js/` | 1 font | 1492 ms | 1827 ms | 247 words both ways |
+| `github.com` repo page | 18–20 images | 3550 ms | 3467 ms | 2501 words both ways |
+
+Two honest readings of that table. The text was **identical** in every case — the policy removes bytes, not
+content, which is the only reason it is allowed to be a default. And the speed win is not universal: it came
+from the two pages whose media dominated their load, and nothing from a page whose images arrive from a fast
+CDN anyway. `resources blocked: 18` is therefore reported as a **count**, never as "bytes saved": Playwright
+does not say what an aborted request would have carried, and a number this project cannot measure is a number
+this project does not print.
+
+Interactive tools are untouched — screenshots and browser sessions run on sessions, where an image is the
+point, so they never inherit this default.
+
 ## Verification
 
 ```bash
@@ -286,7 +316,7 @@ npm run check
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **757 tools / 46 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **1902 tests** across 110 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `test`            | **1912 tests** across 111 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (637 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 

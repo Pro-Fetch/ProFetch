@@ -33,6 +33,14 @@ export interface FetchResult {
   escalation_reason?: string;
   /** Wall time of the browser stage, when there was one. */
   browser_ms?: number;
+  /**
+   * How many sub-resources the browser stage refused instead of fetching — images, media and fonts by
+   * default (`PRO_FETCH_BLOCK_RESOURCES`).
+   *
+   * A count, not a byte figure: Playwright does not report what an aborted request would have carried, and
+   * this repository does not print numbers it cannot measure.
+   */
+  resources_blocked?: number;
 }
 export interface FetchUrlOptions {
   maxTokens?: number;
@@ -153,6 +161,7 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
         // Either half can have cut the text short, and the answer has to say so about the one it returns.
         result.truncated = res.truncated || rendered.truncated;
         result.browser_ms = rendered.ms;
+        result.resources_blocked = rendered.blockedRequests;
         result.escalation_reason = signal.reason;
       } else {
         result.escalation_reason = signal.reason + '; ikkinchi bosqich bo‘lmadi: ' + rendered.reason;

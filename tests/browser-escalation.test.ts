@@ -30,17 +30,22 @@ const RENDERED = Array.from({ length: 80 }, (_, i) => `rendered paragraph ${i} w
 let mode: 'paints' | 'still_empty' | 'launch_fails' = 'paints';
 let renderedBody = RENDERED;
 let browserRequests: string[] = [];
+/** What the stubbed context says it refused; the escalation result has to carry this through. */
+let refusedRequests = 0;
 
 vi.mock('../src/core/browser-tools.js', () => ({
   withGuardedPage: async (url: string, _input: unknown, fn: (page: never) => Promise<unknown>) => {
     browserRequests.push(url);
     if (mode === 'launch_fails') throw new Error('browserType.launch: Executable doesn‘t exist');
     const body = mode === 'still_empty' ? 'You need to enable JavaScript' : renderedBody;
+    const context = {};
     return fn({
       waitForLoadState: async () => {},
       locator: () => ({ innerText: async () => body }),
+      context: () => context,
     } as never);
   },
+  resourceBlockReport: () => ({ total: refusedRequests, byKind: { image: refusedRequests } }),
 }));
 
 function stubHtml(html: string, init: { status?: number; contentType?: string } = {}): void {
@@ -60,6 +65,7 @@ beforeEach(() => {
   mode = 'paints';
   renderedBody = RENDERED;
   browserRequests = [];
+  refusedRequests = 0;
 });
 
 afterEach(() => {
@@ -265,6 +271,19 @@ describe('fetchUrl, stage by stage', () => {
     expect(r.method).toBe('browser');
     expect(r.truncated).toBe(true);
     expect(r.tokens).toBeLessThanOrEqual(60);
+  });
+
+  it('says how many sub-resources the browser stage refused instead of fetching', async () => {
+    stubHtml(SHELL);
+    refusedRequests = 12;
+    const r = await fetchUrl(url);
+    expect(r.method).toBe('browser');
+    expect(r.resources_blocked).toBe(12);
+    // And a read that refused nothing says zero, not a number nobody measured.
+    cache.clear();
+    refusedRequests = 0;
+    const none = await fetchUrl(url + '#2');
+    expect(none.resources_blocked).toBe(0);
   });
 
   it('turns the second stage off server-wide without touching the caller', async () => {
