@@ -110,7 +110,7 @@ export async function searchWeb(
     if (!named.configured()) {
       const needs = [...named.credentials, ...named.settings];
       throw new Error(
-        `"${named.label}" sozlanmagan — ${needs.length ? `kerak: ${needs.join(' + ')}` : 'bu engine sozlama talab qiladi'} ` +
+        `"${named.label}" sozlanmagan — ${needs.length ? `kerak: ${needs.join(' + ')}` : 'bu engine sozlamasi talab qilinadi'} ` +
           `(hech qanday urinish qilinmadi). Ro‘yxat va holati: pro_fetch_search_engines.`,
       );
     }
