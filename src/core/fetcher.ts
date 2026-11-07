@@ -7,6 +7,7 @@ import { canSkipSideEffect } from './read-only-guard.js';
 import { clipToTokens, estimateTokens } from './chunker.js';
 import { htmlToMarkdown } from './parser.js';
 import { boundedEnv } from './bounded-env.js';
+import { needsBrowser, renderWithBrowser, type FetchMethod } from './browser-escalation.js';
 
 export interface FetchResult {
   url: string;
@@ -20,11 +21,50 @@ export interface FetchResult {
   blocked?: BlockPage | null;
   /** Set when only the opt-in browser user-agent got through (PRO_FETCH_HTTP_COMPAT_UA). */
   compat_ua?: boolean;
+  /**
+   * Which stage produced this document.
+   *
+   * `http` is what the server sent; `browser` is what the site drew after its scripts ran. They are
+   * different artefacts and the answer must not let a caller confuse them — a page that only exists in the
+   * DOM after JavaScript is not something a server "gave" anyone.
+   */
+  method?: FetchMethod;
+  /** Why the browser was used, or why it was not. Stated from the measured response, never a guess. */
+  escalation_reason?: string;
+  /** Wall time of the browser stage, when there was one. */
+  browser_ms?: number;
 }
 export interface FetchUrlOptions {
   maxTokens?: number;
   useCache?: boolean;
   timeoutMs?: number;
+  /**
+   * Re-read an HTML shell in a headless browser. Default on; `PRO_FETCH_BROWSER_ESCALATION=0` turns it off
+   * server-wide, and a caller can override either way.
+   */
+  escalate?: boolean;
+}
+
+/**
+ * Where a fetched document is kept.
+ *
+ * The modifiers come before the address, not after it. A URL may legally contain a pipe in its query, so
+ * `'fetch:' + url + '|t8000'` could not be read back reliably - and `pro_fetch_offline_browse` does read the
+ * keys back to answer "what is in the cache", where the old format made it report a URL with `|t8000` glued
+ * on the end. Address-last means the parse is the one split, and it is exact.
+ */
+export function fetchCacheKey(url: string, limit: number, escalate: boolean): string {
+  return 'fetch:t' + limit + '|e' + (escalate ? '1' : '0') + '|' + url;
+}
+
+/** The address a fetch cache key was built from; keys that are not in the format come back unchanged. */
+export function fetchCacheKeyUrl(key: string): string {
+  if (!key.startsWith('fetch:')) return key;
+  // An anchored match rather than a split: the address itself may contain pipes, so "the part after the
+  // separator" is only defined once the two fixed modifiers have been recognised. `pro_fetch_cache_put`
+  // writes arbitrary strings under arbitrary keys, so anything that is not our format keeps its body.
+  const shaped = /^fetch:t[0-9.]+\|e[01]\|(.*)$/.exec(key);
+  return shaped ? shaped[1] : key.slice('fetch:'.length);
 }
 
 export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Promise<FetchResult> {
@@ -38,7 +78,12 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
   // computes it, so the two cannot disagree about what was stored.
   const limit =
     opts.maxTokens !== undefined && Number.isFinite(opts.maxTokens) && opts.maxTokens > 0 ? opts.maxTokens : 8000;
-  const key = 'fetch:' + url.toString() + '|t' + limit;
+  // Two stages can disagree about the same URL: an answer stored by an HTTP-only read must never be handed
+  // to a caller who asked for the rendered page, and a rendered answer must not be served to a caller who
+  // asked for exactly what the server sends. The mode therefore belongs in the key.
+  const switchValue = (process.env.PRO_FETCH_BROWSER_ESCALATION ?? '').trim().toLowerCase();
+  const escalate = opts.escalate ?? !(switchValue === '0' || switchValue === 'false');
+  const key = fetchCacheKey(url.toString(), limit, escalate);
   if (opts.useCache !== false) {
     const hit = cache.get(key);
     if (hit) {
@@ -82,7 +127,38 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
     truncated: res.truncated,
     blocked: res.blocked ?? null,
     compat_ua: res.compat_ua,
+    method: 'http',
   };
+  // Stage two, taken only when the first stage did not deliver a document.
+  //
+  // The detector reads the bytes we already hold, so an ordinary page costs one string scan and no browser.
+  // When it does say "shell", the caller is told which of the two artefacts they are looking at, in the words
+  // that were measured — and when the browser cannot be started at all, the HTTP shell is still returned with
+  // that reason attached, because an honest empty document beats a failed call.
+  if (escalate) {
+    const signal = needsBrowser({
+      status: res.status,
+      contentType: res.contentType,
+      markdown: clipped,
+      html: res.text,
+      blocked: res.blocked,
+    });
+    if (signal.escalate) {
+      const rendered = await renderWithBrowser(res.url ?? url.toString(), limit * 4);
+      if (rendered.ok) {
+        const drawn = clipToTokens(rendered.markdown, limit);
+        result.method = 'browser';
+        result.markdown = drawn;
+        result.tokens = estimateTokens(drawn);
+        // Either half can have cut the text short, and the answer has to say so about the one it returns.
+        result.truncated = res.truncated || rendered.truncated;
+        result.browser_ms = rendered.ms;
+        result.escalation_reason = signal.reason;
+      } else {
+        result.escalation_reason = signal.reason + '; ikkinchi bosqich bo‘lmadi: ' + rendered.reason;
+      }
+    }
+  }
   // Caching is a side effect, not the purpose of the call: read-only mode skips the write, the document still
   // comes back, and the only cost is that the next call is not served from memory. Storing is also no longer
   // unconditional — an answer the server marked private, an error page, a truncated body or a response

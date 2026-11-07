@@ -5,7 +5,30 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
-_Hozircha bo'sh._
+### Added
+
+- **Ikki bosqichli o'qish (HTML shell → brauzer).** `src/core/browser-escalation.ts`: 200 javob hujjat
+  bo'lmagan holatda sahifa headless brauzerda qayta o'qiladi. Javob endi kim beraganini aytadi —
+  `method: http` (server yuborgan baytlar) yoki `method: browser` (skriptlar chizgan rasm), yoni
+  `escalation_reason` va `browser_ms`. Qaror hostname ro'yxatidan emas, javobning o'zidan chiqadi:
+  manba qoldirilgan bo'sh mount elementi (`<div id="root"></div>`, `<app-root>`, bo'sh `<body>`) yoki
+  12 so'zdan ham kam matn + skript. O'lchangan dalil: `quotes.toscrape.com/js/` — HTTP 4 so'z, brauzer
+  247 so'z (2229 ms); `example.com` — 24 so'z va 1 skript, `method: http` bo'lib qoladi (504 ms;
+  brauzerda 1218 ms edi va hech narsa qo'shmaydi). Rad javob (`blocked`) brauzerda qayta o'qilmaydi —
+  host "yo'q" degan joyga brauzer bilan borilmaydi. Playwright bo'lmasa HTTP hujjati sababi bilan
+  qaytadi, chaqiruv ochilib qolmaydi. `PRO_FETCH_BROWSER_ESCALATION=0` — server bo'ylab o'chirish;
+  `escalate` argumenti — chaqiruv bo'yicha.
+
+### Fixed
+
+- **Fetch cache kaliti endi o'qiladigan formatda.** Kalit `fetch:t<limit>|e<mode>|<url>` ko'rinishiga
+  keldi (URL eng oxirida — URL'ning o'zida `|` bo'lishi mumkin) va `fetchCacheKey` / `fetchCacheKeyUrl`
+  deb tashqariga chiqarildi. Ikki xato shu yerda yashirin edi: brauzerda o'qilgan javob HTTP javobi bilan
+  bitta slotga yozilardi, ya'ni birinchi so'rovning qisqa javobi ikkinchisiga "hujjat" bo'lib
+  qaytarilishi mumkin edi; `pro_fetch_offline_browse` esa `fetch:<url>` deb qidirgani uchun fetcher
+  saqlagan sahifani hech qachon topa olmas edi — "yo'q" deb javob berardi, ro'yxat rejimida esa URL
+  oxiriga `|t8000` yopishib yurardi. Endi manzil bo'yicha oila qidiriladi, so'nggi o'qish tanlanadi va
+  qaysi bosqich bergani aytiladi.
 
 ## [1.1.0] - 2026-11-06
 

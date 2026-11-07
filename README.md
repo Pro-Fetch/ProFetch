@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1864%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1889%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -218,6 +218,32 @@ SQLite needs no system binary — it uses the bundled `better-sqlite3` driver, a
 only a fallback. On Windows, npm tools invoke `npm-cli.js` through `process.execPath`, so `npm audit`,
 `npm outdated` and license reports work there without a shell shim.
 
+### A page that is not there yet
+
+A server can answer `200 OK` with an instruction to build a page rather than the page: a few words of
+navigation, an empty `<div id="root">`, and a script that fills it in. Read as-is, that is an empty
+document with a healthy status, and the caller has no way to see that it was told nothing.
+
+So the reader runs in two stages. The first stage is a plain HTTP request. If what came back is an HTML
+shell, the second stage reads the same address in a headless browser and returns what the site actually
+drew. Every answer names the stage that produced it:
+
+```
+status: 200 | text/html; charset=utf-8 | ~375 token | method: browser (4 words came back with 2 script
+tag(s) — an HTML shell that scripts fill in, 2213ms)
+```
+
+The decision is taken from the response, never from a list of hostnames — those are last year's snapshot.
+A page with real text keeps its HTTP answer even when it carries scripts: measured on `example.com`,
+24 words of markdown and one script tag stay `method: http` at 504 ms, while the same request in a
+browser costs 1218 ms to fetch what was already there. A refusal (`blocked`) is never re-read in a
+browser: a host that said no is not a page that failed to paint. When Playwright is missing, the HTTP
+document still comes back with the reason attached instead of the call failing.
+
+`PRO_FETCH_BROWSER_ESCALATION=0` turns the second stage off server-wide, and a caller can override either
+way per request with `escalate`. The two readings are stored in separate cache slots: an HTTP-only answer
+is never handed to someone who asked for the rendered page.
+
 ## Verification
 
 ```bash
@@ -229,7 +255,7 @@ npm run check
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **757 tools / 46 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **1864 tests** across 108 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `test`            | **1889 tests** across 109 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (637 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 

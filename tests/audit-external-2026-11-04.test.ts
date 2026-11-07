@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../src/loader.js';
 import { allTools, ARCHIVE_TOOL_PROPERTIES, ARCHIVE_TOOL_REQUIREMENTS } from '../src/core/tool.js';
 import { cache } from '../src/core/cache.js';
-import { fetchUrl } from '../src/core/fetcher.js';
+import { fetchCacheKey, fetchUrl } from '../src/core/fetcher.js';
 import { mayStoreHttpAnswer } from '../src/core/http-client.js';
 
 process.env.PRO_FETCH_PROFILE = 'full';
@@ -45,10 +45,12 @@ afterEach(() => {
 describe('a fetch cache entry nobody stored as a document', () => {
   it('is dropped and the page is fetched again, instead of throwing at the caller', async () => {
     // The audited input: `pro_fetch_cache_put` writes any string under any key, and the key format
-    // `fetch:<url>|t<limit>` is guessable, so a foreign value reached `JSON.parse` and the caller got a raw
-    // `SyntaxError` where it should have got a tool result.
+    // `fetch:t<limit>|e<mode>|<url>` is guessable, so a foreign value reached `JSON.parse` and the caller got
+    // a raw `SyntaxError` where it should have got a tool result.
     const url = 'http://93.184.216.34/audit-poison';
-    cache.put('fetch:' + url + '|t8000', 'BU-JSON-EMAS');
+    // Written through the fetcher's own helper: hand-spelling this key is exactly how the format was once
+    // allowed to drift away from the case that was supposed to catch it.
+    cache.put(fetchCacheKey(url, 8000, true), 'BU-JSON-EMAS');
     const calls = stubFetch(() => new Response(HTML, { status: 200, headers: { 'content-type': 'text/html' } }));
     const result = await fetchUrl(url);
     expect(result.status).toBe(200);
@@ -61,7 +63,7 @@ describe('a fetch cache entry nobody stored as a document', () => {
     // Valid JSON that is not a stored document is the same fault: `status` and `markdown` are what the
     // caller is handed back, and a value without them is not a document whatever it parses to.
     const url = 'http://93.184.216.34/audit-shape';
-    cache.put('fetch:' + url + '|t8000', JSON.stringify({ hello: 'world' }));
+    cache.put(fetchCacheKey(url, 8000, true), JSON.stringify({ hello: 'world' }));
     const calls = stubFetch(() => new Response(HTML, { status: 200, headers: { 'content-type': 'text/html' } }));
     const result = await fetchUrl(url);
     expect(result.markdown).toContain('Body text');
