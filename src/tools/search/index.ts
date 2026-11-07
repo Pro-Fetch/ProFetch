@@ -20,6 +20,7 @@ import market_search from './market_search.js';
 import jobs_search from './jobs_search.js';
 import search_engines from './search_engines.js';
 import query_understand from './query_understand.js';
+import rank_search from './rank_search.js';
 
 export default [
   web_search,
@@ -44,4 +45,5 @@ export default [
   jobs_search,
   search_engines,
   query_understand,
+  rank_search,
 ];

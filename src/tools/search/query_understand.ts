@@ -5,7 +5,7 @@ import { dispatch } from '../../core/tool.js';
 import { classifyIntent, nearestSuggestion, queryTerms } from '../../core/query-understanding.js';
 
 /**
- * pro_query_understand — what a query means before an index is asked
+ * pro_fetch_query_understand — what a query means before an index is asked
  * Pack: search (pro-fetch)
  *
  * The step every search pipeline has and this server did not: turn the words into a language, an intent,
@@ -20,7 +20,7 @@ import { classifyIntent, nearestSuggestion, queryTerms } from '../../core/query-
  *   `network: false` refuses them outright rather than returning less and staying quiet about it.
  */
 export default defineTool({
-  name: 'pro_query_understand',
+  name: 'pro_fetch_query_understand',
   description:
     "So'rovni tahlil qiladi: til, niyat (buy|news|code|definition|howto|informational), imla taklifi va " +
     'bog‘liq so‘zlar. Har maydon qanday usul bilan aniqlangani yozilgan.',

@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 755 ta tool · 46 ta kategoriya · smart=12, minimal=74, standard=197, full=755
+**Jami:** 756 ta tool · 46 ta kategoriya · smart=12, minimal=74, standard=198, full=756
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -27,8 +27,8 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `extract`       |   24 | DOM/selector/regex/table/metadata extraction from HTML                   |
 | `security`      |   24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups              |
 | `git`           |   23 | Local git: status, diff, log, blame, branch operations                   |
+| `search`        |   23 | Web, news, image, academic & vertical search (Serper/Brave/DDG)          |
 | `crawl`         |   22 | Site crawl, sitemap/robots, link graph, site explain                     |
-| `search`        |   22 | Web, news, image, academic & vertical search (Serper/Brave/DDG)          |
 | `prohuman`      |   20 | —                                                                        |
 | `http`          |   19 | HTTP client verbs, headers, retries, multipart, SSE/websocket            |
 | `knowledge`     |   18 | Local knowledge store / embeddings / retrieval                           |
@@ -543,6 +543,34 @@ _Local git: status, diff, log, blame, branch operations_
 - `pro_fetch_git_tracked_files` `  ·` — List tracked files. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 - `pro_workspace_ops` `  ·` — Run local workspace operations in one call across git, DevOps (docker/kubectl/terraform/npm), databases (SQLite/PostgreSQL/MySQL/Redis) and security (OSV, secret scan, SBOM). Give a list of operations and get every result together instead of discovering four tools by name. Write operations still require their own confirmation and respect read-only mode.
 
+## search (23)
+
+_Web, news, image, academic & vertical search (Serper/Brave/DDG)_
+
+- `pro_fetch_academic_search` `  ▸` — Search scholarly works and publication metadata using Crossref
+- `pro_fetch_blog_search` `  ▸` — Search DEV Community articles by tag
+- `pro_fetch_books_search` `  ▸` — Search book catalog records using Open Library
+- `pro_fetch_cached_search` `  ▸` — Search locally cached fetch content
+- `pro_fetch_code_search` `  ▸` — Search GitHub code (requires GITHUB_TOKEN)
+- `pro_fetch_dataset_search` `  ▸` — Search datasets hosted on Hugging Face Hub
+- `pro_fetch_date_filter_search` `  ▸` — Search web results within an ISO date range
+- `pro_fetch_forum_search` `  ▸` — Search Stack Overflow questions through the Stack Exchange API
+- `pro_fetch_image_search` `  ▸` — Search Wikimedia Commons images with source and license metadata
+- `pro_fetch_jobs_search` `  ▸` — Search remote job listings. Primary provider: Remote OK; if it is bot-blocking, the public Remotive API answers and the result says so.
+- `pro_fetch_market_search` `  ▸` — Search Google Shopping products through SerpApi
+- `pro_fetch_news_search` `  ▸` — Search indexed news articles through the GDELT DOC API
+- `pro_fetch_patent_search` `  ▸` — Search patent records through Google Patents
+- `pro_fetch_query_understand` `  ▸` — So'rovni tahlil qiladi: til, niyat (buy|news|code|definition|howto|informational), imla taklifi va bog‘liq so‘zlar. Har maydon qanday usul bilan aniqlangani yozilgan.
+- `pro_fetch_rank_results` `  ▸` — Natijalarni qayta saralaydi: so'rov qamrovi + o'z indeksimizdagi havola avtoriteti + yangilik. Har natijaga nech ochko va nega — sababi bilan. O‘qitilgan ranker emas, spam klassifikatori emas.
+- `pro_fetch_related_queries` `  ▸` — Get related query suggestions from Google Suggest
+- `pro_fetch_reverse_image_search` `  ▸` — Find visually similar pages using SerpApi Google Reverse Image
+- `pro_fetch_search_engines` `  ▸` — Qidiruv engine’lari ro‘yxati: qaysi biri kalit bilan, qaysi biri kalitsiz ishlaydi, qaysi biri nimani kutyapti va har biri haqida qanday dalil bor. Kalit qiymatlari ko‘rsatilmaydi.
+- `pro_fetch_search_suggest` `  ▸` — Get autocomplete suggestions via Serper (Google) with a Google Suggest fallback
+- `pro_fetch_site_search` `  ▸` — Search a host or domain with the web search site operator
+- `pro_fetch_video_search` `  ▸` — Search YouTube videos (requires YOUTUBE_API_KEY)
+- `pro_fetch_web_search` `  ▸` — Web qidiruv: 23 engine — kalit bilan Serper/Brave/Tavily/Exa/SerpAPI/Linkup/DataForSEO/Google CSE/Perplexity, kalitsiz DuckDuckGo/Marginalia/SearXNG/Hacker News/Wikipedia/npm/iTunes/OpenAlex/Crossref/arXiv/PubMed/Europe PMC/DOAJ/Google News. Bitta engine, zanjir yoki hammasini birlashtirib so‘rash mumkin.
+- `pro_fetch_wiki_search` `  ▸` — Search English Wikipedia articles
+
 ## crawl (22)
 
 _Site crawl, sitemap/robots, link graph, site explain_
@@ -569,33 +597,6 @@ _Site crawl, sitemap/robots, link graph, site explain_
 - `pro_fetch_url_queue_manage` `  ·` — Inspect add or pause the crawl URL queue
 - `pro_page_diff` `  ·` — Compare two URLs or two texts and report what changed: a text diff, added and removed headings, link changes and a content-size delta. Use it to answer "what changed on this page" without downloading and diffing both pages manually.
 - `pro_site_scan` `S ·` — Crawl a site in one call: start a bounded crawl, check robots compliance, collect page metadata, extract the internal link graph, and summarise the pages it reached. Use this for site overviews, sitemaps and structure discovery.
-
-## search (22)
-
-_Web, news, image, academic & vertical search (Serper/Brave/DDG)_
-
-- `pro_fetch_academic_search` `  ▸` — Search scholarly works and publication metadata using Crossref
-- `pro_fetch_blog_search` `  ▸` — Search DEV Community articles by tag
-- `pro_fetch_books_search` `  ▸` — Search book catalog records using Open Library
-- `pro_fetch_cached_search` `  ▸` — Search locally cached fetch content
-- `pro_fetch_code_search` `  ▸` — Search GitHub code (requires GITHUB_TOKEN)
-- `pro_fetch_dataset_search` `  ▸` — Search datasets hosted on Hugging Face Hub
-- `pro_fetch_date_filter_search` `  ▸` — Search web results within an ISO date range
-- `pro_fetch_forum_search` `  ▸` — Search Stack Overflow questions through the Stack Exchange API
-- `pro_fetch_image_search` `  ▸` — Search Wikimedia Commons images with source and license metadata
-- `pro_fetch_jobs_search` `  ▸` — Search remote job listings. Primary provider: Remote OK; if it is bot-blocking, the public Remotive API answers and the result says so.
-- `pro_fetch_market_search` `  ▸` — Search Google Shopping products through SerpApi
-- `pro_fetch_news_search` `  ▸` — Search indexed news articles through the GDELT DOC API
-- `pro_fetch_patent_search` `  ▸` — Search patent records through Google Patents
-- `pro_fetch_related_queries` `  ▸` — Get related query suggestions from Google Suggest
-- `pro_fetch_reverse_image_search` `  ▸` — Find visually similar pages using SerpApi Google Reverse Image
-- `pro_fetch_search_engines` `  ▸` — Qidiruv engine’lari ro‘yxati: qaysi biri kalit bilan, qaysi biri kalitsiz ishlaydi, qaysi biri nimani kutyapti va har biri haqida qanday dalil bor. Kalit qiymatlari ko‘rsatilmaydi.
-- `pro_fetch_search_suggest` `  ▸` — Get autocomplete suggestions via Serper (Google) with a Google Suggest fallback
-- `pro_fetch_site_search` `  ▸` — Search a host or domain with the web search site operator
-- `pro_fetch_video_search` `  ▸` — Search YouTube videos (requires YOUTUBE_API_KEY)
-- `pro_fetch_web_search` `  ▸` — Web qidiruv: 23 engine — kalit bilan Serper/Brave/Tavily/Exa/SerpAPI/Linkup/DataForSEO/Google CSE/Perplexity, kalitsiz DuckDuckGo/Marginalia/SearXNG/Hacker News/Wikipedia/npm/iTunes/OpenAlex/Crossref/arXiv/PubMed/Europe PMC/DOAJ/Google News. Bitta engine, zanjir yoki hammasini birlashtirib so‘rash mumkin.
-- `pro_fetch_wiki_search` `  ▸` — Search English Wikipedia articles
-- `pro_query_understand` `  ▸` — So'rovni tahlil qiladi: til, niyat (buy|news|code|definition|howto|informational), imla taklifi va bog‘liq so‘zlar. Har maydon qanday usul bilan aniqlangani yozilgan.
 
 ## prohuman (20)
 

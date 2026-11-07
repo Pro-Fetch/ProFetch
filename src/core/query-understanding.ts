@@ -17,7 +17,7 @@
  * - **expansion** — related queries, same source. A thesaurus would be my vocabulary pretending to be
  *   the world's.
  *
- * Every field carries `basis`, and `pro_query_understand` refuses the network half when the caller asks
+ * Every field carries `basis`, and `pro_fetch_query_understand` refuses the network half when the caller asks
  * for `network: false` instead of quietly returning less and saying nothing.
  */
 

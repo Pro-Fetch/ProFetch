@@ -96,7 +96,7 @@ describe('terms and distance', () => {
 
 describe.skipIf(!online)('live: the answer says how much it actually checked', () => {
   it('reports the language basis as the detector left it, not as a guess', async () => {
-    const body = payload(await callTool('pro_query_understand', { query: 'how to checkpoint a wal file' }));
+    const body = payload(await callTool('pro_fetch_query_understand', { query: 'how to checkpoint a wal file' }));
     expect(body.ok).toBe(true);
     expect(body.language.code).toBeTruthy();
     expect(body.language.basis).toContain('pro_fetch_language_detect');
@@ -107,7 +107,7 @@ describe.skipIf(!online)('live: the answer says how much it actually checked', (
   });
 
   it('with network:false says the spelling check was not done', async () => {
-    const body = payload(await callTool('pro_query_understand', { query: 'sqllite wal', network: false }));
+    const body = payload(await callTool('pro_fetch_query_understand', { query: 'sqllite wal', network: false }));
     expect(body.spelling.suggested).toBe('sqllite wal');
     expect(body.spelling.changed).toBe(false);
     expect(body.spelling.source).toMatch(/network: false/);
@@ -116,14 +116,14 @@ describe.skipIf(!online)('live: the answer says how much it actually checked', (
   });
 
   it('with network on, states whether any suggestion was evaluated at all', async () => {
-    const body = payload(await callTool('pro_query_understand', { query: 'sqllite wal checkpont' }));
+    const body = payload(await callTool('pro_fetch_query_understand', { query: 'sqllite wal checkpont' }));
     expect(typeof body.spelling.suggested).toBe('string');
     expect(body.spelling.source).toMatch(/taklifdan eng yaqini|taklif qaytmadi|tarmoq javob bermadi/);
     if (/taklif qaytmadi/.test(body.spelling.source)) expect(body.spelling.changed).toBe(false);
   });
 
   it('tells the caller what to do with the classification', async () => {
-    const body = payload(await callTool('pro_query_understand', { query: 'breaking news sqlite' }));
+    const body = payload(await callTool('pro_fetch_query_understand', { query: 'breaking news sqlite' }));
     expect(body.intent.class).toBe('news');
     expect(String(body.how_to_use)).toContain('pro_fetch_news_search');
   });
