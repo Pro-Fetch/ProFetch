@@ -100,6 +100,23 @@ describe('the engine registry is a contract, not a list', () => {
       else process.env.SEARXNG_URL = previous;
     }
   });
+
+  it('declares how every engine got its data, because that is what a caller may resell', () => {
+    // The question before "does it work" is "may I build on it". A row with no legality class is a row a
+    // caller has to research themselves, and the whole point of the field is that they do not have to.
+    const classes = ['official_api', 'serp_scraping_reseller', 'public_feed', 'undocumented_endpoint', 'self_hosted'];
+    for (const engine of engineStatuses()) {
+      expect(classes, `${engine.id} has an undeclared legality class`).toContain(engine.legal);
+      expect(engine.terms.length, `${engine.id} declares no terms`).toBeGreaterThan(20);
+    }
+    const resellers = engineStatuses()
+      .filter((engine) => engine.legal === 'serp_scraping_reseller')
+      .map((engine) => engine.id)
+      .sort();
+    // Three engines sell scraped Google results. Named here so that adding a fourth, or quietly
+    // re-classifying one, is a change someone has to argue with in a test.
+    expect(resellers).toEqual(['dataforseo', 'serpapi', 'serper']);
+  });
 });
 
 describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
@@ -197,6 +214,10 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     expect(body.total).toBe(SEARCH_ENGINES.length);
     expect(body.usable).toBeGreaterThanOrEqual(keyless.length - 2);
     expect(body.engines.find((engine: any) => engine.id === 'serper').needs).toContain('SERPER_API_KEY');
+    // The warning is the point of the field: three engines sell scraped Google results, and a listing
+    // that shows them beside an official API without saying which is which misleads by omission.
+    expect(String(body.warning)).toMatch(/serper.*serpapi.*dataforseo/s);
+    expect(body.by_legality.serp_scraping_reseller).toBe(3);
   });
 
   it('restricts the listing to one kind when asked', async () => {
@@ -209,6 +230,9 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     const body = payload(await callTool('pro_fetch_web_search', { query: 'sqlite', engine: 'hackernews', limit: 3 }));
     expect(body.mode).toBe('single');
     expect(body.provider).toContain('Hacker News');
+    // The constraint travels with the result it qualifies, not only with a listing the caller may never open.
+    expect(body.legal).toBe('official_api');
+    expect(String(body.terms).length).toBeGreaterThan(20);
     expect(body.count).toBeGreaterThan(0);
   });
 });

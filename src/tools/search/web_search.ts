@@ -1,7 +1,13 @@
 import { defineTool } from '../../core/tool.js';
 import { result } from '../../core/format.js';
 import { rankAndDedupeSearchResults } from '../../core/search-ranking.js';
-import { searchAcross, searchWeb, SEARCH_ENGINES, type SearchEngineKind } from '../../core/search-providers.js';
+import {
+  searchAcross,
+  searchWeb,
+  engineById,
+  SEARCH_ENGINES,
+  type SearchEngineKind,
+} from '../../core/search-providers.js';
 
 /**
  * pro_fetch_web_search — multi-engine web search with ranked results
@@ -82,11 +88,27 @@ export default defineTool({
 
     const searched = await searchWeb(query, limit, { engine: engine || undefined, kind: kind || undefined });
     const ranked = rankAndDedupeSearchResults(query, searched.results, limit);
+    const named = engine ? engineById(engine) : undefined;
     return result(
       JSON.stringify(
         {
           provider: searched.provider,
           mode: engine ? 'single' : 'chain',
+          ...(named
+            ? {
+                legal: named.legal,
+                terms: named.terms,
+                ...(named.legal === 'serp_scraping_reseller'
+                  ? {
+                      legal_warning:
+                        'Bu engine boshqa indeksning natijalarini skrabing qilib qayta sotadi. Chaqirish ' +
+                        'huquqi kalitingizdan keladi; mahsulot poydevori sifatida ishlatish xavfi esa ' +
+                        "shartnomaga bog'liq — Google o'z shartlarida skrabingni va natijani qayta " +
+                        'tarqatishni taqiqlaydi.',
+                    }
+                  : {}),
+              }
+            : {}),
           query,
           count: ranked.length,
           deduplicated: searched.results.length - ranked.length,

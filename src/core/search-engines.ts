@@ -39,11 +39,31 @@ export interface WebSearchResult {
 
 export type SearchEngineKind = 'general' | 'academic' | 'news' | 'community' | 'packages' | 'media' | 'reference';
 
+/**
+ * How the data an engine returns was obtained, and therefore what a caller may do with it.
+ *
+ * - `official_api` — the provider sells access to data it is entitled to serve; the caller's exposure is
+ *   that provider's pricing and rate limits, not a third party's terms;
+ * - `serp_scraping_reseller` — the results are Google's, collected by scraping and resold. Google's terms
+ *   forbid both the scraping and the redistribution, so a product built on this inherits a shutdown risk it
+ *   cannot control or insure against. Fine to call; not a foundation;
+ * - `public_feed` — a feed published for subscribers (RSS/Atom). Reading it is expected; republishing it
+ *   at scale is a question the publisher answers, not us;
+ * - `undocumented_endpoint` — responds, but is not documented for programmatic use; it can change or block
+ *   without notice and its terms rarely contemplate redistribution;
+ * - `self_hosted` — the operator's own instance, so the judgement is theirs.
+ */
+export type EngineLegality =
+  'official_api' | 'serp_scraping_reseller' | 'public_feed' | 'undocumented_endpoint' | 'self_hosted';
+
 export interface SearchEngine {
   id: string;
   label: string;
   /** What the engine actually indexes. `general` is a web search; the rest are honest about being narrower. */
   kind: SearchEngineKind;
+  legal: EngineLegality;
+  /** What the provider's own terms say about the data this returns. Shown to the caller, never hidden. */
+  terms: string;
   /** Environment variables that must be present for this engine to be usable. Empty means keyless. */
   credentials: string[];
   /** Non-secret settings that also have to exist (an engine id, a self-hosted base URL). */
@@ -143,6 +163,9 @@ const serper: SearchEngine = {
   id: 'serper',
   label: 'Serper (Google)',
   kind: 'general',
+  legal: 'serp_scraping_reseller',
+  terms:
+    "Google natijalarini skrabing qilib qayta sotadi. Google o'z shartlarida ham skrabingni, ham olingan natijani qayta tarqatishni taqiqlaydi — chaqirish mumkin, lekin biznes poydevori qilish mumkin emas.",
   credentials: ['SERPER_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -167,6 +190,8 @@ const brave: SearchEngine = {
   id: 'brave',
   label: 'Brave Search',
   kind: 'general',
+  legal: 'official_api',
+  terms: "Brave o'z indeksini rasman sotadi; qayta sotish uning litsenziyasi bilan belgilanadi.",
   credentials: ['SEARCH_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -191,6 +216,8 @@ const tavily: SearchEngine = {
   id: 'tavily',
   label: 'Tavily',
   kind: 'general',
+  legal: 'official_api',
+  terms: "O'z indeksining API'sini sotadi; AI ilovalari uchun alohida litsenziya beradi.",
   credentials: ['TAVILY_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -216,6 +243,8 @@ const exa: SearchEngine = {
   id: 'exa',
   label: 'Exa',
   kind: 'general',
+  legal: 'official_api',
+  terms: "Neural indeks — o'zi to'plagan matn ustida ishlaydi; tijorat foydalanishi litsenziyaga bog'liq.",
   credentials: ['EXA_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -241,6 +270,9 @@ const serpapi: SearchEngine = {
   id: 'serpapi',
   label: 'SerpAPI (Google)',
   kind: 'general',
+  legal: 'serp_scraping_reseller',
+  terms:
+    "Google natijalarini skrabing qilib qayta sotadi. Google o'z shartlarida ham skrabingni, ham olingan natijani qayta tarqatishni taqiqlaydi — chaqirish mumkin, lekin biznes poydevori qilish mumkin emas.",
   credentials: ['SERPAPI_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -267,6 +299,8 @@ const linkup: SearchEngine = {
   id: 'linkup',
   label: 'Linkup',
   kind: 'general',
+  legal: 'official_api',
+  terms: "O'z indeks/asoslangan javob xizmati; API shartnomasi provaydernikidir.",
   credentials: ['LINKUP_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -292,6 +326,9 @@ const dataforseo: SearchEngine = {
   id: 'dataforseo',
   label: 'DataForSEO (Google SERP)',
   kind: 'general',
+  legal: 'serp_scraping_reseller',
+  terms:
+    "Google natijalarini skrabing qilib qayta sotadi. Google o'z shartlarida ham skrabingni, ham olingan natijani qayta tarqatishni taqiqlaydi — chaqirish mumkin, lekin biznes poydevori qilish mumkin emas.",
   credentials: ['DATAFORSEO_LOGIN', 'DATAFORSEO_PASSWORD'],
   settings: [],
   verified: 'endpoint',
@@ -322,6 +359,9 @@ const googleCse: SearchEngine = {
   id: 'google-cse',
   label: 'Google Custom Search',
   kind: 'general',
+  legal: 'official_api',
+  terms:
+    "Google'ning o'z rasmiy dasturi (Programmable Search Engine). Google natijasini olishning halol yo'li shu: toʻlangan limit, rasmiy javob.",
   credentials: ['GOOGLE_API_KEY'],
   settings: ['GOOGLE_CSE_ID'],
   verified: 'endpoint',
@@ -348,6 +388,8 @@ const perplexity: SearchEngine = {
   id: 'perplexity',
   label: 'Perplexity (Sonar)',
   kind: 'general',
+  legal: 'official_api',
+  terms: 'Sonar API — javoblar model tomonidan yigʻiladi; manbalar havola sifatida beriladi.',
   credentials: ['PERPLEXITY_API_KEY'],
   settings: [],
   verified: 'endpoint',
@@ -388,6 +430,9 @@ const duckduckgo: SearchEngine = {
   id: 'duckduckgo',
   label: 'DuckDuckGo',
   kind: 'general',
+  legal: 'undocumented_endpoint',
+  terms:
+    "HTML versiyasi bot foydalanishiga mo'ljallanmagan; challenge/200-bo'sh javob beradi. Shu sababli u reyestrda yolg'iz qolmaydi: pro_fetch_search_engines uni 'live', lekin 'undocumented' deb ko'rsatadi.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -414,6 +459,9 @@ const marginalia: SearchEngine = {
   id: 'marginalia',
   label: 'Marginalia',
   kind: 'general',
+  legal: 'undocumented_endpoint',
+  terms:
+    "Ommaga xizmat qiluvchi HTML interfeys; API'si cheklangan. Bizning UA bilan 2 tashqi havola, brauzer UA bilan 69 ta qaytadi — ya'ni sayt botlarni cheklamoqda.",
   credentials: [],
   settings: ['PRO_FETCH_HTTP_COMPAT_UA'],
   verified: 'live',
@@ -444,6 +492,8 @@ const searxng: SearchEngine = {
   id: 'searxng',
   label: 'SearXNG',
   kind: 'general',
+  legal: 'self_hosted',
+  terms: 'Operator instansiyasi. Orqadagi manbalar kimnikiligi va qanday kelishilganligi sizning tanlovingiz.',
   credentials: [],
   settings: ['SEARXNG_URL'],
   verified: 'operator',
@@ -470,6 +520,8 @@ const hackerNews: SearchEngine = {
   id: 'hackernews',
   label: 'Hacker News (Algolia)',
   kind: 'community',
+  legal: 'official_api',
+  terms: "HN'ning hujjatlashtirilgan ommaviy API'si (Algolia).",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -496,6 +548,8 @@ const wikipedia: SearchEngine = {
   id: 'wikipedia',
   label: 'Wikipedia',
   kind: 'reference',
+  legal: 'official_api',
+  terms: "MediaWiki API hujjatlashtirilgan va dasturlar uchun mo'ljallangan.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -523,6 +577,8 @@ const npm: SearchEngine = {
   id: 'npm',
   label: 'npm registry',
   kind: 'packages',
+  legal: 'official_api',
+  terms: "npm registry API — paket ma'lumotlari uchun rasman ochiq.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -547,6 +603,8 @@ const itunes: SearchEngine = {
   id: 'itunes',
   label: 'iTunes / Apple Podcasts',
   kind: 'media',
+  legal: 'official_api',
+  terms: 'Apple Search API hujjatlashtirilgan va kalitsiz ruxsat etilgan.',
   credentials: [],
   settings: [],
   verified: 'live',
@@ -580,6 +638,8 @@ const openalex: SearchEngine = {
   id: 'openalex',
   label: 'OpenAlex',
   kind: 'academic',
+  legal: 'official_api',
+  terms: "Ochiq katalog; API hujjatlashtirilgan, kalitsiz limitlar e'lon qilingan.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -611,6 +671,8 @@ const crossref: SearchEngine = {
   id: 'crossref',
   label: 'Crossref',
   kind: 'academic',
+  legal: 'official_api',
+  terms: "Crossref DOI metama'lumoti uchun rasmiy API.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -637,6 +699,8 @@ const arxiv: SearchEngine = {
   id: 'arxiv',
   label: 'arXiv',
   kind: 'academic',
+  legal: 'official_api',
+  terms: "Atom API rasmiy; provayder tez so'rovlar uchun kechish so'raydi.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -662,6 +726,8 @@ const pubmed: SearchEngine = {
   id: 'pubmed',
   label: 'PubMed',
   kind: 'academic',
+  legal: 'official_api',
+  terms: "NLM E-utilities rasmiy; kalitsiz limit soniyada 3 so'rov atrofida.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -701,6 +767,8 @@ const europePmc: SearchEngine = {
   id: 'europepmc',
   label: 'Europe PMC',
   kind: 'academic',
+  legal: 'official_api',
+  terms: 'Europe PMC REST API hujjatlashtirilgan ochiq manba.',
   credentials: [],
   settings: [],
   verified: 'live',
@@ -730,6 +798,8 @@ const doaj: SearchEngine = {
   id: 'doaj',
   label: 'DOAJ',
   kind: 'academic',
+  legal: 'official_api',
+  terms: "DOAJ API ochiq ma'lumot litsenziyasi ostida.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -758,6 +828,9 @@ const googleNews: SearchEngine = {
   id: 'google-news',
   label: 'Google News (RSS)',
   kind: 'news',
+  legal: 'public_feed',
+  terms:
+    "RSS — obunachilar uchun nashr qilingan oqim. O'qish kutilgan harakat; moddani katta hajmda qayta nashr qilish esa alohida savol, javobini noshir beradi — biz emas.",
   credentials: [],
   settings: [],
   verified: 'live',
@@ -827,6 +900,8 @@ export interface EngineStatus {
   id: string;
   label: string;
   kind: SearchEngineKind;
+  legal: EngineLegality;
+  terms: string;
   usable: boolean;
   needs: string[];
   verified: SearchEngine['verified'];
@@ -839,9 +914,21 @@ export function engineStatuses(kind?: SearchEngineKind): EngineStatus[] {
     id: engine.id,
     label: engine.label,
     kind: engine.kind,
+    legal: engine.legal,
+    terms: engine.terms,
     usable: engine.configured(),
     needs: [...engine.credentials, ...engine.settings],
     verified: engine.verified,
     evidence: engine.evidence,
   }));
+}
+
+/**
+ * The engines whose results are somebody else's index, scraped and resold.
+ *
+ * Called at every layer that could otherwise imply the opposite: a listing that ranks these alongside an
+ * official API without saying which is which is a listing that helps somebody build on the wrong one.
+ */
+export function resaleRiskEngines(): EngineStatus[] {
+  return engineStatuses().filter((engine) => engine.legal === 'serp_scraping_reseller');
 }
