@@ -49,21 +49,29 @@ jobs:
       # never attempts OIDC, so trusted publishing silently does nothing and the failure looks like a
       # permissions problem on npm's side.
 
-      # Preflight: npm answers a missing write permission with 404 "Not found", not 403, because it will not
-      # confirm the package exists to someone it is refusing. That message sends people to debug the registry
-      # or the network. Ask the question directly instead, before anything is built.
-      - name: Check the credential can write this package
+      # The token is a FALLBACK credential now: the publish step tries OIDC first. So this step reports the
+      # state of the bridge instead of gating the release on it — a dead token must not stop a release that
+      # never needed one. `continue-on-error: true` is the whole difference between "blocked by a secret
+      # nobody should have to maintain" and "shipped with provenance".
+      #
+      # npm answers a missing write permission with 404 "Not found", not 403, because it will not confirm the
+      # package exists to someone it is refusing. That message sends people to debug the registry or the
+      # network. Ask the question directly instead, before anything is built.
+      - name: Report the fallback credential
         if: ${{ env.NPM_TOKEN_PRESENT == 'true' }}
+        continue-on-error: true
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          # `actions/setup-node` with `registry-url` sets NPM_CONFIG_USERCONFIG to a runner temp file, and
-          # npm reads THAT file. Writing the token into $HOME/.npmrc — which an earlier version of this
-          # workflow did — is simply ignored, so npm ran unauthenticated and answered a write attempt with
-          # 404 "not found". Write where npm is actually looking.
-          rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-          mkdir -p "$(dirname "$rc")"
-          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$rc"
+          # Probe in a THROWAWAY npmrc. An earlier version of this step appended the token to
+          # `${NPM_CONFIG_USERCONFIG}` — the file `actions/setup-node` points npm at for the whole job — and
+          # every later npm call, including the OIDC publish attempt, was then authenticated with that token.
+          # npm cannot mint a provenance attestation when a secret string already supplied the identity, so
+          # the probe itself was what broke trusted publishing. Writing to `$HOME/.npmrc` was an even older
+          # bug: npm never read that file on the runner.
+          probe_rc="$(mktemp -d)/npmrc"
+          printf 'registry=https://registry.npmjs.org/\n//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$probe_rc"
+          export NPM_CONFIG_USERCONFIG="$probe_rc"
           # Report the SHAPE of the credential, never its value. npm's token list displays a masked form
           # (`npm_xxxx......yyyy`); copying that into the secret produces exactly the 401 this run just
           # hit, and length plus a dot is enough to tell the two cases apart without leaking anything.
@@ -74,8 +82,7 @@ jobs:
           # without printing a secret.
           echo "token fingerprint: $(printf '%s' "$NPM_TOKEN" | sha256sum | cut -c1-8)"
           if [[ "$NPM_TOKEN" == *.* || ${#NPM_TOKEN} -lt 30 ]]; then
-            echo "::error::NPM_TOKEN looks like the MASKED display from the npm token list, not a real token. Copy the value shown once at creation, or generate a new token and copy it immediately."
-            exit 1
+            echo "::warning title=Fallback token is malformed::NPM_TOKEN looks like the MASKED display from the npm token list, not a real token. OIDC is tried first; if it fails, this token cannot save the release. Copy the value shown once at creation, or generate a new token and copy it immediately."
           fi
           whoami_out="$(npm whoami 2>&1 || true)"
           if printf '%s' "$whoami_out" | grep -qiE 'npm error|401|Unauthorized|E401'; then
@@ -88,21 +95,20 @@ jobs:
               grep -ivE 'authorization|cookie|_authToken' "$debug_log" | tail -40 || true
               echo "--- end of npm debug log ---"
             fi
-            echo "::error::npm rejected the credential. npm said: $(printf '%s' "$whoami_out" | tr '\n' ' ' | cut -c1-300)"
-            exit 1
+            echo "::warning title=Fallback token rejected::npm refused this token (OIDC is tried first, so the release is not blocked by it). Measured cause: a granular token that works locally gets E401 from a GitHub runner because npm ignores the token's 'bypass 2FA' setting — npm/cli#8869, still open. npm said: $(printf '%s' "$whoami_out" | tr '\n' ' ' | cut -c1-300)"
           fi
           whoami="$(printf '%s' "$whoami_out" | head -1 | tr -d '\r')"
-          if [ -z "$whoami" ]; then
-            echo "::error::NPM_TOKEN is not authenticating (npm whoami returned nothing). Regenerate the token."
-            exit 1
+          if printf '%s' "$whoami_out" | grep -qi 'npm error'; then
+            echo "the fallback credential is not usable; skipping the package-permission check"
+          else
+            echo "the fallback token authenticates as: $whoami"
+            roles="$(npm access ls-packages "$whoami" 2>/dev/null || true)"
+            if ! printf '%s' "$roles" | grep -q '@pro-fetch/mcp'; then
+              echo "::warning title=Fallback token cannot write this package::This token has no entry for @pro-fetch/mcp. If OIDC ever fails and this token is still the backup, recreate it with Permissions = 'Read and write (publish and stage)' and Select packages = 'All packages'."
+            else
+              echo "the token lists @pro-fetch/mcp"
+            fi
           fi
-          echo "authenticated as: $whoami"
-          roles="$(npm access ls-packages "$whoami" 2>/dev/null || true)"
-          if ! printf '%s' "$roles" | grep -q '@pro-fetch/mcp'; then
-            echo "::error::This token has no entry for @pro-fetch/mcp. Create it with Permissions = 'Read and write (publish and stage)' and Select packages = 'All packages'."
-            exit 1
-          fi
-          echo "the token lists @pro-fetch/mcp"
 
       - name: Install
         run: npm ci
@@ -166,31 +172,57 @@ jobs:
             echo "::warning title=No build attestation::This release shipped WITHOUT a GitHub build attestation. The package is fine; the traceability claim is not."
           fi
 
-      # Two credential paths, with different guarantees, and the run says which one it took.
+      # Two credential paths, tried in order of TRUST — the order is the point.
       #
-      #   NPM_TOKEN secret present  -> authenticates with the granular token. Publishes, and the GitHub
-      #                                attestation above still records who built the bytes. npm's own
-      #                                provenance is NOT produced: npm cannot mint an attestation without an
-      #                                OIDC identity, and passing --provenance here would fail the run.
-      #   secret absent (OIDC)      -> publishes with --provenance under the trusted publisher, which is what
-      #                                lights up the provenance badge and `npm audit signatures`.
+      #   1. OIDC trusted publishing. The runner's GitHub identity is the credential; nothing is stored,
+      #      nothing expires, and npm mints its own provenance attestation from it. That attestation is what
+      #      lights the provenance badge and makes `npm audit signatures` answer yes for the tarball. It
+      #      requires a trusted-publisher rule on npm naming this repo, this workflow file and the `npm`
+      #      environment — and it requires that NO token is in npm's reach, because npm will not attest an
+      #      upload that a secret string already authorised.
+      #   2. NPM_TOKEN, only if OIDC was refused. Publishes, GitHub's build attestation above still records
+      #      who made the bytes, but npm's own provenance is not produced. A granular token expires in 90
+      #      days at most, which is why this is the bridge and not the destination.
       #
-      # A token expires in 90 days at most, so this branch is the bridge, not the destination.
+      # The first attempt used to be chosen by `if [ -n "$NPM_TOKEN" ]`: as long as the secret existed, the
+      # token won forever and provenance never happened. Trying OIDC first means adding the rule is enough;
+      # the secret can stay as a safety net.
       - name: Publish the attested tarball
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           TARBALL: ${{ steps.pack.outputs.file }}
           DIST_TAG: ${{ steps.tag.outputs.name }}
         run: |
-          if [ -n "$NPM_TOKEN" ]; then
-            echo "authenticating with the NPM_TOKEN repository secret (no npm provenance in this mode)"
-            rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-            mkdir -p "$(dirname "$rc")"
-            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$rc"
-            npm publish "$TARBALL" --access public --tag "$DIST_TAG"
+          version="$(node -p "require('./package.json').version")"
+          echo "attempt 1: OIDC trusted publishing, no token in reach"
+          if npm publish "$TARBALL" --access public --provenance --tag "$DIST_TAG"; then
+            echo "PUBLISHED VIA OIDC — npm provenance attached to @pro-fetch/mcp@$version"
+            exit 0
+          fi
+          echo "::warning title=OIDC refused::npm did not accept the runner's OIDC identity for this publish. The most common cause is a trusted-publisher rule that does not exist yet or does not match — repository 'Pro-Fetch/ProFetch', workflow file 'publish.yml', environment 'npm'. Trying the token fallback."
+          # A failed publish is not proof that nothing was uploaded: a connection that died after the PUT
+          # would leave the version in the registry, and npm refuses to overwrite a version, so the retry
+          # would fail for a reason that has nothing to do with credentials. Ask first.
+          if npm view "@pro-fetch/mcp@$version" version >/dev/null 2>&1; then
+            echo "::error::@pro-fetch/mcp@$version is already in the registry. Not retrying — the OIDC attempt got far enough to publish, or someone published it by hand."
+            exit 1
+          fi
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::OIDC failed and no NPM_TOKEN secret exists, so there is no fallback. Fix the trusted-publisher rule on npm (repo Pro-Fetch/ProFetch, workflow publish.yml, environment npm) or add a granular token."
+            exit 1
+          fi
+          echo "attempt 2: granular token from the NPM_TOKEN secret (npm provenance NOT produced in this mode)"
+          rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          mkdir -p "$(dirname "$rc")"
+          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$rc"
+          # The exit status of THIS command is what decides the step. An earlier draft ended with an echo, so a
+          # rejected token publish still reported "PUBLISHED VIA TOKEN" and the job went green on a release
+          # that never happened.
+          if npm publish "$TARBALL" --access public --tag "$DIST_TAG"; then
+            echo "PUBLISHED VIA TOKEN — no npm provenance; the GitHub build attestation still applies"
           else
-            echo "authenticating with OIDC trusted publishing"
-            npm publish "$TARBALL" --access public --provenance --tag "$DIST_TAG"
+            echo "::error::both paths failed: OIDC was refused AND the NPM_TOKEN fallback was refused. Nothing was published. The OIDC cause is named in the warning above; for the token, compare the fingerprint printed by the credential step against a local 'sha256sum' of the same value — different means the secret holds another token."
+            exit 1
           fi
 
       - name: What was published

@@ -5,7 +5,18 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
-_Hozircha bo'sh._
+### Changed
+
+- **`publish.yml` avval OIDC'ni sinaydi, token — faqat zaxira.** Oldin qadam `NPM_TOKEN` secret yo'qligiga
+  qarab tanlanardi: secret turgan ekan, token yo'li tanlanib, provenance hech qachon sinovdan o'tmasdi. Endi
+  birinchi urinish `npm publish --provenance` (token umuman ko'rinmaydi), npm rad etsagina granular token
+  bilan ikkinchi urinish. Ikki yon ta'sir ham tuzatildi: sertifikatni tekshiruvchi qadam tokenni ish
+  jarayonidagi `NPM_CONFIG_USERCONFIG` fayliga yozib qo'yardi — aynan shu yozuv keyingi OIDC urinishini
+  o'ldirardi — endi u fayl atigi bir qadamga yetadigan vaqtinchalik npmrc'ga yoziladi; va zaxira token
+  publish'i rad etilsa, qadam baribir yashil bo'lib qolardi (yakunida `echo` turardi) — endi aniq xato bilan
+  yopiladi. Uch holat sho'ba (`npm` o'rniga soxta buyruq) bilan jonli sinovdan o'tkazildi: OIDC yutsa →
+  provenance, OIDC yutqaza token yutsa → token, ikkalasi ham yutqaza → xato, versiyalla registry'da bo'lsa →
+  takrorlamaydi.
 
 ## [1.2.0] - 2026-11-08
 

@@ -13,18 +13,28 @@ How `@pro-fetch/mcp` gets onto npm, and which of these statements are measuremen
 | Old unscoped name     | `pro-fetch-mcp` also belongs to this maintainer, at **0.3.0** (homepage points at an older repo). It should be deprecated, not deleted — see below                                                    |
 | `npm publish --dry-run` | **Not re-measured today.** Local dry-run needs npm authentication, which is exactly the step CI now performs without any credential. Do not quote the old row as current evidence                   |
 
-## Publish: Trusted Publishing, no token anywhere
+## Publish: trusted publishing first, token only as a bridge
 
 Publishing runs in CI: `.github/workflows/publish.yml`. The runner asks GitHub for a short-lived OIDC
-identity and npm matches it against a trust rule set on the package. **No npm token exists** — not in a
-repository secret, not in `~/.npmrc`, not in chat history. There is nothing to leak and nothing to rotate.
+identity and npm matches it against a trust rule set on the package. The publish step tries **OIDC first**
+and only falls back to the `NPM_TOKEN` secret if npm refuses that identity — the order matters, because a
+run that reaches for the token first never learns whether trusted publishing works.
 
-Two details that fail loudly but are easy to miss:
+Honest status of the credential: a granular token still exists as a repository secret, because 1.1.0 and
+1.2.0 were published with it. It is a bridge, not the design. Once a release ships through OIDC the secret
+can be deleted; until then the workflow prefers the attested path regardless of the secret being present.
+
+Three details that fail loudly but are easy to miss:
 
 - The job must declare `environment: npm`. Without it the token carries no environment claim and npm refuses
   the publish with an error that reads like a permissions bug.
 - The workflow must NOT set `NODE_AUTH_TOKEN`. If that variable is present, npm authenticates with it and
   never tries OIDC — trusted publishing then silently stops being the path taken.
+- No step may write the token into the npmrc that the *later* publish reads. `actions/setup-node` points npm
+  at a runner temp file via `NPM_CONFIG_USERCONFIG`, and an earlier version of this workflow appended the
+  token to exactly that file during its preflight — so by the time the OIDC branch ran, npm already had a
+  secret-backed identity and could not attest the upload. The credential probe now writes a throwaway npmrc
+  and exports the variable inside its own step only.
 
 ### One-time setup (maintainer, in a browser)
 
@@ -107,9 +117,10 @@ The decision, written down so it does not get re-litigated:
 - **When CI is blocked and a release is needed**, publish from a workstation with the credential that
   demonstrably authenticates. The cost is stated rather than hidden: that release carries no GitHub build
   attestation, because the attestation step lives in the workflow.
-- **For future releases**, OIDC trusted publishing — no token, no expiry, and the only mode that produces
-  npm's own provenance badge. The workflow already contains that branch; it waits on the one-time trust
-  rule on the package's Settings page, which needs the maintainer's password and second factor.
+- **For future releases**, OIDC trusted publishing — no expiry, and the only mode that produces npm's own
+  provenance badge. The workflow now tries it first, so the one thing still missing is the one-time trust
+  rule on the package's Settings page, which needs the maintainer's password and second factor. The token
+  secret does not have to be deleted for that path to be taken; it just stops being used once the rule works.
 
 ## After publishing
 
