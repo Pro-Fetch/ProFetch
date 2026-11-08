@@ -79,8 +79,15 @@ jobs:
           fi
           whoami_out="$(npm whoami 2>&1 || true)"
           if printf '%s' "$whoami_out" | grep -qiE 'npm error|401|Unauthorized|E401'; then
-            # npm's own words are the diagnosis: a revoked token and a token that demands two-factor
-            # authentication both arrive as "no username", and guessing between them wastes another run.
+            # npm's console line is generic. Its debug log carries the registry's response BODY, which is
+            # where the real reason lives (two-factor bypass missing, session expired, IP policy). Printed
+            # with the request headers filtered out: the token travels in one of them.
+            debug_log="$(ls -t "$HOME"/.npm/_logs/*.debug*.log 2>/dev/null | head -1 || true)"
+            if [ -n "$debug_log" ]; then
+              echo "--- npm debug log (headers filtered) ---"
+              grep -ivE 'authorization|cookie|_authToken' "$debug_log" | tail -40 || true
+              echo "--- end of npm debug log ---"
+            fi
             echo "::error::npm rejected the credential. npm said: $(printf '%s' "$whoami_out" | tr '\n' ' ' | cut -c1-300)"
             exit 1
           fi
