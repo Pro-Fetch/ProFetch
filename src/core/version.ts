@@ -64,5 +64,19 @@ export const VERSION: string = readVersion();
  */
 export const UA_PRODUCT: string = PACKAGE_NAME.replace(/^@/, '').replace(/\//g, '-');
 
+/**
+ * Where a site operator can reach whoever is asking.
+ *
+ * A User-Agent that names a product but no contact is a bot that cannot be told anything: when a crawler is
+ * too fast, misbehaves, or is refused, the only useful reply is "who do I write to". Self-identifying
+ * crawlers publish a URL for exactly that, so the default is this project's repository and an operator
+ * running it for a company points it at their own page with `PRO_FETCH_USER_AGENT_CONTACT`.
+ *
+ * A URL and not free text, because the header is a token grammar: spaces and quotes would have to be
+ * escaped, and a prose signature invites the parsers that reject the request outright.
+ */
+export const UA_CONTACT: string =
+  (process.env.PRO_FETCH_USER_AGENT_CONTACT ?? '').trim() || 'https://github.com/Pro-Fetch/ProFetch';
+
 /** User-Agent sent with every outbound request made by this server. */
-export const USER_AGENT: string = `${UA_PRODUCT}/${VERSION}`;
+export const USER_AGENT: string = `${UA_PRODUCT}/${VERSION} (+${UA_CONTACT})`;

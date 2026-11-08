@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1943%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-1956%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
 </p>
 
@@ -375,6 +375,31 @@ mean for every multi-action tool in the server. Split in two, `PRO_FETCH_READ_ON
 operator see what is owed, while the tool that hands out work stays refused. Every write in the queue passes
 the same `assertWritable` gate the rest of the server uses.
 
+### Rules this server keeps when it visits somebody else's site
+
+**Search-result pages are not documents.** A results page is an engine's index rendered as HTML under that
+company's terms, which forbid automated pulling — and it is the worst data source in the space: personalised
+ordering, redirect-wrapped links, a layout that changes when the engine feels like it.
+`src/core/crawl-policy.ts` refuses these addresses before a request leaves, for Google, Bing, DuckDuckGo
+(including the `html` and `lite` front-ends), Brave, Startpage, Ecosia, Mojeek, Qwant, Yandex, Baidu, Seznam
+and Naver. The refusal names the engine whose index was being read and the route that is allowed instead:
+`pro_fetch_web_search`, backed by 23 registered engines each labelled with how it is accessed. The site itself
+is not blocked — `https://news.google.com/rss/topstories` and `https://github.com/…` are documents and are
+fetched.
+
+**A login or paywall is an answer, and it is labelled as one.** When the redirect chain lands on a sign-in or
+subscribe path, or the body is short and its only real content is "Sign in to continue" / "Subscribe to read",
+the result carries `blocked.kind = "auth_wall"` with the evidence that fired. This is decided *before* the
+browser stage, so a paywall is never rendered in the hope that its scripts reveal the article. A long article
+that happens to mention logging in is not called a wall.
+
+**The User-Agent says who is asking and where to complain.** The header is `pro-fetch-mcp/<version> (+contact)`. An operator running this for a company
+sets `PRO_FETCH_USER_AGENT_CONTACT` to their own page; the default is this repository. A crawler with no
+contact cannot be told anything when it is too fast or unwanted.
+
+What none of this does: send credentials, solve a CAPTCHA, rotate proxies, or otherwise work around a refusal.
+A host that said no is reported as having said no.
+
 ## Verification
 
 ```bash
@@ -386,7 +411,7 @@ npm run check
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **760 tools / 46 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **1943 tests** across 114 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `test`            | **1956 tests** across 115 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (637 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 

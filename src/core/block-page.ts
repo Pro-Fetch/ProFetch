@@ -16,7 +16,14 @@
  * (not fixable from here, and pretending otherwise is the bug).
  */
 
-export type BlockKind = 'cloudflare_challenge' | 'edge_denied' | 'waf_blocked' | 'rate_limited' | 'legal_block';
+export type BlockKind =
+  | 'cloudflare_challenge'
+  | 'edge_denied'
+  | 'waf_blocked'
+  | 'rate_limited'
+  | 'legal_block'
+  /** The host serves a sign-in or subscribe page instead of the document: the content is behind credentials. */
+  | 'auth_wall';
 
 export interface BlockPage {
   kind: BlockKind;

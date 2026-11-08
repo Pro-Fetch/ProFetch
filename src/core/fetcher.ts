@@ -8,6 +8,8 @@ import { clipToTokens, estimateTokens } from './chunker.js';
 import { htmlToMarkdown } from './parser.js';
 import { boundedEnv } from './bounded-env.js';
 import { needsBrowser, renderWithBrowser, type FetchMethod } from './browser-escalation.js';
+import { authWallRefusal, serpRefusal, serpRefusalMessage } from './crawl-policy.js';
+import { PolicyError } from './security-policy.js';
 
 export interface FetchResult {
   url: string;
@@ -77,6 +79,12 @@ export function fetchCacheKeyUrl(key: string): string {
 
 export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Promise<FetchResult> {
   const url = await assertSafeUrl(rawUrl);
+  // A search-engine results page is that engine's index rendered as HTML, and its terms forbid pulling it
+  // automatically. Refusing here is not caution for its own sake: the ordering is personalised, the links
+  // are redirect wrappers, and the layout changes when the engine feels like it, so a pipeline built on it
+  // quietly breaks. The refusal names the route that is allowed instead.
+  const serp = serpRefusal(url);
+  if (serp) throw new PolicyError(serpRefusalMessage(serp));
   // The cached value is the CLIPPED document, so the limit belongs in the key.
   //
   // Measured: a call that asked for 100 tokens left behind a 400-character document, and the next
@@ -137,6 +145,13 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
     compat_ua: res.compat_ua,
     method: 'http',
   };
+  // A sign-in or subscribe page is an answer, not a failure. Naming it here — before the browser stage, so
+  // nobody renders a wall in the hope that its scripts reveal the article — turns "empty page" into the
+  // truthful statement "this host only serves it to someone logged in".
+  if (!result.blocked) {
+    const wall = authWallRefusal({ finalUrl: result.url, status: result.status, markdown: clipped });
+    if (wall) result.blocked = wall;
+  }
   // Stage two, taken only when the first stage did not deliver a document.
   //
   // The detector reads the bytes we already hold, so an ordinary page costs one string scan and no browser.

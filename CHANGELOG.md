@@ -70,6 +70,23 @@ versiya semver bo'yicha.
   (12.6%), brauzer UA bilan 266 (83.6%) va 33 blok (10.4%); p50 1365 ms → 1123 ms. Xulosa: top-500 bosh
   sahifalarida UA almashtirish ozgina narx beradi — asosiy chegara DNS o'lik va timeout. Bizning SSRF guardi
   tirik ro'yxatda ham ishladi (internal IPga ishora qiluvchi DNS va HTTPS→HTTP downgrade hostlari bloklandi).
+- **Crawl siyosati: `src/core/crawl-policy.ts`.** Uchta qoida, bitta fayl:
+  1. **Qidiruv natijalari sahifasi — hujjat emas.** 12 engine'ning (Google, Bing, DuckDuckGo html/lite,
+     Brave, Startpage, Ecosia, Mojeek, Qwant, Yandex, Baidu, Seznam, Naver) natija URL'i `fetchUrl`da
+     so'rov yuborilmasdan rad etiladi; rad javob qaysi indeks o'qilayotganini va halol yo'lni
+     (`pro_fetch_web_search` — 23 engine reyestri) aytadi. Saytning o'zi bloklanmagan:
+     `news.google.com/rss/topstories` va `github.com/...` o'qiladi. Test ikki tomondan tekshiradi: 13 ta
+     rad etiladigan va 6 ta teginmaydigan manzil.
+  2. **Auth-wall — rad javob sifatida.** `BlockKind`ga `auth_wall` qo'shildi: kirish/obuna yo'liga
+     yo'naltirilgan yoki qisqa matnida «Sign in to continue» / «Subscribe to read» degan sahifa endi
+     «bo'sh sahifa» bo'lib qaytmaydi — sababi bilan. Bu brauzer bosqichidan OLDIN belgilanadi, ya'ni to'lov
+     devori brauzerda «ochib ko'rish»ga urilmaydi. Uzun maqolada «log in» so'zi uchun devor deb xato
+     qilinmaydi (300 so'z chegarasi).
+  3. **User-Agent kimga yozishni aytadi.** `src/core/version.ts` endi
+     `pro-fetch-mcp/<versiya> (+https://github.com/Pro-Fetch/ProFetch)` yuboradi;
+     `PRO_FETCH_USER_AGENT_CONTACT` bilan o'z sahifangizga almashtiriladi.
+  Bu yerda hech qanday aylanib o'tish yo'q: hisob ma'lumotlari yuborilmaydi, CAPTCHA yechilmaydi, proxy
+  rotatsiyasi qilinmaydi.
 
 ### Security
 
