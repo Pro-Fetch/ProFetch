@@ -1,0 +1,84 @@
+name: Publish
+
+# Publishing is driven by a GitHub Release, not by a push. The reason is the version itself: npm refuses to
+# overwrite an existing version, so a release is the moment someone has decided "this number is out".
+# `workflow_dispatch` exists for the case where a release was already created and the job needs rerunning.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# `id-token: write` is what lets the runner ask GitHub for an OIDC token and hand it to npm. No npm token
+# exists anywhere in this repository, in the secrets, or in anyone's clipboard.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @pro-fetch/mcp to npm
+    runs-on: ubuntu-latest
+    # The name has to match the "Environment name" field of the trusted publisher configured on npm. Without
+    # this line the OIDC token carries no environment claim, and npm rejects the publish with a provenance
+    # attestation error that looks like a CI bug and is really a missing claim.
+    environment: npm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # The floor from `engines.node`. A newer line is fine; an older one cannot install the package.
+          node-version: '22.13'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      # Deliberately NO `NODE_AUTH_TOKEN`. If that variable is present npm authenticates with the token and
+      # never attempts OIDC, so trusted publishing silently does nothing and the failure looks like a
+      # permissions problem on npm's side.
+
+      - name: Install
+        run: npm ci
+
+      # The same gate the package author runs locally. A published artifact that never passed `check` is how
+      # a broken version ends up in 300 installs.
+      - name: Verify
+        run: npm run check
+
+      - name: The release tag must match package.json
+        if: github.event_name == 'release'
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$version" ]; then
+            echo "Release tag '$GITHUB_REF_NAME' does not match package.json version '$version'."
+            echo "npm would publish $version while the release says $tag; refusing."
+            exit 1
+          fi
+          echo "publishing $version"
+
+      # A prerelease must not become `latest`. npm's own rule is that `--tag` decides, so the version string
+      # carries the decision here rather than in a human remembering a flag.
+      - name: Choose the dist-tag
+        id: tag
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          case "$version" in
+            *-*) echo "name=next" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "name=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      # `--provenance` records the attestation that says which repository and run built this tarball. It is
+      # the difference between "somebody uploaded pro-fetch-mcp" and "Pro-Fetch/ProFetch run 12345 built it".
+      - name: Publish
+        run: npm publish --access public --provenance --tag "${{ steps.tag.outputs.name }}"
+
+      - name: What was published
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "https://www.npmjs.com/package/@pro-fetch/mcp/v/${version}"

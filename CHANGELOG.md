@@ -87,6 +87,19 @@ versiya semver bo'yicha.
      `PRO_FETCH_USER_AGENT_CONTACT` bilan o'z sahifangizga almashtiriladi.
   Bu yerda hech qanday aylanib o'tish yo'q: hisob ma'lumotlari yuborilmaydi, CAPTCHA yechilmaydi, proxy
   rotatsiyasi qilinmaydi.
+- **Chiqarish endi token talab qilmaydi.** `.github/workflows/publish.yml` — npm **Trusted Publishing
+  (OIDC)** orqali: GitHub Actions o'z identifikatsiyasini npm'ga ko'rsatadi va publish bo'ladi. Repozitoriyada,
+  sekratlarda yoki `~/.npmrc`da npm token YO'Q — o'g'irlanadigan narsa qolmaydi. Ishga tushirish GitHub
+  **release** ochilganda bo'ladi; workflow avval tag (`v1.1.0`) bilan `package.json` (`1.1.0`) bir xil ekanini
+  tekshiradi, keyin to'liq `npm run check`'ni o'zi ichida yurgizadi, so'ng `npm publish --access public
+  --provenance` — pre-release versiyalar `next` tagiga, barqaror versiyalar `latest`ga. Ikki nozik narsa
+  hujjatda yozilgan: job `environment: npm` deb belgilashi shart (aks holda OIDC tokenda environment claim'i
+  bo'lmaydi va npm rad etadi) va `NODE_AUTH_TOKEN` HECH QACHON qo'yilmaydi (u bo'lsa npm OIDC'ga umuman
+  urinmaydi).
+  `docs/RELEASE.md` qayta yozildi: bugun o'lchangan faktlar (repo 1.1.0, npm'da hali 1.0.0, 1971 test / 116
+  fayl, tarball 676 fayl, eski `pro-fetch-mcp` 0.3.0 — uni deprecate qilish kerak). Tekshirilgan qism: workflow
+  YAML parse qilindi (environment, permissions, 8 qadam, NODE_AUTH_TOKEN yo'qligi). Tekshirilmagan qism:
+  npm.org'dagi trust qoidasi — uni faqat hisob egasi brauzerda yaratadi.
 - **Host bo'ylab circuit breaker: `src/core/circuit-breaker.ts`.** Ketma-ket **transport** xatolari
   (DNS yechilmadi, ulanish rad etildi/reset bo'ldi, timeout, TLS) sanaladi — 3 tasida host "open" bo'ladi va
   keyingi so'rov tarmoqqa chiqmaydi, rad javob qancha kutishni aytadi. **Javoblar sanalmaydi**: 404, blok
