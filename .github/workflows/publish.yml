@@ -8,11 +8,14 @@ on:
     types: [published]
   workflow_dispatch:
 
-# `id-token: write` is what lets the runner ask GitHub for an OIDC token and hand it to npm. No npm token
-# exists anywhere in this repository, in the secrets, or in anyone's clipboard.
+# `id-token: write` lets the runner ask GitHub for an OIDC token. `attestations: write` lets it STORE the
+# build attestation: the first real run proved these are different grants — without the second, the
+# attestation step died with "Failed to persist attestation: Resource not accessible by integration".
+# No npm token exists anywhere in this repository, in the secrets, or in anyone's clipboard.
 permissions:
   contents: read
   id-token: write
+  attestations: write
 
 concurrency:
   group: publish-npm
@@ -85,10 +88,24 @@ jobs:
 
       # GitHub artifact attestation: the part that works without the trusted-publisher rule on npm. Anyone can
       # check it: gh attestation verify <tarball> --repo Pro-Fetch/ProFetch
+      #
+      # Non-fatal on purpose: if GitHub's attestation service is having a day, the release should still ship —
+      # but the run then says so out loud, because "the build is traceable" is a claim that only this step can
+      # back up.
       - name: Attest the build
+        id: attest
+        continue-on-error: true
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: ${{ steps.pack.outputs.file }}
+
+      - name: Say whether the attestation persisted
+        run: |
+          if [ "${{ steps.attest.outcome }}" = "success" ]; then
+            echo "ATTESTATION: persisted — verify with: gh attestation verify ${{ steps.pack.outputs.file }} --repo Pro-Fetch/ProFetch"
+          else
+            echo "::warning title=No build attestation::This release shipped WITHOUT a GitHub build attestation. The package is fine; the traceability claim is not."
+          fi
 
       # Two credential paths, with different guarantees, and the run says which one it took.
       #
