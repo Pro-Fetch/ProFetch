@@ -73,12 +73,31 @@ jobs:
             *)   echo "name=latest" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      # `--provenance` records the attestation that says which repository and run built this tarball. It is
-      # the difference between "somebody uploaded pro-fetch-mcp" and "Pro-Fetch/ProFetch run 12345 built it".
-      - name: Publish
-        run: npm publish --access public --provenance --tag "${{ steps.tag.outputs.name }}"
+      # Pack once, attest that file, publish that same file. If npm packed it again during `npm publish`, the
+      # attestation would describe bytes nobody shipped — worse than no attestation, because it would look
+      # like a guarantee that was never checked.
+      - name: Pack
+        id: pack
+        run: |
+          tarball="$(npm pack)"
+          echo "file=$tarball" >> "$GITHUB_OUTPUT"
+          echo "packed $tarball"
+
+      # GitHub artifact attestation: the part that works without the trusted-publisher rule on npm. Anyone can
+      # check it: gh attestation verify <tarball> --repo Pro-Fetch/ProFetch
+      - name: Attest the build
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.pack.outputs.file }}
+
+      # `--provenance` on npm's own side still needs the OIDC trust rule; without it npm records no
+      # attestation of its own and the package page shows no provenance. The GitHub attestation above does
+      # not depend on that rule, so the build is traceable either way.
+      - name: Publish the attested tarball
+        run: npm publish "${{ steps.pack.outputs.file }}" --access public --provenance --tag "${{ steps.tag.outputs.name }}"
 
       - name: What was published
         run: |
           version="$(node -p "require('./package.json').version")"
           echo "https://www.npmjs.com/package/@pro-fetch/mcp/v/${version}"
+          echo "attestation check: gh attestation verify ${{ steps.pack.outputs.file }} --repo Pro-Fetch/ProFetch"
