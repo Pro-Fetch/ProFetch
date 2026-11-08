@@ -68,6 +68,11 @@ jobs:
           # (`npm_xxxx......yyyy`); copying that into the secret produces exactly the 401 this run just
           # hit, and length plus a dot is enough to tell the two cases apart without leaking anything.
           echo "token shape: length=${#NPM_TOKEN} prefix=$(case "$NPM_TOKEN" in npm_*) echo npm_;; *) echo none;; esac) contains_dot=$(case "$NPM_TOKEN" in *.*) echo yes;; *) echo no;; esac)"
+          # One-way fingerprint, not the value. A well-formed token that still gets 401 has two possible
+          # causes — the secret holds a DIFFERENT token than the one that works, or npm refuses THIS token
+          # from a runner — and comparing eight hex characters against a locally computed one separates them
+          # without printing a secret.
+          echo "token fingerprint: $(printf '%s' "$NPM_TOKEN" | sha256sum | cut -c1-8)"
           if [[ "$NPM_TOKEN" == *.* || ${#NPM_TOKEN} -lt 30 ]]; then
             echo "::error::NPM_TOKEN looks like the MASKED display from the npm token list, not a real token. Copy the value shown once at creation, or generate a new token and copy it immediately."
             exit 1
