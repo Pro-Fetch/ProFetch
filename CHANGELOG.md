@@ -5,6 +5,19 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
+_Hozircha bo'sh._
+
+## [1.2.0] - 2026-11-08
+
+### Changed
+
+- **Chiqarish zanjiri o'zgardi.** `publish.yml` endi tarballni bir marta `npm pack` qiladi, o'sha faylni
+  GitHub artifact attestation bilan tasdiqlaydi va **aynan shu faylni** publish qiladi — attestatsiya
+  yuborilmagan baytlarni tasdiqlamasligi uchun. Sertifikat ikki xil bo'ladi va run qaysi birini tanlaganini
+  o'zi aytadi: `NPM_TOKEN` secret bo'lsa granular token bilan (`--provenance` siz, chunki npm OIDC'siz
+  attestatsiya tuzolmaydi), bo'lmasa OIDC trusted publishing bilan (npm sahifasidagi provenance belgisi
+  shundadir). Hujjadagi `637 files` eskirgan raqami ham bugungi o'lchangan `687` ga almashtirildi.
+
 ### Security
 
 - **browser-use sessiyalarida qiyin resurslar endi tekshiriladi va bizning proksimizdan o'tadi.**
