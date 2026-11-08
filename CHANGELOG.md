@@ -87,6 +87,26 @@ versiya semver bo'yicha.
      `PRO_FETCH_USER_AGENT_CONTACT` bilan o'z sahifangizga almashtiriladi.
   Bu yerda hech qanday aylanib o'tish yo'q: hisob ma'lumotlari yuborilmaydi, CAPTCHA yechilmaydi, proxy
   rotatsiyasi qilinmaydi.
+- **Host bo'ylab circuit breaker: `src/core/circuit-breaker.ts`.** Ketma-ket **transport** xatolari
+  (DNS yechilmadi, ulanish rad etildi/reset bo'ldi, timeout, TLS) sanaladi — 3 tasida host "open" bo'ladi va
+  keyingi so'rov tarmoqqa chiqmaydi, rad javob qancha kutishni aytadi. **Javoblar sanalmaydi**: 404, blok
+  sahifasi, auth-wall va rate-limit — bular host gaplashayotganini bildiradi, ularga circuit ochish eng
+  kerakli signalni yo'qotadi. Cooldown'dan so'ng bitta so'rov "probe" bo'lib o'tadi; muvaffaqiyat
+  yopadi, xato darhol qayta ochadi. `fetchUrl`da tekshiruv keshdan KEYIN va rate-limit slotidan OLDIN
+  turadi: keshlangan hujjat hostga hech narsa bermaydi, ochilgan host esa boshqa hostning budgetini
+  yeymaydi. Xato sinovi `classifyFetchError` — 12 ta transport sinfi + `http_error`, `blocked`, `auth_wall`,
+  `rate_limited`, `policy_refused`, `too_large`, `browser_unavailable`, `unknown`; noma'lum narsa
+  taxmin qilinmaydi. Sozlamalar: `PRO_FETCH_BREAKER_THRESHOLD` (3), `PRO_FETCH_BREAKER_COOLDOWN_MS` (30000),
+  `PRO_FETCH_BREAKER_ENABLED`.
+- **`pro_fetch_browser_metrics` (761-tool), yuk testi va `docs/BROWSER.md`.** Metrika tool'i havza
+  hisobini (launches/reads/restarts/swept/waited), breaker holatini va o'quvchi siyosatini beradi —
+  bularni o'lchab bo'lmaganida "tez" degan gap hikoya bo'lib qolardi. `npm run bench:load` (`scripts/loadtest.mjs`)
+  real URL'lar oqimida p50/p95/p99, tezkorlik, bosqichlar taqsimoti va xato sinflarini yig'adi; har hostga
+  bittadan so'rov, per-host limiter o'chirilmagan. `docs/BROWSER.md` butun brauzer qatlamini yozadi:
+  ikki bosqichga kirish jadvali, o'lchangan raqamlar, havza chegaralari, resurs siyosati, breaker qoidasi.
+  `Dockerfile` yozildi, lekin **bu mashinada Docker yo'q** (`docker: command not found`) — u build
+  qilinmagan va ishga tushirilmagan; faylning oxirida tekshirish buyruqlari yozilgan va u yerda holat
+  ochiq aytilgan.
 
 ### Security
 

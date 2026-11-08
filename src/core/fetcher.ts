@@ -9,6 +9,7 @@ import { htmlToMarkdown } from './parser.js';
 import { boundedEnv } from './bounded-env.js';
 import { needsBrowser, renderWithBrowser, type FetchMethod } from './browser-escalation.js';
 import { authWallRefusal, serpRefusal, serpRefusalMessage } from './crawl-policy.js';
+import { breakerRefusal, classifyFetchError, recordFailure, recordSuccess } from './circuit-breaker.js';
 import { PolicyError } from './security-policy.js';
 
 export interface FetchResult {
@@ -122,10 +123,30 @@ export async function fetchUrl(rawUrl: string, opts: FetchUrlOptions = {}): Prom
       if (!canSkipSideEffect()) cache.delete(key);
     }
   }
+  // A host that has not answered three times in a row is not asked again until its cooldown passes. This
+  // sits after the cache lookup — serving a stored document costs the host nothing — and before the
+  // rate-limit slot is taken, so a refused host cannot eat the budget a working one would need.
+  const breaker = breakerRefusal(url.hostname);
+  if (breaker) {
+    throw new PolicyError(
+      `CIRCUIT_OPEN: ${url.hostname} oxirgi ${breaker.failures} urinishda javob bermadi — ` +
+        `${Math.ceil(breaker.retry_in_ms / 1000)} soniyadan so'ng qayta uriladi. ` +
+        `Holat: pro_fetch_browser_metrics. O'chirish: PRO_FETCH_BREAKER_ENABLED=0.`,
+    );
+  }
   if (!take('domain:' + url.hostname)) {
     throw new Error('Rate limit tugadi (domain): ' + url.hostname);
   }
-  const res = await fetchWithOptions(url.toString(), { timeoutMs: opts.timeoutMs });
+  let res;
+  try {
+    res = await fetchWithOptions(url.toString(), { timeoutMs: opts.timeoutMs });
+  } catch (error) {
+    // The class is recorded, the original error is rethrown untouched: a caller's message and every existing
+    // assertion about it stay true, and the breaker only remembers faults that mean "not answering".
+    recordFailure(url.hostname, classifyFetchError(error));
+    throw error;
+  }
+  recordSuccess(url.hostname);
   const isHtml = res.contentType.includes('text/html') || res.contentType.includes('application/xhtml');
   const raw = isHtml ? await htmlToMarkdown(res.text) : res.text;
   const clipped = clipToTokens(raw, limit);

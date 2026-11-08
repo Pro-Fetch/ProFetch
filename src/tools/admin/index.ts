@@ -19,6 +19,7 @@ import tool_schema from './tool_schema.js';
 import category_stats from './category_stats.js';
 import memory_stats from './memory_stats.js';
 import registry_summary from './registry_summary.js';
+import browser_metrics from './browser_metrics.js';
 import capability_map from './capability_map.js';
 import capability_call from './capability_call.js';
 import pro_synthesize from './pro_synthesize.js';
@@ -49,4 +50,5 @@ export default [
   category_stats,
   memory_stats,
   registry_summary,
+  browser_metrics,
 ];

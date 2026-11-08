@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 760 ta tool · 46 ta kategoriya · smart=12, minimal=75, standard=200, full=760
+**Jami:** 761 ta tool · 46 ta kategoriya · smart=12, minimal=76, standard=201, full=761
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -18,9 +18,9 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `browser` | 41 | Playwright automation: navigate, click, fill, extract, tabs, cookies |
 | `convert` | 30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc. |
 | `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
+| `admin` | 26 | Smart System meta-tools, registry/config, diagnostics, batching |
 | `data` | 26 | Load, profile, query, join, transform datasets (tables) |
 | `research` | 26 | Deep research pipeline: search → read → facts → verify → report |
-| `admin` | 25 | Smart System meta-tools, registry/config, diagnostics, batching |
 | `codehost` | 25 | GitLab / Gitea / Forgejo / Bitbucket repos, issues, PRs, releases |
 | `crawl` | 24 | Site crawl, sitemap/robots, link graph, site explain |
 | `database` | 24 | SQLite / Postgres / MySQL / Redis query & inspect (read-only gated) |
@@ -277,6 +277,37 @@ _Slack / Jira / Linear / Notion issues, comments, transitions_
 - `pro_fetch_collab_slack_user_get` `  ·` — slack: Get user profile. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 - `pro_fetch_collab_slack_users` `  ·` — slack: List users. Pro-Fetch MAX; real provider/CLI operation with shared execution policies.
 
+## admin (26)
+
+_Smart System meta-tools, registry/config, diagnostics, batching_
+
+- `pro_capability_call` `S ▸` — Execute a batch of Pro-Fetch tools in a single call. Send a list of { tool, arguments } and receive every result together, instead of one round trip per tool. Failures are reported per entry and do not stop the rest of the batch. This is the way to use the full tool set when your client limits how many tools you can see. Simple rejim (standart): 5000 tagacha bir chaqiruvda.
+- `pro_capability_map` `S ▸` — Map a task in plain language to the exact Pro-Fetch tools that can do it, with full input schemas. Understands synonyms and word forms, so "papers about retrieval" finds the academic search tool and "look at this site" finds the crawler. Use this first when you know the goal but not the tool name.
+- `pro_fetch_batch_schedule` `  ▸` — Schedule a batch fetch for later
+- `pro_fetch_browser_metrics` `  ▸` — Brauzer havzasi, host bo‘yicha circuit breaker va o‘quvchi siyosati hisobotlari
+- `pro_fetch_cache_tune` `  ▸` — Adjust cache TTL and size limits
+- `pro_fetch_category_stats` `  ▸` — Report tool counts per category and per profile
+- `pro_fetch_config_get` `  ▸` — Read the current server configuration
+- `pro_fetch_config_set` `  ▸` — Update a configuration key at runtime
+- `pro_fetch_diagnostics` `  ▸` — Run a full diagnostic report
+- `pro_fetch_env_check` `  ▸` — Check required environment variables and API keys
+- `pro_fetch_health_check` `  ▸` — Run server self diagnostics
+- `pro_fetch_log_tail` `  ▸` — Tail the recent server logs
+- `pro_fetch_memory_stats` `  ▸` — Report process memory usage and runtime uptime
+- `pro_fetch_profile_switch` `  ▸` — Switch the active tool profile between smart, minimal, standard and full. The operator’s instruction governs: asking for `full` switches to `full`. Set PRO_FETCH_PROFILE_CEILING to pin a maximum the switch may not pass.
+- `pro_fetch_proxy_status` `  ▸` — Show proxy configuration and health
+- `pro_fetch_rate_limit_status` `  ▸` — Show the rate-limit state per domain
+- `pro_fetch_registry_summary` `  ▸` — Summarize the tool registry: totals, categories and profile sizes
+- `pro_fetch_result_preview` `  ▸` — Preview a stored result with token counting
+- `pro_fetch_token_count` `  ▸` — Count the tokens of provided text
+- `pro_fetch_tool_execute` `S ▸` — Execute a discovered Pro-Fetch tool by exact name and JSON arguments; suitable for smart profile tool routing
+- `pro_fetch_tool_list_details` `  ▸` — List all tools grouped by category with profile status
+- `pro_fetch_tool_schema` `  ▸` — Return the full input schema of a named tool
+- `pro_fetch_tool_search` `  ▸` — Search the tool registry by name or description keyword
+- `pro_fetch_usage_stats` `  ▸` — Show tool usage statistics
+- `pro_fetch_workflow` `S ▸` — Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | begin_audit | submit_review | revise_plan | resolve_finding | report_finding | approve_plan | get_next_task | report_task_result | log_call | record_source | resolve_unknown | verify | repair | final_audit | replan | finish | block | unblock | pause | resume | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; xavf registrydan o‘lchanadi, talablar qoplamasi tekshiriladi, xulosalar manbaga bog‘lanadi, dalilsiz va kuchsiz dalilli "tayyor" rad etiladi.
+- `pro_synthesize` `S ▸` — Turn many tool results into one coherent answer. Takes a list of { tool, output } (or a batch result from pro_capability_call) and produces findings ranked by source agreement, contradictions, and gaps. Use this after a batch when you need the answer, not the raw results.
+
 ## data (26)
 
 _Load, profile, query, join, transform datasets (tables)_
@@ -338,36 +369,6 @@ _Deep research pipeline: search → read → facts → verify → report_
 - `pro_research_source_bias_detect` `  ·` — Detect bias indicators in a source
 - `pro_research_timeline_build` `  ·` — Build a chronological timeline from dated facts
 - `pro_research_verify_claim` `  ·` — Verify a single claim against given sources
-
-## admin (25)
-
-_Smart System meta-tools, registry/config, diagnostics, batching_
-
-- `pro_capability_call` `S ▸` — Execute a batch of Pro-Fetch tools in a single call. Send a list of { tool, arguments } and receive every result together, instead of one round trip per tool. Failures are reported per entry and do not stop the rest of the batch. This is the way to use the full tool set when your client limits how many tools you can see. Simple rejim (standart): 5000 tagacha bir chaqiruvda.
-- `pro_capability_map` `S ▸` — Map a task in plain language to the exact Pro-Fetch tools that can do it, with full input schemas. Understands synonyms and word forms, so "papers about retrieval" finds the academic search tool and "look at this site" finds the crawler. Use this first when you know the goal but not the tool name.
-- `pro_fetch_batch_schedule` `  ▸` — Schedule a batch fetch for later
-- `pro_fetch_cache_tune` `  ▸` — Adjust cache TTL and size limits
-- `pro_fetch_category_stats` `  ▸` — Report tool counts per category and per profile
-- `pro_fetch_config_get` `  ▸` — Read the current server configuration
-- `pro_fetch_config_set` `  ▸` — Update a configuration key at runtime
-- `pro_fetch_diagnostics` `  ▸` — Run a full diagnostic report
-- `pro_fetch_env_check` `  ▸` — Check required environment variables and API keys
-- `pro_fetch_health_check` `  ▸` — Run server self diagnostics
-- `pro_fetch_log_tail` `  ▸` — Tail the recent server logs
-- `pro_fetch_memory_stats` `  ▸` — Report process memory usage and runtime uptime
-- `pro_fetch_profile_switch` `  ▸` — Switch the active tool profile between smart, minimal, standard and full. The operator’s instruction governs: asking for `full` switches to `full`. Set PRO_FETCH_PROFILE_CEILING to pin a maximum the switch may not pass.
-- `pro_fetch_proxy_status` `  ▸` — Show proxy configuration and health
-- `pro_fetch_rate_limit_status` `  ▸` — Show the rate-limit state per domain
-- `pro_fetch_registry_summary` `  ▸` — Summarize the tool registry: totals, categories and profile sizes
-- `pro_fetch_result_preview` `  ▸` — Preview a stored result with token counting
-- `pro_fetch_token_count` `  ▸` — Count the tokens of provided text
-- `pro_fetch_tool_execute` `S ▸` — Execute a discovered Pro-Fetch tool by exact name and JSON arguments; suitable for smart profile tool routing
-- `pro_fetch_tool_list_details` `  ▸` — List all tools grouped by category with profile status
-- `pro_fetch_tool_schema` `  ▸` — Return the full input schema of a named tool
-- `pro_fetch_tool_search` `  ▸` — Search the tool registry by name or description keyword
-- `pro_fetch_usage_stats` `  ▸` — Show tool usage statistics
-- `pro_fetch_workflow` `S ▸` — Bigfoot ish-oqimi kontrolleri (bitta tool). action: introduce | start | submit_plan | begin_audit | submit_review | revise_plan | resolve_finding | report_finding | approve_plan | get_next_task | report_task_result | log_call | record_source | resolve_unknown | verify | repair | final_audit | replan | finish | block | unblock | pause | resume | status. MexaPlan→SmartToDo→MaxEffort hayot siklini boshqaradi; xavf registrydan o‘lchanadi, talablar qoplamasi tekshiriladi, xulosalar manbaga bog‘lanadi, dalilsiz va kuchsiz dalilli "tayyor" rad etiladi.
-- `pro_synthesize` `S ▸` — Turn many tool results into one coherent answer. Takes a list of { tool, output } (or a batch result from pro_capability_call) and produces findings ranked by source agreement, contradictions, and gaps. Use this after a batch when you need the answer, not the raw results.
 
 ## codehost (25)
 

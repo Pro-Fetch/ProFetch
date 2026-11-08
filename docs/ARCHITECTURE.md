@@ -15,11 +15,11 @@
 
 ## 2. Reestr va profil
 
-- **`src/core/tool.ts`** — `defineTool()` va `allTools()`: barcha 760 tool shu yerdagi registrga tushadi. Har tool: `name`, `category`, `description`, `inputSchema`, `handler`.
+- **`src/core/tool.ts`** — `defineTool()` va `allTools()`: barcha 761 tool shu yerdagi registrga tushadi. Har tool: `name`, `category`, `description`, `inputSchema`, `handler`.
 - **`src/router.ts`** — `listTools(profile)` va markaziy `dispatch()`.
-- **`src/core/profile.ts`** — nechta schema modelga ko'rinadi: `minimal` (75) · `standard` (200) · `smart` (12 meta) · `full` (760). **Profil — ko'rinish, xavfsizlik chegarasi EMAS.**
+- **`src/core/profile.ts`** — nechta schema modelga ko'rinadi: `minimal` (76) · `standard` (201) · `smart` (12 meta) · `full` (761). **Profil — ko'rinish, xavfsizlik chegarasi EMAS.**
 
-`smart` rejimida modelga faqat 12 meta-tool ko'rinadi, ammo ular orqali barcha 760 tanga yetib boriladi.
+`smart` rejimida modelga faqat 12 meta-tool ko'rinadi, ammo ular orqali barcha 761 tanga yetib boriladi.
 
 ## 3. Markaziy darvoza: `dispatch()`
 
@@ -69,7 +69,7 @@ Native bog'liqliklar (`sharp`, `@napi-rs/canvas`, `tesseract.js`, Playwright, gi
 
 ## 10. Test va tekshiruv (`npm run check`)
 
-`verify:static` (struktur invariantlar) · `verify:registry` (760/46, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1956) · `audit:schema` (e'lon qilingan, lekin kodda o'qilmaydigan xususiyat = qizil; `applyCategorySchema` qayta yozadigan kategoriyalar o'lchanadi, lekin darvozaga kirmaydi) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`.
+`verify:static` (struktur invariantlar) · `verify:registry` (761/46, profil sonlari, duplicate/short-description/schema) · `build` · `test` (1971) · `audit:schema` (e'lon qilingan, lekin kodda o'qilmaydigan xususiyat = qizil; `applyCategorySchema` qayta yozadigan kategoriyalar o'lchanadi, lekin darvozaga kirmaydi) · `verify:package` (shebang, `files`, 0 secret) · `format:check`. Qo'shimcha: `npm run dump:catalog` → `docs/TOOL_CATALOG.md`, `npm run measure:coverage`.
 
 ## 11. Ish-oqimi yadrosi: Bigfoot (`src/core/workflow/`, `src/tools/workflow/`)
 
