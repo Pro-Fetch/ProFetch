@@ -51,7 +51,11 @@ async function openSession(): Promise<string> {
   return String(opened.session_id);
 }
 
-describe.skipIf(!LIVE)('a live session', () => {
+// 180s per test rather than the 60s default: every case drives a real Chromium through launch, work and
+// teardown, and under a full parallel run this file measured about five times slower than the same tests
+// alone (184s for 15 tests). The allowance excuses wall-clock only — an assertion that genuinely fails
+// still fails the build.
+describe.skipIf(!LIVE)('a live session', { timeout: 180_000 }, () => {
   afterAll(async () => {
     await closeAll();
   });

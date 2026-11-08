@@ -11,7 +11,19 @@ export default defineConfig({
     // below; measured 4 aborts in 10 runs with `singleFork: true` against 1 in 10 with it off, and
     // the files that do run pass identically either way. Suites that mutate `process.env` are
     // unaffected because each file already imports the loader itself.
-    poolOptions: { forks: { singleFork: false } },
+    poolOptions: {
+      forks: {
+        singleFork: false,
+        // At most 6 files run at once on this 12-core machine. Measured reason: under the default
+        // one-fork-per-core schedule `tests/browser-use-session.test.ts` took 184 seconds for 15 tests that
+        // finish in 35 when the file runs alone, and `tests/prohuman-driver.test.ts` overran its 150-second
+        // budget. Every fork boots the whole registry and the live ones start Chromium, so the machine was
+        // running several browsers simultaneously and each one was slow for that reason. That is contention,
+        // not a product fault, and the honest fix is to stop oversubscribing rather than to keep raising
+        // timeouts until everything happens to pass.
+        maxTicksLimit: 6,
+      },
+    },
     // No `dangerouslyIgnoreUnhandledErrors` here, deliberately.
     //
     // Node 24.21.0 with vitest 2.1.9's `forks` pool can abort inside

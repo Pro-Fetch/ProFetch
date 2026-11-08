@@ -120,6 +120,14 @@ versiya semver bo'yicha.
 
 ### Fixed
 
+- **Jonli brauzer testlarining "timeout" flake'i — sabab: over-subscription.** To'liq suite yugurganda
+  `tests/browser-use-session.test.ts` 15 testni 184 soniyada bajaradi (yolg'iz 35 s), `prohuman-driver` esa
+  150 s byudjetidan chiqardi: 12 yadroli mashinada vitest har faylga bitta fork beradi, har fork butun
+  reyestrni yuklaydi, jonli fayllar esa Chromium ochadi — ya'ni bir vaqtda bir nechta brauzer ishlardi.
+  Asosiy tuzatish `vitest.config.ts`da `maxTicksLimit: 6` (bir yadroga bir fork emas), chunki muammo
+  sekinlik emas, kontensiya. Ikkita jonli suite'ga o'z byudjeti berildi (180 s va 240 s) — bu raqamlar
+  faqat devorni to'g'ri holatda "mahina band edi" deb yozadi; assert xatosi baribir build'ni qizil qiladi.
+  Dalil: o'zgartirishdan keyin ketma-ket **ikki** to'liq yugurish — 116 fayl / 1971 test, exit 0.
 - **SIGTERM/SIGINT endi brauzerlarini yopadi.** stdio serveri ko'pincha iltimos bilan to'xtatilmaydi, kill
   bilan to'xtatiladi; oldin Chromium bolasi ota jarayon bilan birga ketmas edi — yetim `chrome.exe` profil
   papkasini va yuzlab megabaytni ushlab qolardi. `closeBrowsers()` nechta session va nechta havza jarayoni

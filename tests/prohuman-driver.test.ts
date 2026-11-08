@@ -110,7 +110,10 @@ afterAll(async () => {
   await closeAll();
 });
 
-describe.skipIf(!LIVE)('a driver on a real page', { timeout: 150_000 }, () => {
+// 240s, up from 150s: this suite was measured overrunning 150 in a full parallel run, when several forks
+// were driving Chromium at the same time. The concurrency cap in vitest.config.ts is the real fix; this
+// number only stops a busy machine from being reported as a broken product.
+describe.skipIf(!LIVE)('a driver on a real page', { timeout: 240_000 }, () => {
   it('attaches, keeps the pointer alive between calls, and can prove it from the page', async () => {
     const sessionId = await openSession();
     const attached = payload(
