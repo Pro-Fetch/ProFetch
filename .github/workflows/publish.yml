@@ -29,6 +29,10 @@ jobs:
     # this line the OIDC token carries no environment claim, and npm rejects the publish with a provenance
     # attestation error that looks like a CI bug and is really a missing claim.
     environment: npm
+    env:
+      # A step's `if:` cannot read `secrets` directly, so the presence of the credential is computed once
+      # here and referenced by name. Empty secret means "no token configured", which is the OIDC path.
+      NPM_TOKEN_PRESENT: ${{ secrets.NPM_TOKEN != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +48,28 @@ jobs:
       # Deliberately NO `NODE_AUTH_TOKEN`. If that variable is present npm authenticates with the token and
       # never attempts OIDC, so trusted publishing silently does nothing and the failure looks like a
       # permissions problem on npm's side.
+
+      # Preflight: npm answers a missing write permission with 404 "Not found", not 403, because it will not
+      # confirm the package exists to someone it is refusing. That message sends people to debug the registry
+      # or the network. Ask the question directly instead, before anything is built.
+      - name: Check the credential can write this package
+        if: ${{ env.NPM_TOKEN_PRESENT == 'true' }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$HOME/.npmrc"
+          whoami="$(npm whoami || true)"
+          if [ -z "$whoami" ]; then
+            echo "::error::NPM_TOKEN is not authenticating (npm whoami returned nothing). Regenerate the token."
+            exit 1
+          fi
+          echo "authenticated as: $whoami"
+          roles="$(npm access ls-packages "$whoami" 2>/dev/null || true)"
+          if ! printf '%s' "$roles" | grep -q '@pro-fetch/mcp'; then
+            echo "::error::This token has no entry for @pro-fetch/mcp. Create it with Permissions = 'Read and write (publish and stage)' and Select packages = 'All packages'."
+            exit 1
+          fi
+          echo "the token lists @pro-fetch/mcp"
 
       - name: Install
         run: npm ci
