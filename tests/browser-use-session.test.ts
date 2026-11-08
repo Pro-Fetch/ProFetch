@@ -142,6 +142,10 @@ describe.skipIf(!LIVE)('a live session', { timeout: 180_000 }, () => {
     const list = payload(await callTool('pro_browser_use_sessions_list', {}));
     const ids = (list.sessions as Array<Record<string, unknown>>).map((s) => String(s.session_id ?? ''));
     expect(ids).toContain(session);
+    // The guard belongs to the running browser, so the session has to report it. Without this line
+    // "sub-resource requests are guarded" would be a claim about a configuration file, not a measurement.
+    const mine = (list.sessions as Array<Record<string, unknown>>).find((s) => String(s.session_id) === session);
+    expect(mine?.network_guard, JSON.stringify(mine)).toBe('on');
 
     const closed = payload(await callTool('pro_browser_use_session_close', { session_id: session }));
     expect(closed.ok).toBe(true);

@@ -45,6 +45,8 @@ export interface BrowserUseSession {
   frames: FrameCollection | null;
   /** A temporary profile is deleted on close; a caller-supplied one is left alone. */
   ownsProfile: boolean;
+  /** Whether sub-resource requests are validated and pinned by the network guard. */
+  networkGuard: { ok: boolean; reason: string };
 }
 
 /** A browser download the session was told about, before it is saved anywhere. */
@@ -248,6 +250,7 @@ export async function openSession(options: OpenOptions): Promise<BrowserUseSessi
     ledger: null,
     frames: null,
     ownsProfile,
+    networkGuard: launched.session.networkGuard ?? { ok: false, reason: 'the launcher reported no guard state' },
   };
   handles.set(session, { context, page });
   sessions.set(session.id, session);
@@ -873,6 +876,11 @@ export function sessionSummary(session: BrowserUseSession): Record<string, unkno
     opened_at: session.openedAt,
     idle_seconds: Math.round((Date.now() - session.lastUsedAt) / 1000),
     profile: session.ownsProfile ? 'temporary (deleted on close)' : session.dataRoot,
+    // Whether a page script can reach an internal address through this session. Reported per session because
+    // it is a property of the running browser, not of the configuration file: an engine that refuses
+    // routing, or an operator switch, turns it off for one session at a time.
+    network_guard: session.networkGuard.ok ? 'on' : 'off',
+    ...(!session.networkGuard.ok ? { network_guard_reason: session.networkGuard.reason } : {}),
   };
 }
 

@@ -99,7 +99,26 @@ not say what an aborted request would have carried, so no byte figure is reporte
 Interactive tools never inherit the default: screenshots and sessions run on sessions, where an image is the
 point.
 
-## 4. Failure handling
+## 4. The sub-resource guard in managed sessions
+
+`pro_browser_use_session_open` validated the address it was *asked* to open — and then Chromium fetched
+whatever the page wanted: scripts, XHR, websockets, redirects. Nothing checked those. A page containing
+`<script src="http://169.254.169.254/latest/meta-data/…">` was, until here, a working way to make this
+server read cloud credentials inside a session the user believed was pointed at a public site. The reader
+path (`browser-tools.ts`) had that coverage because every request there passes through the pinned proxy;
+the browser-use path launched a persistent context and registered no route at all. Same product, two doors.
+
+`src/core/browser-use-network-guard.ts` closes it. **Sub-resources** (script, xhr, fetch, websocket
+handshake) are validated and served from this process over a connection pinned to the address that was just
+checked. **Navigations are deliberately left to Chromium**: they are already validated before `goto`, and
+proxying them would break downloads, cookie flows, HTTP auth and streaming — a guard that disables the tool
+is a regression wearing a security label.
+
+`PRO_FETCH_BROWSER_USE_NETWORK_GUARD=0` switches it off for an operator who needs the old behaviour. The
+state is not left to be assumed: every session reports `network_guard: "on"` (or `"off"` with the reason) in
+`pro_browser_use_sessions_list` and `session_status`, and a live test asserts the `on`.
+
+## 5. Failure handling
 
 `src/core/circuit-breaker.ts` tracks consecutive **transport** failures per host — DNS could not resolve,
 connection refused or reset, timeout, TLS failure. Three in a row opens the circuit; the host is then refused
@@ -109,14 +128,14 @@ Answers do not count. A 404, a block page, a paywall and a rate limit all mean t
 opening a circuit against them would hide the one signal that matters. The taxonomy in
 `classifyFetchError` is what the metrics report and the load test aggregate on.
 
-## 5. Running it in a container
+## 6. Running it in a container
 
 `Dockerfile` uses the official Playwright image, because Chromium needs system libraries a slim Node image
 does not carry, and pinning the image pins the browser build to the Playwright version. **This file has not
 been built or run**: the development machine has no Docker. The verification commands are at the bottom of
 the file; until they have been run, treat it as reviewed intent.
 
-## 6. Measuring it yourself
+## 7. Measuring it yourself
 
 ```bash
 npm run probe:block -- --n 500 --list hosts.txt   # what the web actually answers, per user-agent

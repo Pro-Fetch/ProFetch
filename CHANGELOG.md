@@ -5,7 +5,24 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
-_Hozircha bo'sh._
+### Security
+
+- **browser-use sessiyalarida qiyin resurslar endi tekshiriladi va bizning proksimizdan o'tadi.**
+  `src/core/browser-use-network-guard.ts`. Oldin `pro_browser_use_session_open` **so'ralgan manzilni**
+  tekshirardi (`goto`dan oldin `assertSafeUrl`), keyin Chromium sahifaning istagan manzilini o'zi tortardi:
+  skript, xhr, websocket, redirect. Hech kim ularni tekshirmasdi — ya'ni ochiq saytga kirgan deb o'ylagan
+  sessiya ichida `<script src="http://169.254.169.254/latest/meta-data/…">` cloud ma'lumotini o'qib
+  berardiy. O'quvchi yo'l (`browser-tools.ts`)da bu himoya allaqachon bor edi; browser-use yo'lida route
+  umuman qo'yilmagandi — bitta mahsulot, ikki eshik, bittasi ochiq.
+  Qopatilgan qism: **qiyin resurslar** (script, xhr, fetch, websocket qo'l berishish) tekshiriladi va
+  tasdiqlangan manzilga biriktirilgan aloqadan o'tadi. **Navigatsiyalar ataylab Chromium'da qoldi** — ular
+  `goto`dan oldin tekshirilgan, ularni proksi orqali o'tkazish download, cookie, HTTP auth va streaming'ni
+  buzardi; vositani o'chirib qo'yadigan «himoya» himoya emas, yorliqdan iborat xatolikdir.
+  O'chirish: `PRO_FETCH_BROWSER_USE_NETWORK_GUARD=0`. Holat taxminga qoldirilmadi: har bir sessiya
+  `network_guard: on` (yoki `off` + sababi) deb hisobot beradi va jonli test shu `on` ni tekshiradi.
+  Dalil: 9 ta offline guard testi (169.254.169.254 va 127.0.0.1:6379 → `abort`, navigatsiya → `continue`,
+  `data:` → `continue`, o'chirilgan holat → `off` deb aytiladi) + `browser-use-session` jonli testi
+  `network_guard: "on"` ni tasdiqlaydi; sessiya to'plami (15 test) guard bilan ham o'tdi.
 
 ## [1.1.0] - 2026-11-08
 

@@ -22,6 +22,7 @@ import { detectBrowsers } from './browser-use-detect.js';
 import { ADAPTERS, adapterFor, planFor, type LaunchPlan } from './browser-use-adapters.js';
 import { buildRegistry, selectBrowser } from './browser-use-registry.js';
 import { unsearchableOn } from './browser-use-detect.js';
+import { attachNetworkGuard } from './browser-use-network-guard.js';
 import type { Registry } from './browser-use-registry.js';
 
 /** How many times a transiently-failing launch is tried, into a fresh profile directory each time. */
@@ -128,6 +129,12 @@ export interface ManagedSession {
   executablePath: string;
   userDataDir: string;
   notes: string[];
+  /**
+   * Whether sub-resource requests in this session go through the pinned network guard. Kept as a field as
+   * well as in `notes`, because a report that says "the guard is on" has to read a fact, not parse a
+   * sentence it wrote itself.
+   */
+  networkGuard: { ok: boolean; reason: string };
   /** The Playwright browser handle. Typed loosely: Playwright is an optional dependency. */
   browser: { close(): Promise<void>; isConnected(): boolean };
   context: unknown;
@@ -204,16 +211,22 @@ export async function launchManaged(
         ...(options.deviceScaleFactor ? { deviceScaleFactor: options.deviceScaleFactor } : {}),
       } as never);
       const browser = context.browser();
+      // The page is about to be able to fetch anything; the guard is attached before the caller is told the
+      // session exists, and the outcome is written into the session's own notes so a report can say whether
+      // sub-resource requests are validated rather than leaving that to be assumed.
+      const guard = await attachNetworkGuard(context as unknown as Parameters<typeof attachNetworkGuard>[0]);
+      const launchNotes =
+        attempt === 1
+          ? plan.notes
+          : [...plan.notes, `launched on attempt ${attempt}/${LAUNCH_ATTEMPTS} after: ${reason}`];
       return {
         ok: true,
         session: {
           product,
           executablePath: plan.executablePath,
           userDataDir: profileDir,
-          notes:
-            attempt === 1
-              ? plan.notes
-              : [...plan.notes, `launched on attempt ${attempt}/${LAUNCH_ATTEMPTS} after: ${reason}`],
+          notes: [...launchNotes, `network guard: ${guard.ok ? 'on' : 'off'} — ${guard.reason}`],
+          networkGuard: guard,
           browser: browser as unknown as ManagedSession['browser'],
           context,
         },
