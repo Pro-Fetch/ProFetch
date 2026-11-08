@@ -64,6 +64,14 @@ jobs:
           rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
           mkdir -p "$(dirname "$rc")"
           printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$rc"
+          # Report the SHAPE of the credential, never its value. npm's token list displays a masked form
+          # (`npm_xxxx......yyyy`); copying that into the secret produces exactly the 401 this run just
+          # hit, and length plus a dot is enough to tell the two cases apart without leaking anything.
+          echo "token shape: length=${#NPM_TOKEN} prefix=$(case "$NPM_TOKEN" in npm_*) echo npm_;; *) echo none;; esac) contains_dot=$(case "$NPM_TOKEN" in *.*) echo yes;; *) echo no;; esac)"
+          if [[ "$NPM_TOKEN" == *.* || ${#NPM_TOKEN} -lt 30 ]]; then
+            echo "::error::NPM_TOKEN looks like the MASKED display from the npm token list, not a real token. Copy the value shown once at creation, or generate a new token and copy it immediately."
+            exit 1
+          fi
           whoami="$(npm whoami || true)"
           if [ -z "$whoami" ]; then
             echo "::error::NPM_TOKEN is not authenticating (npm whoami returned nothing). Regenerate the token."
