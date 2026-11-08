@@ -57,7 +57,13 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$HOME/.npmrc"
+          # `actions/setup-node` with `registry-url` sets NPM_CONFIG_USERCONFIG to a runner temp file, and
+          # npm reads THAT file. Writing the token into $HOME/.npmrc — which an earlier version of this
+          # workflow did — is simply ignored, so npm ran unauthenticated and answered a write attempt with
+          # 404 "not found". Write where npm is actually looking.
+          rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          mkdir -p "$(dirname "$rc")"
+          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$rc"
           whoami="$(npm whoami || true)"
           if [ -z "$whoami" ]; then
             echo "::error::NPM_TOKEN is not authenticating (npm whoami returned nothing). Regenerate the token."
@@ -151,7 +157,9 @@ jobs:
         run: |
           if [ -n "$NPM_TOKEN" ]; then
             echo "authenticating with the NPM_TOKEN repository secret (no npm provenance in this mode)"
-            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$HOME/.npmrc"
+            rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+            mkdir -p "$(dirname "$rc")"
+            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$rc"
             npm publish "$TARBALL" --access public --tag "$DIST_TAG"
           else
             echo "authenticating with OIDC trusted publishing"
