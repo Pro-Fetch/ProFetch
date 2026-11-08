@@ -90,11 +90,30 @@ jobs:
         with:
           subject-path: ${{ steps.pack.outputs.file }}
 
-      # `--provenance` on npm's own side still needs the OIDC trust rule; without it npm records no
-      # attestation of its own and the package page shows no provenance. The GitHub attestation above does
-      # not depend on that rule, so the build is traceable either way.
+      # Two credential paths, with different guarantees, and the run says which one it took.
+      #
+      #   NPM_TOKEN secret present  -> authenticates with the granular token. Publishes, and the GitHub
+      #                                attestation above still records who built the bytes. npm's own
+      #                                provenance is NOT produced: npm cannot mint an attestation without an
+      #                                OIDC identity, and passing --provenance here would fail the run.
+      #   secret absent (OIDC)      -> publishes with --provenance under the trusted publisher, which is what
+      #                                lights up the provenance badge and `npm audit signatures`.
+      #
+      # A token expires in 90 days at most, so this branch is the bridge, not the destination.
       - name: Publish the attested tarball
-        run: npm publish "${{ steps.pack.outputs.file }}" --access public --provenance --tag "${{ steps.tag.outputs.name }}"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.pack.outputs.file }}
+          DIST_TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "authenticating with the NPM_TOKEN repository secret (no npm provenance in this mode)"
+            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$HOME/.npmrc"
+            npm publish "$TARBALL" --access public --tag "$DIST_TAG"
+          else
+            echo "authenticating with OIDC trusted publishing"
+            npm publish "$TARBALL" --access public --provenance --tag "$DIST_TAG"
+          fi
 
       - name: What was published
         run: |
