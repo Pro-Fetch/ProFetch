@@ -63,7 +63,7 @@ jobs:
           # 404 "not found". Write where npm is actually looking.
           rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
           mkdir -p "$(dirname "$rc")"
-          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$rc"
+          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$rc"
           whoami="$(npm whoami || true)"
           if [ -z "$whoami" ]; then
             echo "::error::NPM_TOKEN is not authenticating (npm whoami returned nothing). Regenerate the token."
@@ -159,7 +159,7 @@ jobs:
             echo "authenticating with the NPM_TOKEN repository secret (no npm provenance in this mode)"
             rc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
             mkdir -p "$(dirname "$rc")"
-            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$rc"
+            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' >> "$rc"
             npm publish "$TARBALL" --access public --tag "$DIST_TAG"
           else
             echo "authenticating with OIDC trusted publishing"
