@@ -80,6 +80,37 @@ npm publish --access public --provenance
 **The package is scoped.** npm defaults a new scoped package to _restricted_, which for an organisation
 without a paid plan fails the publish outright, so `--access public` is not optional in either path.
 
+## Why the token path is not trusted for CI
+
+npm's own tracker carries the reason: **npm/cli issue #8869**, "NPM Granular Access Token are unable to
+Bypass two-factor authentication (2FA)", opened 19 December 2025, labelled *Bug* and *Registry*, assigned to
+npm staff, ten-plus 👍. Its claim is that the **"Bypass two-factor authentication (2FA)"** checkbox on the
+granular-token form does not take effect — "programmatically checking the box doesn't have an effect". A
+token created with that box ticked can still be refused by the registry when the request comes from a
+non-interactive machine, which is exactly what a CI runner is.
+
+Measured on this project in the same hour:
+
+| Check | Result |
+| --- | --- |
+| `GET /-/whoami` with the workstation token, from this machine | `200` and the username — fingerprint `3a5fcc68` |
+| The same call inside the GitHub runner, using the repository secret | `401 Unauthorized` — fingerprint `469740c8` |
+
+Honest reading: **two things differed at once** — the token identity and the source address. So the open npm
+bug is the mechanism that explains a well-formed token being refused from a runner; it is not proven to be
+the only cause here. Either way the conclusion is the same: a granular token is not a dependable CI
+credential right now, and npm has separately announced that bypass-2FA tokens lose direct publish in
+January 2027.
+
+The decision, written down so it does not get re-litigated:
+
+- **When CI is blocked and a release is needed**, publish from a workstation with the credential that
+  demonstrably authenticates. The cost is stated rather than hidden: that release carries no GitHub build
+  attestation, because the attestation step lives in the workflow.
+- **For future releases**, OIDC trusted publishing — no token, no expiry, and the only mode that produces
+  npm's own provenance badge. The workflow already contains that branch; it waits on the one-time trust
+  rule on the package's Settings page, which needs the maintainer's password and second factor.
+
 ## After publishing
 
 ```bash
