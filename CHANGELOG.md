@@ -5,6 +5,10 @@ versiya semver bo'yicha.
 
 ## [Unreleased]
 
+_Hozircha bo'sh._
+
+## [1.1.0] - 2026-11-08
+
 ### Added
 
 - **Saqlanadigan crawl navbati: `pro_fetch_crawl_job` va `pro_fetch_crawl_job_status` (760-tool).**
