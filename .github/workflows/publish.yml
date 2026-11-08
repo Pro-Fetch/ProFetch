@@ -72,7 +72,14 @@ jobs:
             echo "::error::NPM_TOKEN looks like the MASKED display from the npm token list, not a real token. Copy the value shown once at creation, or generate a new token and copy it immediately."
             exit 1
           fi
-          whoami="$(npm whoami || true)"
+          whoami_out="$(npm whoami 2>&1 || true)"
+          if printf '%s' "$whoami_out" | grep -qiE 'npm error|401|Unauthorized|E401'; then
+            # npm's own words are the diagnosis: a revoked token and a token that demands two-factor
+            # authentication both arrive as "no username", and guessing between them wastes another run.
+            echo "::error::npm rejected the credential. npm said: $(printf '%s' "$whoami_out" | tr '\n' ' ' | cut -c1-300)"
+            exit 1
+          fi
+          whoami="$(printf '%s' "$whoami_out" | head -1 | tr -d '\r')"
           if [ -z "$whoami" ]; then
             echo "::error::NPM_TOKEN is not authenticating (npm whoami returned nothing). Regenerate the token."
             exit 1
