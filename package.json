@@ -59,6 +59,7 @@
     "prepublishOnly": "npm run check",
     "start": "node dist/server.js",
     "test": "node scripts/run-tests.mjs",
+    "test:sync": "node scripts/run-tests.mjs --sync",
     "test:coverage": "node scripts/run-tests.mjs --coverage",
     "verify:package": "npm run build && node scripts/verify-package.mjs",
     "verify:registry": "tsx scripts/verify-registry.mts",

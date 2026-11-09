@@ -14,12 +14,31 @@
 // The contract here is deliberately strict: a run passes only when every expected test file
 // completed and no test failed. Anything else — a real assertion failure, a crashed fork, or a
 // silently dropped file — exits non-zero with a message naming the actual numbers.
+//
+// Two modes, because "run the tests" and "re-record the counts" are different jobs:
+//
+//   default (`npm test`)        — verify. Nothing is written. The measured numbers are compared with
+//                                 the ones already committed in `scripts/tool-counts.json`, `README.md`
+//                                 and `docs/ARCHITECTURE.md`, and a disagreement fails the run with the
+//                                 remedy named. A test run that silently rewrites three tracked files is
+//                                 the thing an external audit called out: it makes `git status` a
+//                                 side effect of checking your work, and on a clean clone the first
+//                                 `npm test` already shows a dirty tree.
+//   `--sync` (`npm run test:sync`) — write. This is the only mode that updates those files, and it is
+//                                 run deliberately, right after adding or removing tests, with the
+//                                 result committed alongside them.
+//
+// The cost is stated rather than hidden: adding a test now means one extra suite run to re-record.
+// That is the same discipline the rest of the repository already enforces — `verify:static` and
+// `verify:registry` compare committed numbers against the manifest, so the numbers had to be committed
+// honestly either way.
 
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { checkCounts, syncCountSites } from './count-sites.mjs';
 
 const require = createRequire(import.meta.url);
 const root = process.cwd();
@@ -36,7 +55,11 @@ if (typeof expectedTestFiles !== 'number' || typeof expectedTests !== 'number') 
   process.exit(1);
 }
 
-const extraArgs = process.argv.slice(2);
+const argv = process.argv.slice(2);
+// `--sync` belongs to this runner, not to vitest: forwarding it would make vitest fail on an unknown
+// option, and the failure would look like a broken suite rather than a mistyped flag.
+const SYNC_MODE = argv.includes('--sync');
+const extraArgs = argv.filter((a) => a !== '--sync');
 const vitestArgs = ['vitest', 'run', ...extraArgs];
 
 // The abort is an environment fault, not a property of the code under test, and it is
@@ -74,6 +97,10 @@ function evaluate(output) {
   return evaluateSummary(output, { expectedTestFiles, expectedTests });
 }
 
+// The count sites, the reader and the drift check live in scripts/count-sites.mjs, imported above. One
+// definition writes them (syncReadmeBadges) and checks them (checkCounts), so a pattern that stops
+// matching cannot be missed by one copy and caught by the other.
+
 /**
  * Record the counts the runner just measured.
  *
@@ -108,66 +135,20 @@ function syncManifestCounts(reportedFiles, reportedTests) {
  * by loose regex damaged this README five times before; a delimited badge with an exact-match
  * requirement is a different operation, and the guard is what makes it one.
  *
- * Returns the refusals, because a refusal is not cosmetic. An external audit found the repository
- * committed as `manifest testCount 1571, README 1569` — a green run had updated the manifest and printed
- * `qo‘lda` about the badge as a note, and the two drift guards (`verify:static`, `verify:registry`) then
- * failed on a fresh clone with no code change. A number the guards compare cannot be left to a note.
+ * The implementation is `syncCountSites` in scripts/count-sites.mjs — the same module that checks the
+ * numbers, so the writer and the checker cannot drift apart. An external audit found the repository
+ * committed as `manifest testCount 1571, README 1569`: a green run had updated the manifest and printed
+ * `qo'lda` about the badge as a note, and the two drift guards then failed on a fresh clone with no code
+ * change. A number the guards compare cannot be left to a note.
  */
 function syncReadmeBadges(reportedFiles, reportedTests) {
-  const edits = [
-    {
-      file: 'README.md',
-      // `tests-<n>%20passing` inside a shields.io badge URL.
-      // Two shapes are accepted: the markdown image form, and the HTML <img> form a centred
-      // header uses. The README moved to the second layout, after which this pattern matched zero
-      // times and the syncer refused to update the badge — a guard that quietly stops guarding is
-      // worse than one that fails, because the number keeps drifting while looking maintained.
-      pattern: /((?:\[\!\[tests\]\(|src=\")https:\/\/img\.shields\.io\/badge\/tests-)(\d+)(\s*%20passing)/,
-      replacement: (_whole, before, _old, after) => `${before}${reportedTests}${after}`,
-      what: 'badge',
-    },
-    {
-      file: 'README.md',
-      // A table cell: `**741 tests** across 39 files`.
-      pattern: /(\*\*\s*)(\d+)(\s+tests\*\*\s+across\s+)(\d+)(\s+files)/,
-      replacement: (_whole, a, _t, b, _f, c) => `${a}${reportedTests}${b}${reportedFiles}${c}`,
-      what: 'jadval',
-    },
-    {
-      file: 'docs/ARCHITECTURE.md',
-      // The pipeline line: ``test` (999)`. ARCHITECTURE.md is guarded against drift by
-      // `verify:static`, which is how this was caught — but a guard that only reports the drift
-      // leaves every test-adding session to fix the prose by hand, and the fix is the same
-      // mechanical substitution the README already gets.
-      pattern: /(`test` \()(\d+)(\))/,
-      replacement: (_whole, a, _old, b) => `${a}${reportedTests}${b}`,
-      what: 'arkitektura',
-    },
-  ];
-
-  const byFile = new Map();
-  const refused = [];
-  for (const edit of edits) {
-    const entry = byFile.get(edit.file) ?? { text: null, applied: [], refused: [] };
-    if (entry.text === null) entry.text = readFileSync(path.join(root, edit.file), 'utf8');
-    const matches = entry.text.match(new RegExp(edit.pattern.source, 'g')) ?? [];
-    if (matches.length !== 1) {
-      entry.refused.push(`${edit.what}: ${matches.length} ta moslik (aniq 1 ta bo‘lishi kerak edi)`);
-      refused.push(`${edit.file} — ${edit.what}: ${matches.length} ta moslik, aniq 1 ta kerak edi`);
-    } else {
-      entry.text = entry.text.replace(edit.pattern, edit.replacement);
-      entry.applied.push(edit.what);
-    }
-    byFile.set(edit.file, entry);
-  }
-
-  for (const [file, entry] of byFile) {
-    if (entry.applied.length > 0) writeFileSync(path.join(root, file), entry.text, 'utf8');
-    const summary = [];
-    if (entry.applied.length > 0) summary.push(`${entry.applied.length} ta yangilandi`);
-    if (entry.refused.length > 0) summary.push(`qo‘lda: ${entry.refused.join('; ')}`);
-    console.warn(`note: ${file} - ${summary.join(', ')}`);
-  }
+  const { refused, written } = syncCountSites({
+    readFile: (f) => readFileSync(path.join(root, f), 'utf8'),
+    writeFile: (f, text) => writeFileSync(path.join(root, f), text, 'utf8'),
+    reportedFiles,
+    reportedTests,
+  });
+  for (const line of written) console.warn(`note: ${line}`);
   return refused;
 }
 
@@ -178,29 +159,56 @@ for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
   const result = evaluate(output);
 
   if (!result.failures.length) {
-    // The suite is green and complete, so this is the one moment the manifest can be trusted to
-    // describe it. Doing it here rather than by hand means the number cannot lag the code.
     if (result.reportedFiles !== null && result.reportedTests !== null) {
-      syncManifestCounts(result.reportedFiles, result.reportedTests);
-      // Reconciled on every green run, not only when the manifest moved.
-      //
-      // It started inside `syncManifestCounts`, behind its early return, so the badge was only fixed in
-      // the run where the count changed - and not in the next one, which is exactly the run that failed.
-      // Measured: the manifest reached 758, the README stayed at 741, and `verify:registry` kept
-      // reporting the disagreement across repeated runs because the code that would have fixed it had
-      // already returned.
-      const refused = syncReadmeBadges(result.reportedFiles, result.reportedTests);
-      if (refused.length > 0) {
-        // The suite is green and the numbers are not. Printing a note and exiting 0 is how a repository
-        // ends up committed as `manifest 1571, README 1569`: the run that measured it looked successful,
-        // and the two drift guards failed the next person to clone it.
-        console.error('TEST_RUN_FAIL');
-        console.error(`- barcha test o‘tdi (${result.reportedTests}), lekin hisoblar quyidagi joylarga yozilmadi:`);
-        for (const line of refused) console.error('  - ' + line);
-        console.error(
-          '- Bu fayllardagi sonlar manifest bilan solishtiriladi; qo‘lda to‘g‘rilang yoki patternni yangilang.',
+      if (!SYNC_MODE) {
+        // Default mode: measure, compare, write nothing. A green `npm test` has to leave the working tree
+        // exactly as it found it — that is the difference between checking the code and editing it. The
+        // suite is green and complete here, so this is the moment its numbers are worth trusting.
+        const drift = checkCounts({
+          readFile: (f) => readFileSync(path.join(root, f), 'utf8'),
+          manifestTestFiles: expectedTestFiles,
+          manifestTestCount: expectedTests,
+          reportedFiles: result.reportedFiles,
+          reportedTests: result.reportedTests,
+        });
+        if (drift.length > 0) {
+          console.error('TEST_RUN_FAIL');
+          console.error(
+            `- barcha test o‘tdi (${result.reportedTests} ta, ${result.reportedFiles} fayl), lekin ` +
+              `yozib qo‘yilgan sonlar buni aytmayapti:`,
+          );
+          for (const line of drift) console.error('  - ' + line);
+          console.error(
+            '- Bu rejim hech narsa yozmaydi. Yangilash uchun `npm run test:sync`, so‘ng natijani commit qiling.',
+          );
+          process.exit(1);
+        }
+        console.log(
+          'note: hisoblar tekshirildi (scripts/tool-counts.json, README.md, docs/ARCHITECTURE.md) — ' +
+            'hech narsa yozilmadi.',
         );
-        process.exit(1);
+      } else {
+        // Reconciled on every green run, not only when the manifest moved.
+        //
+        // It started inside `syncManifestCounts`, behind its early return, so the badge was only fixed in
+        // the run where the count changed - and not in the next one, which is exactly the run that failed.
+        // Measured: the manifest reached 758, the README stayed at 741, and `verify:registry` kept
+        // reporting the disagreement across repeated runs because the code that would have fixed it had
+        // already returned.
+        syncManifestCounts(result.reportedFiles, result.reportedTests);
+        const refused = syncReadmeBadges(result.reportedFiles, result.reportedTests);
+        if (refused.length > 0) {
+          // The suite is green and the numbers are not. Printing a note and exiting 0 is how a repository
+          // ends up committed as `manifest 1571, README 1569`: the run that measured it looked successful,
+          // and the two drift guards failed the next person to clone it.
+          console.error('TEST_RUN_FAIL');
+          console.error(`- barcha test o‘tdi (${result.reportedTests}), lekin hisoblar quyidagi joylarga yozilmadi:`);
+          for (const line of refused) console.error('  - ' + line);
+          console.error(
+            '- Bu fayllardagi sonlar manifest bilan solishtiriladi; qo‘lda to‘g‘rilang yoki patternni yangilang.',
+          );
+          process.exit(1);
+        }
       }
     }
     if (result.nativeAbort) {

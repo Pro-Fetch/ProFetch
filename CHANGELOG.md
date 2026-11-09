@@ -35,6 +35,18 @@ versiya semver bo'yicha.
   provenance belgisini bermaydi; hamda public repoda o'z runner'ini ushlash PR kodini shu kompyuterda
   yugurtirish xavfini ochadi. Darvoza 3 holatda (baytlar bir xil → o'tadi, o'zgargan → to'xtaydi, fayl
   kelmasa → to'xtaydi) va 5 ta publish yo'li soxta `npm` bilan lokal sinovdan o'tdi.
+- **`npm test` endi ishga tushirganda hech narsa yozmaydi.** Avval har yashil run uchta kuzatilayotgan
+  faylni o'zgartirardi: `scripts/tool-counts.json`, `README.md`, `docs/ARCHITECTURE.md`. Endi standart
+  rejim **tekshiradi** — o'lchangan son yozilgan songa mos bo'lmasa, qaysi fayl qaysi raqamni da'vo
+  qilayotganini aytib qizil bo'ladi va «`npm run test:sync`» deydi; yozuvchi faqat shu buyruq. Solishtirish
+  va yozish mantig'i `scripts/count-sites.mjs` ga ko'chirildi (runner'ni test import qila olmaydi — ichida
+  butun suite qayta ishga tushadi) va ikkalasi **bitta** pattern ro'yxatini ishlatadi. 11 ta test yozildi.
+  Ulari orasida yozuvchi → tekshiruvchi **round-trip** testi ham bor — u shu yerda paydo bo'ldi: birinchi
+  yozuvchi `String.replace` callback'iga match ARRAYS emas, butun match SATRINI bergani uchun README'dagi
+  badge `r1988=-success?logo=vitest"` ga, jadval `*198891180` ga, ARCHITECTURE'da `t1988s` ga aylandi.
+  Alohida test bundan xabarsiz o'tib ketardi — chunki u funksionni to'g'ri qo'l bilan chaqirayotgan edi,
+  chaqiruv joyi esa boshqacha. Xato `verify:static` darvozasi bilan ushlandi, fayllar tiklandi. Suite
+  hozir **118 fayl / 1988 test** — sonlar shu run bilan yozib qo'yildi.
 
 ## [1.2.0] - 2026-11-08
 
