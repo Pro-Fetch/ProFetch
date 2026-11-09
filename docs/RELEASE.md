@@ -24,8 +24,12 @@ Honest status of the credential: a granular token still exists as a repository s
 1.2.0 were published with it. It is a bridge, not the design. Once a release ships through OIDC the secret
 can be deleted; until then the workflow prefers the attested path regardless of the secret being present.
 
-Three details that fail loudly but are easy to miss:
+Four details that fail loudly but are easy to miss:
 
+- The runner needs **npm CLI ≥ 11.5.1 and Node ≥ 22.14.0** — npm's own stated floor for trusted publishing.
+  This workflow used to pin Node `22.13`, which installs npm 10.x: an OIDC publish from it cannot work, and
+  the failure reads like npm refusing the package rather than like a tool too old to ask. The job now runs
+  Node 24 and a step measures `npm --version`, upgrading it when it is below the floor.
 - The job must declare `environment: npm`. Without it the token carries no environment claim and npm refuses
   the publish with an error that reads like a permissions bug.
 - The workflow must NOT set `NODE_AUTH_TOKEN`. If that variable is present, npm authenticates with it and
@@ -38,8 +42,12 @@ Three details that fail loudly but are easy to miss:
 
 ### One-time setup (maintainer, in a browser)
 
-`https://www.npmjs.com/package/@pro-fetch/mcp` → **Settings** (npm asks the account password once) →
-**Trusted Publisher**, with exactly these values:
+`https://www.npmjs.com/package/@pro-fetch/mcp` → **Settings** → **Trusted Publisher**, with exactly these
+values. This step is manual for two reasons, not one: npm requires the account password, and modifying a
+package's settings requires an **interactive two-factor challenge** — for this account that is a WebAuthn
+ceremony with the registered security key. A script cannot stand in for it: a browser refuses to open a
+WebAuthn prompt that no real user click started, so a synthetic click fails quietly and npm bounces back to
+its 2FA page, which reads like "2FA is not configured" when it is.
 
 | Field | Value |
 | --- | --- |

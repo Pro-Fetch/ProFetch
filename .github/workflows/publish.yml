@@ -40,10 +40,31 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          # The floor from `engines.node`. A newer line is fine; an older one cannot install the package.
-          node-version: '22.13'
+          # NOT the `engines.node` floor. That floor (22.13) is what a CONSUMER needs; this machine is the one
+          # doing the publish, and npm's trusted publishing has its own, higher requirement: npm CLI 11.5.1+
+          # on Node 22.14+. Node 22.13 bundles npm 10.x, which cannot perform an OIDC publish at all — the
+          # failure would look like npm refusing us while our own tooling was too old to ask.
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: npm
+
+      # The requirement above is stated in npm's docs, but the runner image decides what actually gets
+      # installed, and images change. Measure it instead of trusting the label.
+      - name: npm must be new enough for trusted publishing
+        run: |
+          need="11.5.1"
+          have="$(npm --version)"
+          echo "node $(node --version), npm $have (trusted publishing needs >= $need)"
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            echo "npm is older than trusted publishing requires — upgrading"
+            npm install -g npm@11
+            echo "npm now $(npm --version)"
+          fi
+          have="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            echo "::error::npm $have is below $need and the upgrade did not take. OIDC publish cannot work."
+            exit 1
+          fi
 
       # Deliberately NO `NODE_AUTH_TOKEN`. If that variable is present npm authenticates with the token and
       # never attempts OIDC, so trusted publishing silently does nothing and the failure looks like a

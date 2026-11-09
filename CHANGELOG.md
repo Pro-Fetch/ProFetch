@@ -17,6 +17,13 @@ versiya semver bo'yicha.
   yopiladi. Uch holat sho'ba (`npm` o'rniga soxta buyruq) bilan jonli sinovdan o'tkazildi: OIDC yutsa →
   provenance, OIDC yutqaza token yutsa → token, ikkalasi ham yutqaza → xato, versiyalla registry'da bo'lsa →
   takrorlamaydi.
+- **Chiqarish mashinasi endi Node 24'da ishlaydi.** npm hujjati trusted publishing uchun **npm CLI 11.5.1+
+  va Node 22.14+** so'raydi; `publish.yml` esa Node `22.13` ni qotirib qo'ygan edi — unda npm 10.x keladi va
+  OIDC umuman ishlamaydi, xato esa «npm rad etdi» ko'rinishida chiqib, ayb bizning eski CLI'mizda bo'lardi.
+  Endi runner Node 24, oldin esa alohida qadam `npm --version` ni o'lchaydi: 11.5.1 dan past bo'lsa
+  `npm install -g npm@11` qiladi, baribir past bo'lsa ishni ochiq xato bilan to'xtatadi. Taqqoslash 8 ta
+  versiya satrida (`10.9.2`, `11.0.0`, `11.5.0`, `11.5.1`, `11.6.0`, `11.19.0`, `12.0.0`, `9.0.0`) sinovdan
+  o'tkazildi. Iste'molchi uchun `engines.node` (≥22.13) o'zgarmadi — bu faqat chiqaruvchi mashinta talabi.
 
 ## [1.2.0] - 2026-11-08
 
