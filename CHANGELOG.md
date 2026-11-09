@@ -24,6 +24,17 @@ versiya semver bo'yicha.
   `npm install -g npm@11` qiladi, baribir past bo'lsa ishni ochiq xato bilan to'xtatadi. Taqqoslash 8 ta
   versiya satrida (`10.9.2`, `11.0.0`, `11.5.0`, `11.5.1`, `11.6.0`, `11.19.0`, `12.0.0`, `9.0.0`) sinovdan
   o'tkazildi. Iste'molchi uchun `engines.node` (≥22.13) o'zgarmadi — bu faqat chiqaruvchi mashinta talabi.
+- **`publish.yml` endi ikkita ishga bo'lingan: `build` va `publish`.** `build` GitHub'ning toza Ubuntu
+  mashinasida `npm ci` + `npm run check` + `npm pack` + GitHub attestatsiyani bajaradi va tarballni artifact
+  qilib beradi; `publish` uni oladi va faqat bitta tarmoq so'rovini yuboradi. Ajratishning sababi o'lchangan
+  fakt: granular token bu kompyuterdan ishlaydi, lekin GitHub-hosted runner'dan E401 oladi. Chiqarishni
+  qaysi mashina qilishini repodagi **`PUBLISH_RUNNER`** variabili belgilaydi (o'rnatilmagan — `ubuntu-latest`).
+  Mashina chegarasidan o'tgan fayl attestatsiya tasvirlagan baytlar bilan bir xil ekanini `build` chiqargan
+  sha256 orqali tekshiramiz; farq bo'lsa publish to'xtaydi. Chegaramalarini ham yozib qo'ydim: npm OIDC'ni
+  faqat GitHub-hosted runner'lar uchun hujjatlashtirgan — self-hosted chiqarish token yo'liga tushadi va npm
+  provenance belgisini bermaydi; hamda public repoda o'z runner'ini ushlash PR kodini shu kompyuterda
+  yugurtirish xavfini ochadi. Darvoza 3 holatda (baytlar bir xil → o'tadi, o'zgargan → to'xtaydi, fayl
+  kelmasa → to'xtaydi) va 5 ta publish yo'li soxta `npm` bilan lokal sinovdan o'tdi.
 
 ## [1.2.0] - 2026-11-08
 

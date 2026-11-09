@@ -63,6 +63,36 @@ permission, and the extra box would only allow moving tags after the fact. The f
 cannot be *edited* later — it can be deleted and recreated, so this is a reversible decision rather than a
 permanent one.
 
+### Two jobs, because the two halves want different machines
+
+`build` (GitHub-hosted Ubuntu) runs `npm ci`, the full `npm run check`, `npm pack` and the GitHub build
+attestation, then uploads the tarball. `publish` downloads it and makes the one network call that needs a
+credential.
+
+The split is not decoration. Measured: the granular token authenticates from this workstation and gets
+**E401 from a GitHub-hosted runner** (npm/cli#8869). A self-hosted runner publishes from a residential
+address, where npm accepts the token — so verification can stay in the cloud and only the publish call moves.
+Which machine runs `publish` is a repository **variable**, `PUBLISH_RUNNER`; unset it is `ubuntu-latest`,
+set to a runner label (here `profetch-publish`) and it is that machine.
+
+Two properties the split has to keep, and how:
+
+- **The attestation must describe the shipped bytes.** `build` exports the tarball's sha256; `publish`
+  recomputes it on the downloaded file and refuses to publish on a mismatch. Verified both ways: identical
+  bytes pass, a changed hash stops the job.
+- **`environment: npm` stays on the publishing job**, because that is what puts the environment claim into
+  the OIDC token and what gates a release on a human.
+
+What a self-hosted publish does NOT buy: npm documents OIDC for **GitHub-hosted runners only**, so from a
+self-hosted runner the OIDC attempt fails and the token carries the release — published, attested by GitHub,
+but with **no npm provenance badge**. That badge still waits on the trusted-publisher rule.
+
+The cost, stated plainly: a self-hosted runner on a **public** repository means workflow code from a pull
+request can execute on the machine hosting it. GitHub keeps secrets away from fork runs and asks a
+maintainer to approve first-time contributors, and the runner here carries a label no other workflow uses —
+but the general risk of running a build agent on a personal computer remains, and it is the reason this is a
+deliberate switch rather than the default.
+
 ### The release itself
 
 ```bash
