@@ -43,20 +43,20 @@ export default defineConfig({
     // fork. Measured on this suite: 3 aborts in 10 runs, and `isolate: true` did not change that.
     //
     // The abort kills the fork mid-run, so vitest prints a summary covering only the files that had
-    // already finished — often `Tests 29 passed (78)` out of 267 — and still exits 0. A previous
+    // already finished — measured then: `Tests 29 passed (78)` out of 267 — and still exits 0. A previous
     // setup suppressed the non-zero exit with `dangerouslyIgnoreUnhandledErrors: true`, which meant
     // a build that had verified 11% of its assertions reported success. That is a false pass, and a
     // false pass is worse than a red build: it makes every later claim of verification untrue.
     //
-    // The flag is gone. `scripts/run-tests.mjs` now enforces what the flag merely asserted: a run
-    // passes only when all 16 files and all 267 tests actually completed and none failed. A crashed
-    // fork therefore fails loudly, naming the real numbers, instead of passing quietly. That runner
-    // also retries, but only on this exact signature and only when no assertion failed, so a genuine
-    // test failure is never retried into a pass.
+    // The flag is gone. `scripts/run-tests.mjs` now enforces what the flag merely asserted: a run passes
+    // only when every file and every test counted in `scripts/tool-counts.json` actually completed and
+    // none failed. A crashed fork therefore fails loudly, naming the real numbers, instead of passing
+    // quietly. That runner also retries, but only on this exact signature and only when no assertion
+    // failed, so a genuine test failure is never retried into a pass.
     //
     // `pool: 'forks'` stays because `tests/product-readiness.test.ts` calls `process.chdir()`, which
-    // is unavailable in worker threads; the threads pool runs all 16 files with no abort but fails
-    // that one test.
+    // is unavailable in worker threads; the threads pool runs every file with no abort but fails that
+    // one test.
     // 60s, not 30s: `tests/opendata-socrata.test.ts` retries a throttled portal up to three times with
     // backoff, and under a full parallel run that sequence overran 30 seconds — a slow third party was
     // being reported as a failing test. Measured: the same file passes 25/25 when run alone. Only the
@@ -65,8 +65,10 @@ export default defineConfig({
     // 60s here too, for the same reason and with the same limit on what it can excuse. Measured during
     // the 1.0.0 publish attempt: `tests/qr-reed-solomon.test.ts` and `tests/sql-lexer.test.ts` failed as
     // *suites* — `Error: Hook timed out in 30000ms` — because their `beforeAll` imports `src/loader.js`,
-    // which boots all 673 tools inside that fork, and 70 forks doing that at once on a busy machine is
-    // slower than 30 seconds. Both files pass 173/173 in 21s when run alone. A slow boot was being
+    // which boots the whole registry (761 tools today) inside that fork, and eleven forks doing that at
+    // once on a busy machine is slower than 30 seconds. Measured here: `os.availableParallelism()` is 12,
+    // and vitest's default pool is therefore `cores - 1` = 11 forks — the oversubscription the `maxForks`
+    // cap above exists to stop. Both files pass 173/173 in 21s when run alone. A slow boot was being
     // reported as a broken product; only the wall-clock allowance moved, and a hook that throws still
     // fails the build.
     hookTimeout: 60_000,
