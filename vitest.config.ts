@@ -21,7 +21,18 @@ export default defineConfig({
         // running several browsers simultaneously and each one was slow for that reason. That is contention,
         // not a product fault, and the honest fix is to stop oversubscribing rather than to keep raising
         // timeouts until everything happens to pass.
-        maxTicksLimit: 6,
+        //
+        // The key is `maxForks`, and it needs `minForks` with it. Two measured traps:
+        //
+        //   * An earlier draft said `maxTicksLimit`, which does not exist in vitest 2.1.9 — grepping
+        //     `node_modules/vitest/dist` for it returns no match. The option was parsed as nothing, the cap
+        //     never applied, and the comment below described a schedule the machine was not running.
+        //   * `maxForks: 6` on its own does not just fail to help, it stops the run: `createForksPool`
+        //     defaults `minForks` to the CPU-derived count (11 here), and tinypool throws
+        //     `RangeError: options.minThreads and options.maxThreads must not conflict` before a single file
+        //     executes. The pair is the only valid form.
+        maxForks: 6,
+        minForks: 1,
       },
     },
     // No `dangerouslyIgnoreUnhandledErrors` here, deliberately.
