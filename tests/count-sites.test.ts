@@ -123,7 +123,11 @@ describe('count-sites: writer and checker agree (round trip)', () => {
   function roundTrip(files: Record<string, string>, reportedFiles: number, reportedTests: number) {
     const store = new Map(Object.entries(files));
     const { refused, written } = syncCountSites({
-      readFile: (f) => store.get(f) ?? (() => { throw new Error(`no ${f}`); })(),
+      readFile: (f) =>
+        store.get(f) ??
+        (() => {
+          throw new Error(`no ${f}`);
+        })(),
       writeFile: (f, text) => void store.set(f, text),
       reportedFiles,
       reportedTests,
@@ -162,8 +166,7 @@ describe('count-sites: writer and checker agree (round trip)', () => {
   });
 
   it('leaves a file alone and reports when a pattern matches twice', () => {
-    const ambiguous =
-      '| `test` | **100 tests** across 1 files |\n| `test` | **200 tests** across 2 files |\n';
+    const ambiguous = '| `test` | **100 tests** across 1 files |\n| `test` | **200 tests** across 2 files |\n';
     const r = roundTrip({ 'README.md': ambiguous, 'docs/ARCHITECTURE.md': '`test` (100)\n' }, 118, 1988);
     expect(r.refused.some((line) => line.includes('jadval') && line.includes('2 ta moslik'))).toBe(true);
     expect(r.read('README.md')).toBe(ambiguous);

@@ -99,10 +99,7 @@ export function syncCountSites({ readFile, writeFile, reportedFiles, reportedTes
       entry.refused.push(`${site.what}: ${matches.length} ta moslik (aniq 1 ta bo'lishi kerak edi)`);
       refused.push(`${site.file} — ${site.what}: ${matches.length} ta moslik, aniq 1 ta kerak edi`);
     } else {
-      entry.text = entry.text.replace(
-        site.pattern,
-        (...args) => site.replacement(args, reportedTests, reportedFiles),
-      );
+      entry.text = entry.text.replace(site.pattern, (...args) => site.replacement(args, reportedTests, reportedFiles));
       entry.applied += 1;
     }
     byFile.set(site.file, entry);
