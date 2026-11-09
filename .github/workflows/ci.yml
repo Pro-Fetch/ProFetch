@@ -43,10 +43,19 @@ jobs:
         run: npm ci
 
       - name: Dependency audit (production)
-        # Gates the dependencies that actually ship in the published package. Dev-only advisories
-        # (the vitest toolchain) are surfaced by the local `check`/`prepublishOnly` audit but must not
-        # block a release; a HIGH or CRITICAL in the shipped runtime tree fails here.
+        # Gates the dependencies that actually ship in the published package: a HIGH or CRITICAL in the
+        # shipped runtime tree fails here. `--omit=dev` is the point — the dev tree is not in the tarball,
+        # and blocking a release on it would only teach people to ignore the report.
         run: npm audit --omit=dev --audit-level=high
+
+      - name: Dependency audit (dev tree, reported)
+        # Dev-only advisories are surfaced here, visibly, on every run. They deliberately do not block,
+        # and the reason is stated rather than implied: `npm run check` and `prepublishOnly` run no
+        # `npm audit` at all — `audit:schema` compares tool schemas against the code behind them, not
+        # dependencies — so this step is the only place the dev tree is reported anywhere. Left
+        # `continue-on-error` so the report stays readable instead of tempting anyone to delete it.
+        continue-on-error: true
+        run: npm audit --audit-level=high
 
       - name: Type check
         run: npm run lint
