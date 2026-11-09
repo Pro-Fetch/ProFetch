@@ -124,6 +124,10 @@ export default defineTool({
           failedProviders: searched.failedProviders,
           enginesConfigured: searched.configured,
           enginesSkipped: searched.skipped,
+          // Whether this answer cost a request. A caller billed per query cannot tell a 1 ms answer from a
+          // 1.2 s one without being told, and `cache_ttl_ms` separates "caching is off" from "no hit".
+          ...(searched.cached ? { cached: true, cached_age_ms: searched.cached_age_ms } : {}),
+          cache_ttl_ms: searched.cache_ttl_ms,
           ...(ranked.length === 0
             ? {
                 empty: true,

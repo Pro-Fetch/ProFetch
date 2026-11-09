@@ -69,19 +69,34 @@ versiya semver bo'yicha.
   qo'shilsa suite yig'ilmaydi. `site_search` va `date_filter_search`ga `engine` parametri qo'shildi —
   e'lon qilish yetmaskani ham chiqdi: qidiruv toifasi sxemasi `src/core/tool.ts`dagi qattiq ro'yxatdan
   quriladi, ro'yxatda bo'lmagan parametr jimsiz kesib tashlanardi.
+- **Ikki tezlik tuzatishi — o'lcham bilan.**
+  - `pro_fetch_answer_packet` manba sahifalarini **ketma-ket** o'qiyotgan edi. Endi `fetchBatch` orqali
+    birga. O'lchangan (5 sahifa, kesh o'chirilgan): **5413 ms → 694 ms, 7,8 marta tez**. Natijalar tartibi
+    saqlanadi, chunki `fetchBatch` yozuvlarni kirish indeksida qaytaradi — iqtibos tartibi o'zgarmadi.
+  - **Qidiruv javoblari keshlandi.** Serper o'z saytida "hech narsani keshlamaymiz" deydi, ya'ni takroriy
+    so'rov ikki marta to'lanadi: kredit va 1,2–1,5 sekund. O'lchangan: **tirik 1316 ms → keshdan 1 ms**,
+    ikkinchi so'rov tashqariga chiqmadi. Kalit **engine bo'yica** (`search:<engine>:<limit>:<query>`) —
+    aks holda `engine='tavily'` deb so'raganga Serper javobi chiqardi. Bo'sh javob keshlanmaydi (keshlangan
+    bo'shlik TTL davomida "internetda yo'q" deb qaytadi). Read-only rejim yozuvni o'tkazib yuboradi, javob
+    baribir keladi. `PRO_FETCH_SEARCH_CACHE_MS` — noldi "o'chirilgan" degani (`boundedEnv` buni ifodalay olmaydi:
+    nolni "sozlanmagan" deb hisoblaydi), noto'g'ri qiymat esa standartga qaytadi, chunki keshning
+    o'chirilishi xato emas, hisob-kitob.
+  - Javob endi aynan shuni yozadi: `cached`, `cached_age_ms`, `cache_ttl_ms` — to'lovchi kim ekanini
+    bilishi uchun.
+  - 9 ta yangi test. Shulardan uchta xatti-harakat testi avval **o'z fixture'im tufayli** yiqildi:
+    so'rovga `Date.now()` qo'shgandim, Wikipedia'da unda maqola yo'q — zanjir esa to'g'ri javob berib,
+    `Wikipedia=empty_answer` dedi. Test noto'g'ri edi, kod emas.
 
 ### Fixed
 
 - **SERP qo'riqchisi hujjatlarni ham "natija sahifasi" deb rad qilayotgani chiqdi.** Brave narx sahifasini
   o'qishda `https://brave.com/search/api/` javob berdi: «Brave qidiruv natijalari sahifasi o'qilmaydi».
-  Qoida host`ni kompaniya domeni bilan va path'ni `/search` prefiksi bilan solishtirar, natijada hujjat
-  indeks deb hisoblanardi. Google tomonida ham xuddi shu ziddiyat bor edi: `google.com/search/about` va
-  `/search/howsearchworks` rad etilardi, g'olibki Google'ning robots.txt (bugun o'qildi) bu ikki yo'lni
-  `Allow` deb belgilagan. Endi qoida **natija sahifasi so'rovi bilan manzilga tushini** talab qiladi
-  (so'rovsiz natija sahifasi yo'q — demun qilishning hojati yo'q) va provayder o'zi hujjat deb belgilagan
-  yo'llar alohida ro'yxatdan o'tadi. Haqiqiy natija URL'lari avvalgidek rad etiladi — buni `still refuses
-  the same hosts once a query makes them an index` testi tekshiradi. Ikkita yangi test bilan crawl-policy
-  13 → 15 ta; jonli qayta tekshirish: `brave.com/search/api/` endi 200 va o'qiladi (1 590 ms).
+  Qoida host`ni kompaniya domeni bilan va path'ni `/search`prefiksi bilan solishtirar, natijada hujjat
+indeks deb hisoblanardi. Google tomonida ham xuddi shu ziddiyat bor edi:`google.com/search/about`va`/search/howsearchworks`rad etilardi, g'olibki Google'ning robots.txt (bugun o'qildi) bu ikki yo'lni`Allow`deb belgilagan. Endi qoida **natija sahifasi so'rovi bilan manzilga tushini** talab qiladi
+(so'rovsiz natija sahifasi yo'q — demun qilishning hojati yo'q) va provayder o'zi hujjat deb belgilagan
+yo'llar alohida ro'yxatdan o'tadi. Haqiqiy natija URL'lari avvalgidek rad etiladi — buni`still refuses
+  the same hosts once a query makes them an index`testi tekshiradi. Ikkita yangi test bilan crawl-policy
+13 → 15 ta; jonli qayta tekshirish:`brave.com/search/api/` endi 200 va o'qiladi (1 590 ms).
 
 ## [1.2.0] - 2026-11-08
 
@@ -195,14 +210,14 @@ versiya semver bo'yicha.
   3. **User-Agent kimga yozishni aytadi.** `src/core/version.ts` endi
      `pro-fetch-mcp/<versiya> (+https://github.com/Pro-Fetch/ProFetch)` yuboradi;
      `PRO_FETCH_USER_AGENT_CONTACT` bilan o'z sahifangizga almashtiriladi.
-  Bu yerda hech qanday aylanib o'tish yo'q: hisob ma'lumotlari yuborilmaydi, CAPTCHA yechilmaydi, proxy
-  rotatsiyasi qilinmaydi.
+     Bu yerda hech qanday aylanib o'tish yo'q: hisob ma'lumotlari yuborilmaydi, CAPTCHA yechilmaydi, proxy
+     rotatsiyasi qilinmaydi.
 - **Chiqarish endi token talab qilmaydi.** `.github/workflows/publish.yml` — npm **Trusted Publishing
   (OIDC)** orqali: GitHub Actions o'z identifikatsiyasini npm'ga ko'rsatadi va publish bo'ladi. Repozitoriyada,
   sekratlarda yoki `~/.npmrc`da npm token YO'Q — o'g'irlanadigan narsa qolmaydi. Ishga tushirish GitHub
   **release** ochilganda bo'ladi; workflow avval tag (`v1.1.0`) bilan `package.json` (`1.1.0`) bir xil ekanini
   tekshiradi, keyin to'liq `npm run check`'ni o'zi ichida yurgizadi, so'ng `npm publish --access public
-  --provenance` — pre-release versiyalar `next` tagiga, barqaror versiyalar `latest`ga. Ikki nozik narsa
+--provenance` — pre-release versiyalar `next` tagiga, barqaror versiyalar `latest`ga. Ikki nozik narsa
   hujjatda yozilgan: job `environment: npm` deb belgilashi shart (aks holda OIDC tokenda environment claim'i
   bo'lmaydi va npm rad etadi) va `NODE_AUTH_TOKEN` HECH QACHON qo'yilmaydi (u bo'lsa npm OIDC'ga umuman
   urinmaydi).

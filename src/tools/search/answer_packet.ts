@@ -1,7 +1,7 @@
 import { defineTool } from '../../core/tool.js';
 import { failJson, jsonBlock } from '../../core/format.js';
 import { num, strOrEmpty, view } from '../../core/input.js';
-import { fetchUrl } from '../../core/fetcher.js';
+import { fetchBatch } from '../../core/fetcher.js';
 import { searchWeb } from '../../core/search-providers.js';
 import { canonicalize, digestOf } from '../../core/evidence-store.js';
 import { queryTerms } from '../../core/query-understanding.js';
@@ -85,14 +85,23 @@ export default defineTool({
 
     const fragments: Record<string, unknown>[] = [];
     const failures: Record<string, unknown>[] = [];
-    for (const item of queue) {
-      let fetched;
-      try {
-        fetched = await fetchUrl(item.url, { useCache: true });
-      } catch (error) {
-        failures.push({ url: item.url, reason: (error as Error).message.slice(0, 200) });
+    // The pages of one packet do not depend on each other, so they are read together. Measured on this
+    // machine: a cold page read takes 719 ms (p50), and the default of five sources made the sequential
+    // loop wait ~3.6 s for work that could have run at once. `fetchBatch` writes its results by input
+    // index, so the order below — and therefore which fragment is quoted first — is unchanged.
+    const fetchedList = await fetchBatch(
+      queue.map((item) => item.url),
+      queue.length,
+      { useCache: true },
+    );
+    for (let index = 0; index < queue.length; index++) {
+      const item = queue[index]!;
+      const batched = fetchedList[index];
+      if (!batched?.ok || !batched.result) {
+        failures.push({ url: item.url, reason: String(batched?.error ?? 'fetch javob qaytarmadi').slice(0, 200) });
         continue;
       }
+      const fetched = batched.result;
       if (fetched.blocked) {
         failures.push({
           url: item.url,

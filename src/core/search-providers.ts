@@ -9,6 +9,8 @@ import {
 } from './search-engines.js';
 import { rankAndDedupeSearchResults } from './search-ranking.js';
 import { log } from './log.js';
+import { cache } from './cache.js';
+import { canSkipSideEffect } from './read-only-guard.js';
 
 export type { WebSearchResult, SearchEngineKind };
 export { SEARCH_ENGINES, engineById, enginesFor, engineStatuses, generalWebEngines } from './search-engines.js';
@@ -17,10 +19,47 @@ export interface SearchProviderResult {
   provider: string;
   results: WebSearchResult[];
   failedProviders: Array<{ provider: string; reason: string }>;
-  /** Engines this server can use right now: the credentialed ones, plus the keyless scrapers. */
+  /** Engines this server can use right now for the request as asked. */
   configured: string[];
   /** Engines that exist but are not usable here, and what each one is waiting for. */
   skipped: Array<{ engine: string; needs: string[] }>;
+  /** True when no request left this machine — the answer came from the search cache. */
+  cached?: boolean;
+  /** How long ago the cached answer was measured, in ms. Present only when `cached`. */
+  cached_age_ms?: number;
+  /** The TTL in force for search results, so a caller can tell 15 minutes from disabled. */
+  cache_ttl_ms?: number;
+}
+
+/**
+ * How long a search answer may be reused.
+ *
+ * Serper states on its own site: *"We do not cache anything so the returned response will reflect the
+ * latest SERP results of Google."* So every query we repeat is paid for twice — once in credits, once in
+ * the 1.2-1.5 s the live scrape takes. Measured here on 2026-11-09: a search through pro-fetch answers in
+ * 1 186-1 459 ms, while a cached page read answers in 1-2 ms.
+ *
+ * `boundedEnv` cannot express this setting: it treats zero as "unset" and returns the fallback, and zero
+ * here has to mean *disabled*. A value that is not a number still falls back to the default — a typo in
+ * `.env` must not silently turn caching off, because the symptom of that is a bill, not an error.
+ */
+export function searchCacheTtlMs(): number {
+  const raw = process.env.PRO_FETCH_SEARCH_CACHE_MS?.trim();
+  if (raw === undefined || raw === '') return 900_000;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return 900_000;
+  return Math.min(Math.floor(parsed), 86_400_000);
+}
+
+/**
+ * One key per engine, never one key per request.
+ *
+ * A chain that cached under "the query" alone would serve a Serper answer to a caller who asked
+ * `engine='tavily'` — different index, different results, same cache entry. Keying by engine means a hit
+ * is always an answer that engine actually gave, and the reported `provider` stays true.
+ */
+export function searchCacheKey(engineId: string, query: string, limit: number): string {
+  return `search:${engineId}:${limit}:${query.trim().toLowerCase()}`;
 }
 
 export interface EngineOutcome {
@@ -152,7 +191,29 @@ export async function searchWeb(
   }
 
   const failedProviders: SearchProviderResult['failedProviders'] = [];
+  const ttlMs = searchCacheTtlMs();
   for (const engine of runnable) {
+    const key = searchCacheKey(engine.id, query, limit);
+    const hit = ttlMs > 0 ? cache.get(key) : undefined;
+    if (hit) {
+      const stored = JSON.parse(hit.value) as { provider: string; results: WebSearchResult[] };
+      if (stored.results.length > 0) {
+        const ageMs = Date.now() - hit.createdAt;
+        log(JSON.stringify({ event: 'search.cache_hit', provider: engine.id, age_ms: ageMs }));
+        return {
+          provider: stored.provider,
+          results: stored.results,
+          failedProviders,
+          configured,
+          skipped,
+          cached: true,
+          cached_age_ms: ageMs,
+          cache_ttl_ms: ttlMs,
+        };
+      }
+      // An empty answer is not an answer, and caching it would freeze the failure for the whole TTL.
+      cache.delete(key);
+    }
     const started = Date.now();
     try {
       const results = await attempt(engine, query, limit);
@@ -161,12 +222,19 @@ export async function searchWeb(
         log(JSON.stringify({ event: 'search.provider_empty', provider: engine.id, ms: Date.now() - started }));
         continue;
       }
+      const providerName = engine.label + (failedProviders.length ? ' (fallback)' : '');
+      // Storing is a side effect, not part of the answer: read-only mode skips the write, the results still
+      // come back, and the only cost is that the next call is not served from memory.
+      if (ttlMs > 0 && !canSkipSideEffect()) {
+        cache.put(key, JSON.stringify({ provider: providerName, results }), ttlMs, { engine: engine.id, query });
+      }
       return {
-        provider: engine.label + (failedProviders.length ? ' (fallback)' : ''),
+        provider: providerName,
         results,
         failedProviders,
         configured,
         skipped,
+        cache_ttl_ms: ttlMs,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
