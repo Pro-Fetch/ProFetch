@@ -47,6 +47,28 @@ versiya semver bo'yicha.
   Alohida test bundan xabarsiz o'tib ketardi — chunki u funksionni to'g'ri qo'l bilan chaqirayotgan edi,
   chaqiruv joyi esa boshqacha. Xato `verify:static` darvozasi bilan ushlandi, fayllar tiklandi. Suite
   hozir **118 fayl / 1988 test** — sonlar shu run bilan yozib qo'yildi.
+- **Oddiy `pro_fetch_web_search` endi faqat kalit bilan ishlaydi.** Sabab o'lchangan: eski zanjir avval
+  kalitli engine'lardan, keyin kalitsiz umumiy engine'lardan (duckduckgo — hujjatlashtirilmagan endpoint,
+  2026-11-06'da HTTP 202 + bo'sh sahifa javob bergan), keyin tor engine'lardan o'tib ketardi. Bitta
+  so'rovda shu zanjir Serper, DuckDuckGo, Hacker News, Wikipedia, npm, iTunes va OpenAlex'dan o'tib
+  **Crossref**'da to'xtadi — hosting savoliga DOI bilan javob, **10 145 ms**. Bunday "javob" xatodan yomon.
+  Endi: kalit bo'lmasa **1 ms** da rad etadi va qaysi kalitlar yaroqli ekanini, urinish qilinmaganini,
+  bepul vertikal yo'llarni aytadi. Kalit bo'lsa yo'l o'zgarmagan — Serper 1 186 ms, 4 o'rinli natija.
+  Hech narsa olib tashlanmadi: `engine='duckduckgo'`, `kind='academic'` va vertikal tool'lar barcha
+  engine'larga yetib boradi (kalitsiz OpenAlex 1 641 ms ishlab ko'rsatildi). `combine=true` ham shu
+  qoidani oladi. 6 ta yangi test: zanjir tarkibi, kalitsiz rad javob matni, vertikal ishlashi.
+- **16 ta qidiruv tooliga timeout qo'yildi.** Ular `fetchWithOptions`ni `timeoutMs`siz chaqirib, yordamchining
+  **30 000 ms** standart kutishida o'tirardi. O'lchangan sabab: `pro_fetch_news_search` bir so'rovda
+  **14 118 ms** da so'rovga aloqasiz 4 ta maqola qaytardi. Endi umumiy `SEARCH_TOOL_TIMEOUT_MS = 10 000`
+  bor (sog'lom kalitsiz indexlar 0,6–2,0 s: HN 696ms, iTunes 783ms, arXiv 804ms, npm 1,3s, Crossref 1,1s,
+  OpenAlex 2,0s — ya'ni eng sekin sog'lom indexdan besh baravar keng). Engine'lar reyestridagi 25 s o'zgarmadi:
+  u yo'lda har engine'ga ustida alohida budget qo'yilgan va `www.ebi.ac.uk` 15 s'dan oshgani o'lchangan.
+  Natija o'lcham bilan: `news_search` endi **10 030 ms** da to'xtaydi va aniq aytadi —
+  `HTTP_TIMEOUT: request 10000 ms ichida tugamadi`; `wiki_search` 789 ms, `forum_search` 798 ms.
+  `tests/search-tool-timeouts.test.ts` manba fayllarni o'qiydi: kelajakda timeout'siz qidiruv tooli
+  qo'shilsa suite yig'ilmaydi. `site_search` va `date_filter_search`ga `engine` parametri qo'shildi —
+  e'lon qilish yetmaskani ham chiqdi: qidiruv toifasi sxemasi `src/core/tool.ts`dagi qattiq ro'yxatdan
+  quriladi, ro'yxatda bo'lmagan parametr jimsiz kesib tashlanardi.
 
 ## [1.2.0] - 2026-11-08
 

@@ -1,6 +1,7 @@
 import { getCredential } from '../../core/credentials.js';
 import { defineTool } from '../../core/tool.js';
 import { fetchWithOptions } from '../../core/http-client.js';
+import { SEARCH_TOOL_TIMEOUT_MS } from '../../core/search-engines.js';
 import { result } from '../../core/format.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
 
@@ -32,6 +33,7 @@ export default defineTool({
     url.searchParams.set('q', query);
     url.searchParams.set('per_page', String(limit));
     const response = await fetchWithOptions(url.toString(), {
+      timeoutMs: SEARCH_TOOL_TIMEOUT_MS,
       headers: { authorization: 'Bearer ' + token, accept: 'application/vnd.github+json' },
       maxBytes: 2_000_000,
     });

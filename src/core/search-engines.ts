@@ -88,6 +88,21 @@ const MAX_BYTES = 2_000_000;
  */
 const SEARCH_TIMEOUT_MS = 25_000;
 
+/**
+ * The cap for a single search tool's own request.
+ *
+ * Two measured numbers set it. Healthy keyless indexes answer in 0.6-2.0 s (Hacker News 696 ms, iTunes
+ * 783 ms, arXiv 804 ms, npm 1.3 s, Crossref 1.1 s, OpenAlex 2.0 s). `pro_fetch_news_search` took
+ * **14 118 ms** for a query GDELT had no interest in — and it had no timeout at all, so it was sitting
+ * inside `fetchWithOptions`' 30 s default, waiting for an answer that was already useless.
+ *
+ * The engine registry keeps its 25 s, because `www.ebi.ac.uk` was measured above 15 s and that path is a
+ * fan-out with a per-engine budget on top. A single tool call has no budget above it, so it gets the
+ * tighter number: 10 s is five times the slowest healthy engine, and everything past that is a caller
+ * waiting for nothing.
+ */
+export const SEARCH_TOOL_TIMEOUT_MS = 10_000;
+
 function fail(status: number, blocked?: string): Error {
   return new Error(`HTTP ${status}${blocked ? ' ' + blocked : ''}`);
 }
@@ -894,6 +909,25 @@ export function engineById(id: string): SearchEngine | undefined {
 export function enginesFor(kind?: SearchEngineKind | 'general-first'): SearchEngine[] {
   if (kind === undefined || kind === 'general-first') return SEARCH_ENGINES;
   return SEARCH_ENGINES.filter((engine) => engine.kind === kind);
+}
+
+/**
+ * The engines allowed behind a plain web search: whole-web indexes that require a credential.
+ *
+ * The keyless `general` rows stay in the registry — `duckduckgo` is an undocumented endpoint that answered
+ * **HTTP 202 with zero results** on 2026-11-06, `marginalia` needs a compatibility user-agent, `searxng`
+ * needs an operator URL — but they are no longer in the default chain, because the chain did not stop with
+ * them. Measured on 2026-11-09: one quoted query missed Serper, DuckDuckGo, Hacker News, Wikipedia, npm,
+ * iTunes and OpenAlex in that order and was answered from **Crossref** — DOIs for a hosting question —
+ * after **10 145 ms**. A miss is not a result, and the caller cannot tell the difference from a page of
+ * confident links.
+ *
+ * Nothing is removed from the product. `engine='duckduckgo'`, `kind='academic'` and the vertical tools
+ * still reach every engine; what is gone is the silent fallback that turned "no key configured" into a
+ * wrong answer.
+ */
+export function generalWebEngines(): SearchEngine[] {
+  return SEARCH_ENGINES.filter((engine) => engine.kind === 'general' && engine.credentials.length > 0);
 }
 
 export interface EngineStatus {

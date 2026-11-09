@@ -19,6 +19,12 @@ export default defineTool({
       from: { type: 'string', description: 'Boshlanish sanasining aliasi, YYYY-MM-DD' },
       to: { type: 'string', description: 'Tugash sanasining aliasi, YYYY-MM-DD' },
       limit: { type: 'number', description: 'Natijalar soni (1-25)' },
+      engine: {
+        type: 'string',
+        description:
+          'Qaysi engine so‘ralsin. Bo‘sh = umumiy zanjir, u kalit talab qiladi; kalitsiz indexni ' +
+          'ataylab tanlash mumkin (masalan duckduckgo). Holat: pro_fetch_search_engines.',
+      },
     },
     required: ['query'],
   },
@@ -35,7 +41,8 @@ export default defineTool({
     const limitValue = Number(input.limit ?? 10);
     const limit = Number.isFinite(limitValue) ? Math.max(1, Math.min(25, Math.floor(limitValue))) : 10;
     let searchQuery = query + (after ? ' after:' + after : '') + (before ? ' before:' + before : '');
-    const searched = await searchWeb(searchQuery, limit);
+    const engine = typeof input.engine === 'string' ? input.engine.trim() : '';
+    const searched = await searchWeb(searchQuery, limit, { engine: engine || undefined });
     return result(
       JSON.stringify(
         {

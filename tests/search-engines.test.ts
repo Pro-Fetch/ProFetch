@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import '../src/loader.js';
 import { callTool } from '../src/router.js';
-import { SEARCH_ENGINES, engineById, engineStatuses, searchAcross, searchWeb } from '../src/core/search-providers.js';
+import {
+  SEARCH_ENGINES,
+  engineById,
+  enginesFor,
+  engineStatuses,
+  generalWebEngines,
+  searchAcross,
+  searchWeb,
+} from '../src/core/search-providers.js';
 import { getCredential } from '../src/core/credentials.js';
 import { hostReachable } from './helpers/liveGate.js';
 import { skipBlockWithout } from './helpers/env-guard.js';
@@ -123,21 +131,34 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
   it('carries on past an engine that answered with nothing', async () => {
     // The exact failure the registry exists for: HTTP 202 and no results is not an error, so a chain that
     // stops at the first non-throwing engine reports "no results" from one scraper's mood.
-    const answer = await searchWeb('paperless note taking app 2026', 6);
+    //
+    // Asked of a vertical, because a plain web search is credentialed-only now and a CI machine without a
+    // paid key could not prove this property through it at all. `academic` has six keyless indexes, and at
+    // least one of them answers empty for a query outside its catalogue.
+    const answer = await searchWeb('paperless note taking app 2026', 6, { kind: 'academic' });
     expect(answer.results.length).toBeGreaterThan(0);
     const empties = answer.failedProviders.filter((item) => item.reason === 'empty_answer');
     if (empties.length > 0) expect(answer.provider).toContain('fallback');
-    expect(answer.configured.length).toBeGreaterThan(5);
+    expect(answer.configured.length).toBeGreaterThan(3);
+  });
+
+  it('serves a plain web search only from credentialed whole-web indexes', () => {
+    // The rule that replaced the silent walk into academic metadata, pinned where the old behaviour lived.
+    const general = generalWebEngines();
+    expect(general.length).toBeGreaterThan(3);
+    expect(general.every((engine) => engine.kind === 'general' && engine.credentials.length > 0)).toBe(true);
+    expect(general.map((engine) => engine.id)).not.toContain('duckduckgo');
+    expect(general.map((engine) => engine.id)).not.toContain('searxng');
   });
 
   it('asks every usable engine in parallel and merges what comes back', async () => {
-    const merged = await searchAcross('sqlite wal checkpoint', 6);
+    const merged = await searchAcross('sqlite wal checkpoint', 6, { kind: 'academic' });
     expect(merged.results.length).toBeGreaterThan(0);
-    // Every engine in the registry is accounted for exactly once: it either ran and reported an outcome, or
-    // it was skipped with the reason. That is what a caller needs to tell "the web has nothing" apart from
-    // "this server has no keys" — the assertion above compared the ran-count with itself plus the skipped
-    // count, which could only fail, and it was the test that caught the mistake.
-    expect(merged.perEngine.length + merged.enginesSkipped.length).toBe(SEARCH_ENGINES.length);
+    // Every engine of the requested kind is accounted for exactly once: it either ran and reported an
+    // outcome, or it was skipped with the reason. That is what a caller needs to tell "the web has nothing"
+    // apart from "this server has no keys" — the assertion this replaced compared the ran-count with itself
+    // plus the skipped count, which could only fail, and it was the test that caught the mistake.
+    expect(merged.perEngine.length + merged.enginesSkipped.length).toBe(enginesFor('academic').length);
     expect(merged.enginesUsed.length).toBeGreaterThan(1);
     // Deduplication is the point of merging: the same page found by two engines must not fill the list.
     const urls = merged.results.map((item) => item.url);
@@ -189,7 +210,13 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     // with budget_ms=800 the same queries finished under 1.3 s with the same number of results. The
     // deadline is only honest if the timed-out engines are still reported — so a 1 ms budget, which no
     // network call can meet, must account for every engine that ran.
-    const result = await callTool('pro_fetch_web_search', { query: 'sqlite', combine: true, budget_ms: 1, limit: 5 });
+    const result = await callTool('pro_fetch_web_search', {
+      query: 'sqlite',
+      kind: 'academic',
+      combine: true,
+      budget_ms: 1,
+      limit: 5,
+    });
     expect(result.isError).toBeFalsy();
     const body = payload(result);
     expect(body.count).toBe(0);

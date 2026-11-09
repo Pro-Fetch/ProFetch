@@ -1,6 +1,7 @@
 import { getCredential } from '../../core/credentials.js';
 import { defineTool } from '../../core/tool.js';
 import { fetchWithOptions } from '../../core/http-client.js';
+import { SEARCH_TOOL_TIMEOUT_MS } from '../../core/search-engines.js';
 import { result } from '../../core/format.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
 
@@ -25,6 +26,7 @@ export default defineTool({
     const key = getCredential('SERPER_API_KEY');
     if (key) {
       const response = await fetchWithOptions('https://google.serper.dev/autocomplete', {
+        timeoutMs: SEARCH_TOOL_TIMEOUT_MS,
         method: 'POST',
         headers: { 'x-api-key': key, 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify({ q: query }),
@@ -46,6 +48,7 @@ export default defineTool({
     url.searchParams.set('client', 'firefox');
     url.searchParams.set('q', query);
     const response = await fetchWithOptions(url.toString(), {
+      timeoutMs: SEARCH_TOOL_TIMEOUT_MS,
       headers: { accept: 'application/json' },
       maxBytes: 500_000,
       cache: false,

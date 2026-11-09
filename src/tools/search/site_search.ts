@@ -16,6 +16,12 @@ export default defineTool({
       query: { type: 'string', description: "Qidiruv so'rovi" },
       site: { type: 'string', description: 'Qidiruv cheklanadigan host yoki domen' },
       limit: { type: 'number', description: 'Natijalar soni (1-25)' },
+      engine: {
+        type: 'string',
+        description:
+          'Qaysi engine so‘ralsin. Bo‘sh = umumiy zanjir, u kalit talab qiladi; kalitsiz indexni ' +
+          'ataylab tanlash mumkin (masalan duckduckgo). Holat: pro_fetch_search_engines.',
+      },
     },
     required: ['query', 'site'],
   },
@@ -33,7 +39,8 @@ export default defineTool({
     const limitValue = Number(input.limit ?? 10);
     const limit = Number.isFinite(limitValue) ? Math.max(1, Math.min(25, Math.floor(limitValue))) : 10;
     const searchQuery = `site:${site} ${query}`;
-    const searched = await searchWeb(searchQuery, limit);
+    const engine = typeof input.engine === 'string' ? input.engine.trim() : '';
+    const searched = await searchWeb(searchQuery, limit, { engine: engine || undefined });
     return result(
       JSON.stringify(
         { provider: searched.provider, query, site, count: searched.results.length, results: searched.results },

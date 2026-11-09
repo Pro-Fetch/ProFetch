@@ -2,6 +2,7 @@ import {
   SEARCH_ENGINES,
   engineById,
   enginesFor,
+  generalWebEngines,
   type SearchEngine,
   type SearchEngineKind,
   type WebSearchResult,
@@ -10,7 +11,7 @@ import { rankAndDedupeSearchResults } from './search-ranking.js';
 import { log } from './log.js';
 
 export type { WebSearchResult, SearchEngineKind };
-export { SEARCH_ENGINES, engineById, enginesFor, engineStatuses } from './search-engines.js';
+export { SEARCH_ENGINES, engineById, enginesFor, engineStatuses, generalWebEngines } from './search-engines.js';
 
 export interface SearchProviderResult {
   provider: string;
@@ -89,10 +90,14 @@ async function pool<T, R>(items: T[], size: number, run: (item: T) => Promise<R>
 /**
  * One answer from the best engine available.
  *
- * Order is the registry's: credentialed engines that index the whole web first, then the keyless general
- * engines, then the narrower ones. An engine that returns *nothing* counts as a miss — measured on
- * 2026-11-06, `html.duckduckgo.com` answered HTTP 202 with an empty page, which is neither an error nor an
- * answer, and stopping there would have reported "the web has nothing" from one scraper's mood.
+ * With no `kind`, the chain is `generalWebEngines()`: whole-web indexes that require a credential. The
+ * keyless rows are not in it — see that function for the measurement that ended them — and a server with
+ * no search key now says so instead of walking into academic metadata. With a `kind`, the caller asked for
+ * a vertical and every engine of that kind is eligible, keyless included.
+ *
+ * An engine that returns *nothing* counts as a miss — measured on 2026-11-06, `html.duckduckgo.com`
+ * answered HTTP 202 with an empty page, which is neither an error nor an answer, and stopping there would
+ * have reported "the web has nothing" from one scraper's mood.
  */
 export async function searchWeb(
   query: string,
@@ -116,7 +121,7 @@ export async function searchWeb(
     }
     chain = [named];
   } else {
-    chain = enginesFor(options.kind);
+    chain = options.kind ? enginesFor(options.kind) : generalWebEngines();
   }
 
   const configured: string[] = [];
@@ -129,6 +134,21 @@ export async function searchWeb(
     }
     configured.push(engine.label);
     runnable.push(engine);
+  }
+
+  if (runnable.length === 0) {
+    const wanted = [...new Set(chain.flatMap((engine) => engine.credentials))].join(' | ');
+    throw new Error(
+      options.kind
+        ? `"${options.kind}" turidagi ${chain.length} engine'dan biri ham sozlanmagan` +
+            (wanted ? ` — kerak: ${wanted}` : ' — ulardan birida sozlama talab qilinadi') +
+            '. Hech qanday urinish qilinmadi. Holat: pro_fetch_search_engines.'
+        : `Web qidiruv kalit talab qiladi. Qabul qilinadiganlardan biri kerak: ${wanted}. ` +
+            'Hozir hech biri sozlanmagan, shuning uchun urinish ham qilinmadi — eski zanjir kalitsiz engine’lardan ' +
+            'akademik metadata’gacha tushib, so‘rovga aloqador bo‘lmagan natijani "javob" qilib qaytarardi. ' +
+            "Bepul vertikal qidiruv ochiq: kind='academic' | 'news' | 'community' | 'packages' | 'reference' | 'media', " +
+            "yoki engine='wikipedia' / engine='hackernews' / engine='google-news'. Ro‘yxat va holat: pro_fetch_search_engines.",
+    );
   }
 
   const failedProviders: SearchProviderResult['failedProviders'] = [];
@@ -220,7 +240,7 @@ export async function searchAcross(
     }
     chosen = options.engines.map((name) => engineById(name)!);
   } else {
-    chosen = enginesFor(options.kind);
+    chosen = options.kind ? enginesFor(options.kind) : generalWebEngines();
   }
 
   const enginesSkipped: Array<{ engine: string; needs: string[] }> = [];
@@ -228,6 +248,15 @@ export async function searchAcross(
   for (const engine of chosen) {
     if (engine.configured()) runnable.push(engine);
     else enginesSkipped.push({ engine: engine.id, needs: [...engine.credentials, ...engine.settings] });
+  }
+
+  if (runnable.length === 0) {
+    const wanted = [...new Set(chosen.flatMap((engine) => [...engine.credentials, ...engine.settings]))].join(' | ');
+    throw new Error(
+      `Birlashtirilgan qidiruv uchun ham hech bir engine sozlanmagan (${chosen.length} nomzod; kerak: ${wanted}). ` +
+        "Urinish qilinmadi. Vertikal bo'yicha so'rasangiz kalitsiz engine'lar ochiq: kind='academic' | 'news' | " +
+        "'community' | 'packages' | 'reference' | 'media'. Holat: pro_fetch_search_engines.",
+    );
   }
 
   const settled = await pool(

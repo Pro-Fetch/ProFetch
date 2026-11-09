@@ -873,18 +873,23 @@ describe('implemented tool behavior', () => {
         );
       }),
     );
-    const web = await dispatch('pro_fetch_web_search', { query: 'urban trees', limit: 2 });
+    // Named explicitly on purpose. A plain `pro_fetch_web_search` is served only by credentialed whole-web
+    // indexes now; DuckDuckGo stays reachable as an engine, and this test is about its parser, not about
+    // which engine a keyless server happens to fall back to.
+    const web = await dispatch('pro_fetch_web_search', { query: 'urban trees', limit: 2, engine: 'duckduckgo' });
     expect(JSON.parse(web.content[0].text)).toMatchObject({ provider: 'DuckDuckGo', count: 1 });
     const site = await dispatch('pro_fetch_site_search', {
       query: 'API reference',
       site: 'docs.example.org',
       limit: 2,
+      engine: 'duckduckgo',
     });
     expect(JSON.parse(site.content[0].text)).toMatchObject({ site: 'docs.example.org', count: 1 });
     const date = await dispatch('pro_fetch_date_filter_search', {
       query: 'urban trees',
       after: '2025-01-01',
       before: '2025-12-31',
+      engine: 'duckduckgo',
     });
     expect(JSON.parse(date.content[0].text).dateRange).toEqual({ after: '2025-01-01', before: '2025-12-31' });
     const invalidDate = await dispatch('pro_fetch_date_filter_search', { query: 'urban trees', after: 'yesterday' });

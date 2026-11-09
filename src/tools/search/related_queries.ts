@@ -1,5 +1,6 @@
 import { defineTool } from '../../core/tool.js';
 import { fetchWithOptions } from '../../core/http-client.js';
+import { SEARCH_TOOL_TIMEOUT_MS } from '../../core/search-engines.js';
 import { result } from '../../core/format.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
 
@@ -25,6 +26,7 @@ export default defineTool({
     url.searchParams.set('client', 'firefox');
     url.searchParams.set('q', query);
     const response = await fetchWithOptions(url.toString(), {
+      timeoutMs: SEARCH_TOOL_TIMEOUT_MS,
       headers: { accept: 'application/json' },
       maxBytes: 500_000,
     });

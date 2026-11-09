@@ -1,5 +1,6 @@
 import { defineTool } from '../../core/tool.js';
 import { fetchWithOptions } from '../../core/http-client.js';
+import { SEARCH_TOOL_TIMEOUT_MS } from '../../core/search-engines.js';
 import { result, fail } from '../../core/format.js';
 import { USER_AGENT } from '../../core/version.js';
 import { parseUpstreamJson } from '../../core/json-response.js';
@@ -91,6 +92,7 @@ async function fromRemoteOk(query: string, limit: number): Promise<{ results: Jo
   url.searchParams.set('tag', query);
   url.searchParams.set('limit', String(limit));
   const response = await fetchWithOptions(url.toString(), {
+    timeoutMs: SEARCH_TOOL_TIMEOUT_MS,
     headers: { accept: 'application/json', 'user-agent': `${USER_AGENT} (+https://remoteok.com)` },
     maxBytes: 3_000_000,
   });
@@ -104,6 +106,7 @@ async function fromRemotive(query: string, limit: number): Promise<{ results: Jo
   url.searchParams.set('search', query);
   url.searchParams.set('limit', String(Math.max(10, limit)));
   const response = await fetchWithOptions(url.toString(), {
+    timeoutMs: SEARCH_TOOL_TIMEOUT_MS,
     headers: { accept: 'application/json' },
     maxBytes: 3_000_000,
   });

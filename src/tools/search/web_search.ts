@@ -25,9 +25,11 @@ const KINDS: SearchEngineKind[] = ['general', 'academic', 'news', 'community', '
 export default defineTool({
   name: 'pro_fetch_web_search',
   description:
-    'Web qidiruv: 23 engine — kalit bilan Serper/Brave/Tavily/Exa/SerpAPI/Linkup/DataForSEO/Google CSE/Perplexity, ' +
-    'kalitsiz DuckDuckGo/Marginalia/SearXNG/Hacker News/Wikipedia/npm/iTunes/OpenAlex/Crossref/arXiv/PubMed/' +
-    'Europe PMC/DOAJ/Google News. Bitta engine, zanjir yoki hammasini birlashtirib so‘rash mumkin.',
+    'Web qidiruv. Umumiy zanjir endi FAQAT kalit bilan ishlaydi: Serper/Brave/Tavily/Exa/SerpAPI/Linkup/' +
+    'DataForSEO/Google CSE/Perplexity. Kalit bo‘lmasa urinish ham qilinmaydi va xato qaytadi — akademik ' +
+    'metadata “natija” bo‘lib qaytmaydi. Kalitsiz engine’lar vertikal sifatida ochiq: ' +
+    'kind=academic|news|community|packages|reference|media yoki engine=wikipedia|hackernews|google-news|' +
+    'duckduckgo. Bitta engine, zanjir yoki combine=true bilan so‘rash mumkin; holat: pro_fetch_search_engines.',
   category: 'search',
   inputSchema: {
     type: 'object',
