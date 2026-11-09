@@ -37,12 +37,37 @@
 
 import type { BlockPage } from './block-page.js';
 
-/** A search-results endpoint: the query is in the URL, and the page is the engine's index, not a document. */
-const SERP_RULES: Array<{ host: RegExp; path: RegExp; engine: string }> = [
-  { host: /(^|\.)google\.[a-z.]{2,9}$/i, path: /^\/(search|images|news|maps)\b/i, engine: 'Google' },
+/**
+ * A search-results endpoint: the query is in the URL, and the page is the engine's index, not a document.
+ *
+ * `needsQuery` (default true) is what makes that sentence true in code. Measured false positive:
+ * `https://brave.com/search/api/` — a pricing page — was refused as a Brave results page, because the host
+ * alternation matched the bare company domain and the path merely began with `/search`. A results page
+ * without a query returns no results, so requiring one costs the policy nothing and stops it eating
+ * documentation.
+ *
+ * `allow` lists paths the engine itself says are not results. Google's robots.txt (read on 2026-11-09)
+ * carries `Allow: /search/about` and `Allow: /search/howsearchworks` next to `Disallow: /search` — refusing
+ * those two contradicted the very source the rule claims to respect.
+ */
+const SERP_RULES: Array<{
+  host: RegExp;
+  path: RegExp;
+  engine: string;
+  needsQuery?: boolean;
+  allow?: RegExp;
+}> = [
+  {
+    host: /(^|\.)google\.[a-z.]{2,9}$/i,
+    path: /^\/(search|images|news|maps)\b/i,
+    engine: 'Google',
+    allow: /^\/search\/(about|howsearchworks)\/?$/i,
+  },
   { host: /(^|www\.)bing\.com$/i, path: /^\/(search|images|news)\b/i, engine: 'Bing' },
   { host: /(^|www\.)duckduckgo\.com$/i, path: /^\/(html|lite)?\/?\?/i, engine: 'DuckDuckGo' },
-  { host: /(^|search\.)brave\.com$/i, path: /^\/search\b/i, engine: 'Brave' },
+  // `/search` and nothing after it: `brave.com/search/api/` is the company's own pricing page, and a rule
+  // that matched its prefix refused a document for the shape of a results URL.
+  { host: /(^|search\.)brave\.com$/i, path: /^\/search\/?(\?|$)/i, engine: 'Brave' },
   { host: /(^|www\.)startpage\.com$/i, path: /^\/sp\/(search|do)\b/i, engine: 'Startpage' },
   { host: /(^|www\.)ecosia\.org$/i, path: /^\/search\b/i, engine: 'Ecosia' },
   { host: /(^|www\.)mojeek\.com$/i, path: /^\/search\b/i, engine: 'Mojeek' },
@@ -68,9 +93,14 @@ export function serpRefusal(rawUrl: string | URL): { engine: string; url: string
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
   for (const rule of SERP_RULES) {
-    if (rule.host.test(url.hostname) && rule.path.test(url.pathname + url.search)) {
-      return { engine: rule.engine, url: url.toString() };
-    }
+    if (!rule.host.test(url.hostname)) continue;
+    // The engine says this path is a document, not its index.
+    if (rule.allow?.test(url.pathname)) continue;
+    if (!rule.path.test(url.pathname + url.search)) continue;
+    // A results page is addressed by its query. Without one there are no results to harvest, and refusing
+    // the URL anyway is how documentation gets eaten — which is what happened to `brave.com/search/api/`.
+    if (rule.needsQuery !== false && !url.search) continue;
+    return { engine: rule.engine, url: url.toString() };
   }
   return null;
 }

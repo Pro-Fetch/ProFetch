@@ -70,6 +70,19 @@ versiya semver bo'yicha.
   e'lon qilish yetmaskani ham chiqdi: qidiruv toifasi sxemasi `src/core/tool.ts`dagi qattiq ro'yxatdan
   quriladi, ro'yxatda bo'lmagan parametr jimsiz kesib tashlanardi.
 
+### Fixed
+
+- **SERP qo'riqchisi hujjatlarni ham "natija sahifasi" deb rad qilayotgani chiqdi.** Brave narx sahifasini
+  o'qishda `https://brave.com/search/api/` javob berdi: «Brave qidiruv natijalari sahifasi o'qilmaydi».
+  Qoida host`ni kompaniya domeni bilan va path'ni `/search` prefiksi bilan solishtirar, natijada hujjat
+  indeks deb hisoblanardi. Google tomonida ham xuddi shu ziddiyat bor edi: `google.com/search/about` va
+  `/search/howsearchworks` rad etilardi, g'olibki Google'ning robots.txt (bugun o'qildi) bu ikki yo'lni
+  `Allow` deb belgilagan. Endi qoida **natija sahifasi so'rovi bilan manzilga tushini** talab qiladi
+  (so'rovsiz natija sahifasi yo'q — demun qilishning hojati yo'q) va provayder o'zi hujjat deb belgilagan
+  yo'llar alohida ro'yxatdan o'tadi. Haqiqiy natija URL'lari avvalgidek rad etiladi — buni `still refuses
+  the same hosts once a query makes them an index` testi tekshiradi. Ikkita yangi test bilan crawl-policy
+  13 → 15 ta; jonli qayta tekshirish: `brave.com/search/api/` endi 200 va o'qiladi (1 590 ms).
+
 ## [1.2.0] - 2026-11-08
 
 ### Changed

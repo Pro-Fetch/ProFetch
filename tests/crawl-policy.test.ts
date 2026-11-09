@@ -60,6 +60,36 @@ describe('search-result pages are not documents', () => {
     }
   });
 
+  it('does not refuse a document because its path looks like a results prefix', () => {
+    // Measured on 2026-11-09 while reading Brave's own pricing page: `https://brave.com/search/api/` came
+    // back as "Brave qidiruv natijalari sahifasi o'qilmaydi". The rule matched the company domain and the
+    // first path segment. A results page is addressed by its query — without one there is nothing to
+    // harvest — so requiring the query is what separates the index from the documentation.
+    for (const url of [
+      'https://brave.com/search/api/',
+      'https://brave.com/search/api',
+      'https://www.google.com/search/about/',
+      'https://www.google.com/search/howsearchworks',
+      'https://www.google.com/search',
+      'https://www.bing.com/search',
+    ]) {
+      expect(serpRefusal(url), url).toBeNull();
+    }
+    // The first two are paths Google's robots.txt marks `Allow:` next to `Disallow: /search`. Refusing them
+    // meant the guard contradicted the source it claims to respect.
+  });
+
+  it('still refuses the same hosts once a query makes them an index', () => {
+    for (const [url, engine] of [
+      ['https://brave.com/search?q=sqlite', 'Brave'],
+      ['https://search.brave.com/search?q=sqlite', 'Brave'],
+      ['https://www.google.com/search?q=sqlite&hl=en', 'Google'],
+      ['https://www.bing.com/search?q=sqlite', 'Bing'],
+    ] as const) {
+      expect(serpRefusal(url)?.engine, url).toBe(engine);
+    }
+  });
+
   it('ignores a malformed address rather than throwing from a policy check', () => {
     expect(serpRefusal('not a url at all')).toBeNull();
     expect(serpRefusal('ftp://google.com/search?q=1')).toBeNull();
