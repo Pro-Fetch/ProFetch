@@ -14,7 +14,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | Kategoriya | Tool | Nima bor |
 |---|---:|---|
 | `github` | 49 | GitHub API: repos, code, issues, PRs, releases, actions, advisories |
-| `browser_use` | 44 | — |
+| `browser_use` | 44 | Capability-aware browser engine: sessions, element model, preflighted actions, coverage |
 | `browser` | 41 | Playwright automation: navigate, click, fill, extract, tabs, cookies |
 | `convert` | 30 | Format conversion: HTML/MD, CSV/JSON, image, units, encodings, etc. |
 | `collaboration` | 28 | Slack / Jira / Linear / Notion issues, comments, transitions |
@@ -30,7 +30,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `security` | 24 | OSV/SBOM scanning, header/CSP checks, secrets & CVE lookups |
 | `git` | 23 | Local git: status, diff, log, blame, branch operations |
 | `http` | 20 | HTTP client verbs, headers, retries, multipart, SSE/websocket |
-| `prohuman` | 20 | — |
+| `prohuman` | 20 | Human-like pointer driver: reach, hover, drag and pause over browser_use sessions |
 | `knowledge` | 18 | Local knowledge store / embeddings / retrieval |
 | `productivity` | 18 | Tasks, notes, calendars, snippets (provider-backed) |
 | `storage` | 16 | S3 / Drive / Dropbox / OneDrive file operations |
@@ -41,13 +41,13 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `apitest` | 12 | REST/GraphQL/OpenAPI/SOAP: fetch, parse, validate, mock, diff, probe |
 | `auth` | 12 | Sessions, cookies, basic/bearer fetch, OAuth device flow, scope audit |
 | `i18n` | 12 | Translate, transliterate, locale & RTL helpers |
-| `sql` | 11 | — |
+| `sql` | 11 | SQL lexer, statement analysis and formatting |
 | `monitoring` | 10 | Watches, health checks, scheduled fetch & change alerts |
 | `encoding` | 9 | Base64/URL/hex/hash/compress codecs |
 | `imageproc` | 9 | Image processing: resize, crop, EXIF, QR, OCR pre/post |
-| `qr` | 9 | — |
-| `evidence` | 8 | — |
-| `index` | 8 | — |
+| `qr` | 9 | QR generation: GF(256) arithmetic, layout, tables, encoding |
+| `evidence` | 8 | Evidence store: seal, check, diff, bundle, export, reseal |
+| `index` | 8 | Local index: put, fetch, search, forget, rebuild, authority, due plans |
 | `schema` | 6 | JSON Schema / validation / inference helpers |
 | `llm` | 5 | LLM gateway: complete, embed, structured output |
 | `opendata` | 5 | Public open-data providers (Crossref, OpenLibrary, Patents, GDELT) |
@@ -117,6 +117,8 @@ _GitHub API: repos, code, issues, PRs, releases, actions, advisories_
 - `pro_repo_audit` `S ▸` — Full GitHub repository audit in one call: metadata, README, directory structure, languages, license, contributors, commit activity, open issues and pull requests, releases, topics, CI status and security advisories. Use this instead of calling a dozen GitHub tools by hand.
 
 ## browser_use (44)
+
+_Capability-aware browser engine: sessions, element model, preflighted actions, coverage_
 
 - `pro_browser_use_act` `  ·` — Perform one action on an element the session has reported: click, type, press, check, select, hover, focus or scroll. Every action is preflighted (stale identity, covered element, wrong control kind and destructive labels are refused before anything runs) and then verified by re-reading the page.
 - `pro_browser_use_action_preflight` `  ·` — Run the action policy against a node list the caller supplies: does the identity resolve, is the element reachable, does this control take this value, and is the label one this engine will act on without a human? Answers with the reason and the point it would use.
@@ -542,7 +544,7 @@ _Web, news, image, academic & vertical search (Serper/Brave/DDG)_
 - `pro_fetch_search_suggest` `  ▸` — Get autocomplete suggestions via Serper (Google) with a Google Suggest fallback
 - `pro_fetch_site_search` `  ▸` — Search a host or domain with the web search site operator
 - `pro_fetch_video_search` `  ▸` — Search YouTube videos (requires YOUTUBE_API_KEY)
-- `pro_fetch_web_search` `  ▸` — Web qidiruv: 23 engine — kalit bilan Serper/Brave/Tavily/Exa/SerpAPI/Linkup/DataForSEO/Google CSE/Perplexity, kalitsiz DuckDuckGo/Marginalia/SearXNG/Hacker News/Wikipedia/npm/iTunes/OpenAlex/Crossref/arXiv/PubMed/Europe PMC/DOAJ/Google News. Bitta engine, zanjir yoki hammasini birlashtirib so‘rash mumkin.
+- `pro_fetch_web_search` `  ▸` — Web qidiruv. Umumiy zanjir endi FAQAT kalit bilan ishlaydi: Serper/Brave/Tavily/Exa/SerpAPI/Linkup/DataForSEO/Google CSE/Perplexity. Kalit bo‘lmasa urinish ham qilinmaydi va xato qaytadi — akademik metadata “natija” bo‘lib qaytmaydi. Kalitsiz engine’lar vertikal sifatida ochiq: kind=academic|news|community|packages|reference|media yoki engine=wikipedia|hackernews|google-news|duckduckgo. Bitta engine, zanjir yoki combine=true bilan so‘rash mumkin; holat: pro_fetch_search_engines.
 - `pro_fetch_wiki_search` `  ▸` — Search English Wikipedia articles
 
 ## security (24)
@@ -628,6 +630,8 @@ _HTTP client verbs, headers, retries, multipart, SSE/websocket_
 - `pro_fetch_websocket_listen` `  ▸` — Connect to a WebSocket and capture first N messages
 
 ## prohuman (20)
+
+_Human-like pointer driver: reach, hover, drag and pause over browser_use sessions_
 
 - `pro_human_attach` `  ·` — Attach a ProHuman driver to an open browser_use session and install the page-side event recorder. Nothing moves until pro_human_start. Identity and consent are required.
 - `pro_human_click` `  ·` — Reach a target, settle on it, press, release and pause afterwards. Refused unless the session says whose site it is and that writing is allowed.
@@ -848,6 +852,8 @@ _Translate, transliterate, locale & RTL helpers_
 
 ## sql (11)
 
+_SQL lexer, statement analysis and formatting_
+
 - `pro_sql_analyse` `  ·` — SQL so‘rovini tahlil qilish: qanday amal, qaysi jadvallar, murakkablik, parameterlar, xavf darajasi. WHERE clausesiz DELETE/UPDATE alohida belgilanadi. So‘rov bajarilmaydi — faqat o‘qiladi va tahlil qilinadi.
 - `pro_sql_check` `  ·` — SQL sintaktik tekshiruv: izoh va satr ichida yopilmagan qavs, yakunlanmagan dollar-quoted blok, nomlanmagan parameterlar, bo‘sh SELECT ustuni. Bajarilmaydi — faqat tekshiradi.
 - `pro_sql_complexity` `  ·` — So‘rov murakkabligi: token soni, chuqurlik, subquery, join, union, jadval soni va qator ko‘payishi (fanout). Oddiy so‘rov uchun barchasi nol bo‘ladi.
@@ -905,6 +911,8 @@ _Image processing: resize, crop, EXIF, QR, OCR pre/post_
 
 ## qr (9)
 
+_QR generation: GF(256) arithmetic, layout, tables, encoding_
+
 - `pro_qr_capacity` `  ·` — QR sig‘imi: berilgan versiya va darajada nechta modullar, nechta kodli so‘z, nechta ma’lumot so‘zi va taxminan nechta belgi sig‘adi. Geometriyadan hisoblanadi, jadvaldan o‘qilmaydi.
 - `pro_qr_decode` `  ·` — QR matritsasini o‘qish: format ma’lumotidan daraja va niqob aniqlanadi, xato tuzatish qo‘llaniladi, matn qaytariladi. Kiritish — har bir qatori 0/1 yoki #/. belgilaridan iborat matritsa.
 - `pro_qr_encode` `  ·` — Matndan QR belgisi yasash: segment rejimi (raqam / harf-arif / bayt), versiya, xato tuzatish darajasi, niqoblash, modul matritsasi, PNG yoki SVG. Chiqishda "round trip tekshirildi, skaner bilan tekshirilmadi" deb yoziladi — bu farq yashirilmaydi.
@@ -917,6 +925,8 @@ _Image processing: resize, crop, EXIF, QR, OCR pre/post_
 
 ## evidence (8)
 
+_Evidence store: seal, check, diff, bundle, export, reseal_
+
 - `pro_evidence_bundle` `  ▸` — Check many receipts in one call and produce a report: per-item verdict (unchanged, changed, unreachable, missing), measured time each took, and summary counts.
 - `pro_evidence_check` `  ▸` — Re-check a sealed receipt: fetch the source again (or take the material you pass) and report unchanged, changed with line counts, or unreachable with the reason the look failed.
 - `pro_evidence_diff` `  ▸` — Line-by-line drift against a sealed receipt: added, removed and untouched counts plus the first changed lines. Without content the live source is fetched and compared with what was sealed.
@@ -927,6 +937,8 @@ _Image processing: resize, crop, EXIF, QR, OCR pre/post_
 - `pro_evidence_stats` `  ▸` — Summarise the evidence store: receipts held, bytes and words sealed, how many were re-checked, and the verdict counts of the last check (unchanged, changed, unreachable, never checked).
 
 ## index (8)
+
+_Local index: put, fetch, search, forget, rebuild, authority, due plans_
 
 - `pro_crawl_plan_due` `  ▸` — Qayta o'qish navbatidagi sahifalar: muddati yetganlar eng avval. Interval sahifa turiga qarab (news 1 soat, docs 1 kun, page 1 hafta, reference 1 oy) va kuzatilgan o‘zgarishlar bilan qisqaradi.
 - `pro_index_authority` `  ▸` — Indeksdagi havolalardan sayt ochkolari: nechta kirish havola va ular nechta XILO saytdan keldi. Faqat o‘zimiz o‘qigan sahifalar hisobga olinadi.
