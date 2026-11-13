@@ -124,8 +124,8 @@ export function isToolVisibleInProfile(
 
 /** A profile controls which tool *schemas* reach the model, not which tools may run.
  *
- * By design this is visibility, not authorization: the `smart` profile advertises 5 meta-tools,
- * and `pro_fetch_tool_execute` exists precisely to invoke the other 554 on demand. Blocking
+ * By design this is visibility, not authorization: the `smart` profile advertises 12 meta-tools,
+ * and `pro_fetch_tool_execute` exists precisely to invoke the other 749 on demand. Blocking
  * hidden tools at dispatch would make `smart` useless.
  *
  * Authorization is a separate, enforced layer — `PRO_FETCH_ALLOWED_TOOLS`,
