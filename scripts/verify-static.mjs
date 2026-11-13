@@ -155,6 +155,13 @@ try {
     ['docs/ARCHITECTURE.md', /verify:registry` \((\d+)\/(\d+),/, countManifest.total, 1],
     ['docs/ARCHITECTURE.md', /verify:registry` \((\d+)\/(\d+),/, countManifest.categoryCount, 2],
     ['docs/ARCHITECTURE.md', /`test` \((\d+)\)/, countManifest.testCount],
+    // The README carries the same number twice — in the badge and in the prose — and until now neither
+    // was compared to anything. Both were correct today (the suite was run: 121 files, 2012 tests), which
+    // is exactly the state in which a stale number is invisible: the next test file added makes the README
+    // false without failing anything.
+    ['README.md', /badge\/tests-(\d+)%20passing/, countManifest.testCount],
+    ['README.md', /\*\*(\d+) tests\*\* across (\d+) files/, countManifest.testCount],
+    ['README.md', /\*\*(\d+) tests\*\* across (\d+) files/, countManifest.testFiles, 2],
   ];
   for (const [file, pattern, expected, group = 1] of proseCounts) {
     const text = await read(file).catch(() => '');

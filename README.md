@@ -11,9 +11,9 @@
   <b>761 MCP tools behind one server — one stdio process, no sidecar, no account.</b> Fetch,
   crawl, extract, convert, OCR, web and academic
   search, deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV
-  and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The default profile advertises 12
-  meta-tools that reach all 761, so a client with a small context window loses nothing except
-  schema bytes.
+  and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The `smart` profile advertises 12 meta-tools
+  that reach all 761, so a client with a small context window loses nothing except schema bytes; the
+  default profile is `standard`, which advertises 201 tools directly.
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-2012%20passing-success?logo=vitest"></a>
-  <a href="https://github.com/Pro-Fetch/ProFetch/actions"><img alt="CI" src="https://img.shields.io/badge/CI-9%2F9%20jobs-2f2f34?logo=githubactions"></a>
+  <a href="https://github.com/Pro-Fetch/ProFetch/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Pro-Fetch/ProFetch/actions/workflows/ci.yml/badge.svg?branch=main"></a>
 </p>
 
 ---
@@ -49,6 +49,10 @@ npx -y @pro-fetch/mcp
   }
 }
 ```
+
+The `PRO_FETCH_PROFILE` line is the optional part: it advertises the 12 meta-tools instead of the
+default `standard` surface of 201 tools. Remove it and nothing else changes — every tool still runs,
+only the number of schemas the model sees differs.
 
 Copy-ready file: [`mcp.example.json`](./mcp.example.json). Node 22.13 or newer, required by
 `pdfjs-dist@6`; everything else is optional and degrades with a named error.
@@ -386,6 +390,13 @@ and Naver. The refusal names the engine whose index was being read and the route
 `pro_fetch_web_search`, backed by 23 registered engines each labelled with how it is accessed. The site itself
 is not blocked — `https://news.google.com/rss/topstories` and `https://github.com/…` are documents and are
 fetched.
+
+These are two different requests, and the README should not let them be confused: what is refused here is
+**opening a rendered results page as if it were a document**. Asking a search provider a question is a
+different call, and the engine registry labels how each one obtains its data. Two rows are labelled
+`serp_scraping_reseller` — the results are Google's, scraped and resold — and a search that lands on one of
+them returns a `legal_warning` field saying so, rather than a clean-looking list. Calling it is the
+operator's decision; the server does not hide which decision was made.
 
 **A login or paywall is an answer, and it is labelled as one.** When the redirect chain lands on a sign-in or
 subscribe path, or the body is short and its only real content is "Sign in to continue" / "Subscribe to read",
