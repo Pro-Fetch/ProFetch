@@ -20,8 +20,9 @@ bytes in hand — never from a hostname list, because such a list is last year's
 | 12 or fewer words with scripts | **render** |
 
 The two thresholds come from live readings rather than from taste. `quotes.toscrape.com/js/` answered 4 words
-over HTTP and 247 in a browser. `example.com` answered 24 words with one analytics script: escalating it cost
-1218 ms and added nothing, so "few words plus a script" alone is not evidence of a shell.
+over HTTP and 247 in a browser. `example.com` answered 24 words with one analytics script: the HTTP read cost
+504 ms and escalating it cost 1218 ms to fetch what was already there, so "few words plus a script" alone is
+not evidence of a shell.
 
 Every answer states which stage produced it:
 
@@ -56,7 +57,8 @@ not flatter one side:
 | second page | — | 1501 ms | 1 process, 2 reads |
 | third page | — | 1496 ms | 1 process, 3 reads |
 
-One process served all three; the saving on the later reads is the startup that is no longer paid.
+One process served all three; the saving on the later reads is the startup that is no longer paid — 2380 ms
+for the first read against 1501 ms for the second, about 880 ms.
 
 Bounds, all clamped, all reported by `pro_fetch_browser_metrics`:
 
@@ -98,6 +100,9 @@ not say what an aborted request would have carried, so no byte figure is reporte
 
 Interactive tools never inherit the default: screenshots and sessions run on sessions, where an image is the
 point.
+
+**Switch.** `PRO_FETCH_BLOCK_RESOURCES=none` (or an empty value) turns the refusal off; a comma list replaces
+the default set (`src/core/resource-policy.ts`).
 
 ## 4. The sub-resource guard in managed sessions
 

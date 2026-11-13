@@ -30,6 +30,10 @@
   [Access control](#access-control) · [One round trip](#one-round-trip-instead-of-three) ·
   [The workflow gate](#the-workflow-gate) · [Limits](#limits-that-do-not-move) ·
   [Simple and MAX](#simple-and-max-mode) · [Optional binaries](#optional-binaries) ·
+  [Reading a page](#reading-a-page-that-is-not-in-the-bytes) ·
+  [A document](#a-document-not-a-blob-of-markdown) ·
+  [A crawl](#a-crawl-that-survives-its-process) ·
+  [Rules about other servers](#rules-this-server-keeps-about-other-peoples-servers) ·
   [Verification](#verification) · [Categories](#categories)
 
 ## Run it
@@ -230,94 +234,22 @@ SQLite needs no system binary — it uses the bundled `better-sqlite3` driver, a
 only a fallback. On Windows, npm tools invoke `npm-cli.js` through `process.execPath`, so `npm audit`,
 `npm outdated` and license reports work there without a shell shim.
 
-### A page that is not there yet
+## Reading a page that is not in the bytes
 
 A server can answer `200 OK` with an instruction to build a page rather than the page: a few words of
 navigation, an empty `<div id="root">`, and a script that fills it in. Read as-is, that is an empty
-document with a healthy status, and the caller has no way to see that it was told nothing.
+document with a healthy status.
 
-So the reader runs in two stages. The first stage is a plain HTTP request. If what came back is an HTML
-shell, the second stage reads the same address in a headless browser and returns what the site actually
-drew. Every answer names the stage that produced it:
+So the reader runs in two stages — plain HTTP first, then the same address in a headless browser when the
+bytes are a shell — and every answer names the stage that produced it in a `method` field: `http` is what the
+server sent, `browser` is what the site drew after running its scripts.
 
-```
-status: 200 | text/html; charset=utf-8 | ~375 token | method: browser (4 words came back with 2 script
-tag(s) — an HTML shell that scripts fill in, 2213ms)
-```
+The decision rules, the process pool that makes the second stage cheap, the resource policy and the
+measured cost of each are in **[docs/BROWSER.md](./docs/BROWSER.md)**. They were written here as well, and
+two copies of the same table is how one of them ends up lying.
 
-The decision is taken from the response, never from a list of hostnames — those are last year's snapshot.
-A page with real text keeps its HTTP answer even when it carries scripts: measured on `example.com`,
-24 words of markdown and one script tag stay `method: http` at 504 ms, while the same request in a
-browser costs 1218 ms to fetch what was already there. A refusal (`blocked`) is never re-read in a
-browser: a host that said no is not a page that failed to paint. When Playwright is missing, the HTTP
-document still comes back with the reason attached instead of the call failing.
 
-`PRO_FETCH_BROWSER_ESCALATION=0` turns the second stage off server-wide, and a caller can override either
-way per request with `escalate`. The two readings are stored in separate cache slots: an HTTP-only answer
-is never handed to someone who asked for the rendered page.
-
-### What the browser stage costs, and what is reused
-
-Starting Chromium costs time and memory, so rendered reads run on a small pool of processes rather than one
-process per page. Measured on three JavaScript-rendered pages in a row, same machine, same build:
-
-| Read        | Cold start | Browser stage | Pool after the read |
-| ----------- | ---------- | ------------- | ------------------- |
-| first page  | 331 ms     | 2380 ms       | 1 process, 1 read   |
-| second page | —          | 1501 ms       | 1 process, 2 reads  |
-| third page  | —          | 1496 ms       | 1 process, 3 reads  |
-
-One process served all three, and the saving on the second and third read is the ~880 ms of startup that is
-no longer paid. Reuse stops at the process: **every read gets a fresh browser context, and that context is
-closed when the read returns**, so cookies, `localStorage` and service-worker state cannot walk from one site
-into the next answer. A pool that shared a context between sites would be a cross-site leak built to save a
-millisecond.
-
-| Variable                           | Default | What it bounds                                            |
-| ---------------------------------- | ------- | --------------------------------------------------------- |
-| `PRO_FETCH_BROWSER_POOL_SIZE`      | 2       | memory — every entry is a separate process                |
-| `PRO_FETCH_BROWSER_POOL_MAX_PAGES` | 50      | growth — a process is retired and restarted past this     |
-| `PRO_FETCH_BROWSER_POOL_IDLE_MS`   | 60000   | an untouched process is swept on the next acquisition     |
-| `PRO_FETCH_BROWSER_POOL_WAIT_MS`   | 30000   | queue deadline, then `BRAUSER_HAVZASI_TOYIB` names itself |
-
-The size and page ceilings are two of the limits MAX mode refuses to lift: they bound what this machine may
-claim, not how fast it works. Sweeping runs on acquisition rather than on a timer, so a pool that is not being
-used cannot keep itself alive, and a process with a read inside it is never swept — that read finishes and its
-answer comes back intact. On `SIGTERM`/`SIGINT` the server closes every browser it owns and says how many in
-the log, because a killed stdio server would otherwise leave Chromium children behind holding their profile
-directories.
-
-### What a rendered read refuses to fetch
-
-A page asks for far more than text: photographs at full resolution, web fonts, video manifests. A read whose
-purpose is `innerText` cannot use any of them, so the reader refuses them by default — `image, media, font`
-(`PRO_FETCH_BLOCK_RESOURCES`, `none` to switch off).
-
-Three kinds are deliberately protected, because refusing them changes _what the page says_ rather than how
-fast it arrives: `document` is never refused (a blocked frame is a missing part of the answer), and
-`script` / `xhr` / `fetch` are how a JavaScript-rendered page gets its data at all — blocking them produces
-the empty shell the second stage exists to avoid. `stylesheet` is also protected in practice: `innerText` is
-layout-dependent, so what CSS hides, the DOM reports as hidden.
-
-Measured on this machine, same build, alternating order so the warm cache cannot flatter one side:
-
-| Page                      | Refused      | With blocking | Without | Text returned        |
-| ------------------------- | ------------ | ------------- | ------- | -------------------- |
-| `wikipedia.org`           | 2 images     | 1141 ms       | 1688 ms | 259 words both ways  |
-| `quotes.toscrape.com/js/` | 1 font       | 1492 ms       | 1827 ms | 247 words both ways  |
-| `github.com` repo page    | 18–20 images | 3550 ms       | 3467 ms | 2501 words both ways |
-
-Two honest readings of that table. The text was **identical** in every case — the policy removes bytes, not
-content, which is the only reason it is allowed to be a default. And the speed win is not universal: it came
-from the two pages whose media dominated their load, and nothing from a page whose images arrive from a fast
-CDN anyway. `resources blocked: 18` is therefore reported as a **count**, never as "bytes saved": Playwright
-does not say what an aborted request would have carried, and a number this project cannot measure is a number
-this project does not print.
-
-Interactive tools are untouched — screenshots and browser sessions run on sessions, where an image is the
-point, so they never inherit this default.
-
-### A document, not a blob of markdown
+## A document, not a blob of markdown
 
 `pro_fetch_fetch_url` answers "what does this page say". `pro_fetch_document` answers the questions a
 pipeline actually needs: is this the same page I read yesterday, what is it about, where did it come from.
@@ -360,7 +292,7 @@ translation. A page that does not state those in its text cannot be asked for th
 that invents fields to look complete is how a pipeline ends up citing something nobody wrote.
 `include_body: false` returns the coordinates without the text, for routing.
 
-### A crawl that survives its process
+## A crawl that survives its process
 
 `pro_fetch_crawl_job` keeps a queue in SQLite (`PRO_FETCH_CRAWL_DB`, default
 `~/.pro-fetch/crawl-queue.sqlite`): `enqueue` adds addresses, `next` hands out work, `mark` records what a
@@ -379,7 +311,7 @@ mean for every multi-action tool in the server. Split in two, `PRO_FETCH_READ_ON
 operator see what is owed, while the tool that hands out work stays refused. Every write in the queue passes
 the same `assertWritable` gate the rest of the server uses.
 
-### Rules this server keeps when it visits somebody else's site
+## Rules this server keeps about other people's servers
 
 **Search-result pages are not documents.** A results page is an engine's index rendered as HTML under that
 company's terms, which forbid automated pulling — and it is the worst data source in the space: personalised
