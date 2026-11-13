@@ -68,8 +68,8 @@ function installShutdownHook(): void {
  *
  * An MCP server is a single long-lived process: every tool shares it. Node's default for an
  * unhandled rejection is to terminate, so a library that rejects from its own queue — pdfjs's task
- * worker, a native addon, a detached timer — takes down all 572 tools, and the client sees a dead
- * server rather than a failed call. That was observed: passing a PDF to `pro_fetch_image_ocr` made
+ * worker, a native addon, a detached timer — takes down every tool the server has, and the client sees a
+ * dead server rather than a failed call. That was observed: passing a PDF to `pro_fetch_image_ocr` made
  * leptonica reject out of band and killed the process.
  *
  * The input is validated before the native library sees it now, but a dependency cannot be audited

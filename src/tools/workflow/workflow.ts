@@ -18,7 +18,8 @@
  *    `independence: "reduced"` in every later answer, including the final one.
  *
  * `introduce` is the onboarding funnel: it returns a short orientation and points the host at `start`,
- * so the first thing a connecting agent sees is "what Pro-Fetch is and how to use it", not 672 raw tools.
+ * so the first thing a connecting agent sees is "what Pro-Fetch is and how to use it", not the whole raw
+ * tool list.
  */
 
 import { createHash } from 'node:crypto';

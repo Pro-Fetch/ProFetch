@@ -1,8 +1,8 @@
 /**
  * Provider gateway for direct model calls.
  *
- * Pro-Fetch could reach a model only by way of a search API that returns links. Nothing in the 572
- * tools could send a prompt. That made `llm` the largest single gap: embeddings and reranking are
+ * Pro-Fetch could reach a model only by way of a search API that returns links. No tool could send a
+ * prompt. That made `llm` the largest single gap: embeddings and reranking are
  * *inputs* to `research`, `knowledge` and `vector`, so every one of those categories was working at
  * one remove from a capability it could not reach.
  *
