@@ -236,6 +236,328 @@ describe('gtfs load, feeds and validate', () => {
   });
 });
 
+// ------------------------------------------------------------------------------------------
+// Stage 2: the calendar, one trip, and the departures a stop actually has.
+//
+// A second fixture, deliberately: the first one is the validator's test card and every defect in it is
+// asserted by name. Adding calendar_dates rows, a cancelled Friday and a sleeper service to that file
+// would move those counts, and the point of a fixture is that its defects are stable.
+//
+// The dates are March 2026: the 2nd is a Monday, the 6th a Friday, the 7th a Saturday, the 8th a Sunday,
+// the 10th a Tuesday. WK runs Mon-Fri, SAT Saturdays, SUN Sundays, HOL never on its own pattern — it is
+// only added for one date by exception. Friday the 6th is cancelled (a strike), Sunday the 8th cancelled,
+// Tuesday the 10th gains HOL.
+
+const STOPS2 = csv(
+  ['stop_id', 'stop_name', 'stop_lat', 'stop_lon', 'wheelchair_boarding', 'parent_station'],
+  [
+    ['P1', 'Platform A', '41.30', '69.30', '0', ''],
+    ['P2', 'Platform B', '41.31', '69.31', '0', ''],
+    ['P3', 'Yolg‘iz beka', '41.32', '69.32', '0', ''],
+  ],
+);
+
+const ROUTES2 = csv(
+  ['route_id', 'agency_id', 'route_short_name', 'route_long_name', 'route_type'],
+  [
+    ['L1', 'A1', '1', 'Bir yo‘l', '3'],
+    ['L2', 'A1', 'N9', 'Tungi yo‘l', '3'],
+  ],
+);
+
+const TRIPS2 = csv(
+  ['route_id', 'service_id', 'trip_id', 'trip_headsign'],
+  [
+    ['L1', 'WK', 'D1', 'Platform B'],
+    ['L1', 'WK', 'D2', 'Platform B'],
+    ['L1', 'HOL', 'D4', 'Platform B'],
+    ['L2', 'SAT', 'D3', 'Platform B'],
+  ],
+);
+
+const STOP_TIMES2 = csv(
+  ['trip_id', 'arrival_time', 'departure_time', 'stop_id', 'stop_sequence', 'pickup_type', 'drop_off_type'],
+  [
+    ['D1', '', '07:30:00', 'P1', '1', '', ''],
+    ['D1', '07:45:00', '07:45:00', 'P2', '2', '', ''],
+    ['D2', '', '08:30:00', 'P1', '1', '', ''],
+    ['D2', '08:45:00', '08:45:00', 'P2', '2', '', ''],
+    ['D4', '', '09:00:00', 'P1', '1', '', ''],
+    ['D4', '09:15:00', '09:15:00', 'P2', '2', '', ''],
+    // The sleeper: it leaves Saturday night and arrives after midnight, which the feed writes as 25:15.
+    ['D3', '', '23:55:00', 'P1', '1', '', ''],
+    ['D3', '25:15:00', '25:20:00', 'P2', '2', '', ''],
+  ],
+);
+
+const CALENDAR2 = csv(
+  [
+    'service_id',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+    'start_date',
+    'end_date',
+  ],
+  [
+    ['WK', '1', '1', '1', '1', '1', '0', '0', '20260101', '20261231'],
+    ['SAT', '0', '0', '0', '0', '0', '1', '0', '20260101', '20261231'],
+    ['SUN', '0', '0', '0', '0', '0', '0', '1', '20260101', '20261231'],
+    ['HOL', '0', '0', '0', '0', '0', '0', '0', '20260101', '20261231'],
+  ],
+);
+
+const CALENDAR_DATES2 = csv(
+  ['service_id', 'date', 'exception_type'],
+  [
+    ['WK', '20260306', '2'],
+    ['SUN', '20260308', '2'],
+    ['HOL', '20260310', '1'],
+  ],
+);
+
+const AGENCY2 = csv(['agency_id', 'agency_name', 'agency_timezone'], [['A1', 'Stage2 Transit', 'Asia/Tashkent']]);
+
+describe('gtfs calendar, trip and arrivals', () => {
+  const FEED2_PATH = join(dir, 'stage2-feed.zip');
+
+  beforeAll(async () => {
+    writeFileSync(
+      FEED2_PATH,
+      writeZip([
+        { name: 'stops.txt', data: STOPS2 },
+        { name: 'routes.txt', data: ROUTES2 },
+        { name: 'trips.txt', data: TRIPS2 },
+        { name: 'stop_times.txt', data: STOP_TIMES2 },
+        { name: 'calendar.txt', data: CALENDAR2 },
+        { name: 'calendar_dates.txt', data: CALENDAR_DATES2 },
+        { name: 'agency.txt', data: AGENCY2 },
+      ]),
+    );
+    const loaded = payload(await callTool('pro_gtfs_load', { url: FEED2_PATH, feed: 'stage2' }));
+    expect(loaded.ok, JSON.stringify(loaded)).toBe(true);
+    expect(loaded.counts.calendar).toBe(4);
+    expect(loaded.counts.calendar_dates).toBe(3);
+  });
+
+  it('lists routes with measured trips, stops, and their first and last departure', async () => {
+    const r = payload(await callTool('pro_gtfs_routes', { feed: 'stage2' }));
+    expect(r.ok).toBe(true);
+    expect(r.total_routes).toBe(2);
+    const l1 = r.routes.find((row: { route_id: string }) => row.route_id === 'L1');
+    const l2 = r.routes.find((row: { route_id: string }) => row.route_id === 'L2');
+    expect(l1.trips).toBe(3);
+    expect(l1.stops).toBe(2);
+    expect(l1.first_departure).toBe('07:30');
+    // The latest departure anywhere on the line: D4 leaves the final stop (P2) at 09:15, which is later
+    // than the 09:00 it leaves the first one. Folded into "last trip start" it would be wrong by 15
+    // minutes for every line whose terminus is not the origin.
+    expect(l1.last_departure).toBe('09:15');
+    expect(l1.past_midnight).toBeUndefined();
+    expect(l1.agency).toBe('Stage2 Transit');
+    expect(l1.type_name).toBe('bus');
+    // The night line's last vehicle leaves at 01:20 of the morning after the service day.
+    expect(l2.first_departure).toBe('23:55');
+    expect(l2.last_departure).toBe('+1d 01:20');
+    expect(l2.past_midnight).toBe(true);
+
+    const viaP3 = payload(await callTool('pro_gtfs_routes', { feed: 'stage2', via_stop: 'P3' }));
+    expect(viaP3.matched).toBe(0);
+    expect(viaP3.note).toMatch(/uchramaydi/);
+    const viaP2 = payload(await callTool('pro_gtfs_routes', { feed: 'stage2', via_stop: 'P2' }));
+    expect(viaP2.matched).toBe(2);
+    const trams = payload(await callTool('pro_gtfs_routes', { feed: 'stage2', route_type: 0 }));
+    expect(trams.matched).toBe(0);
+    const buses = payload(await callTool('pro_gtfs_routes', { feed: 'stage2', route_type: 3 }));
+    expect(buses.matched).toBe(2);
+    const named = payload(await callTool('pro_gtfs_routes', { feed: 'stage2', query: 'tungi' }));
+    expect(named.matched).toBe(1);
+    expect(named.routes[0].route_id).toBe('L2');
+  });
+
+  it('shows one trip in stop order, with the raw after-midnight time kept', async () => {
+    const t = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', trip: 'D3', date: '2026-03-07' }));
+    expect(t.ok).toBe(true);
+    expect(t.route.short_name).toBe('N9');
+    expect(t.headsign).toBe('Platform B');
+    expect(t.stops.length).toBe(2);
+    expect(t.stops[0].arrival).toBeNull();
+    expect(t.stops[0].departure).toBe('23:55');
+    expect(t.stops[1].arrival).toBe('+1d 01:15');
+    expect(t.stops[1].arrival_raw).toBe('25:15:00');
+    expect(t.past_midnight).toBe(true);
+    // 23:55 to 01:15 the next morning is 80 minutes, not minus 1360.
+    expect(t.duration_min).toBe(80);
+    expect(t.service.runs_on_this_date).toBe(true);
+
+    const saturdayOnly = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', trip: 'D3', date: '2026-03-06' }));
+    expect(saturdayOnly.service.runs_on_this_date).toBe(false);
+
+    const missing = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', trip: 'D9' }));
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toMatch(/topilmadi/);
+
+    const firstStopNote = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', trip: 'D1', date: '2026-03-05' }));
+    expect(firstStopNote.note).toMatch(/boshlanish bekasi/);
+  });
+
+  it('answers which days a service runs — pattern, strike and holiday together', async () => {
+    const wk = payload(
+      await callTool('pro_gtfs_service_dates', { feed: 'stage2', service: 'WK', from: '2026-03-02', to: '2026-03-13' }),
+    );
+    expect(wk.mode).toBe('service');
+    expect(wk.weekdays).toEqual(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
+    // Ten weekdays in the window, one of them struck off.
+    expect(wk.pattern_dates.length).toBe(10);
+    expect(wk.total_runs).toBe(9);
+    expect(wk.runs_on).not.toContain('2026-03-06');
+    expect(wk.runs_on).toContain('2026-03-09');
+    expect(wk.removed).toEqual(['2026-03-06']);
+
+    const hol = payload(
+      await callTool('pro_gtfs_service_dates', {
+        feed: 'stage2',
+        service: 'HOL',
+        from: '2026-03-02',
+        to: '2026-03-13',
+      }),
+    );
+    expect(hol.weekdays).toEqual([]);
+    expect(hol.total_runs).toBe(1);
+    expect(hol.runs_on).toEqual(['2026-03-10']);
+
+    const saturday = payload(await callTool('pro_gtfs_service_dates', { feed: 'stage2', date: '2026-03-07' }));
+    expect(saturday.mode).toBe('date');
+    expect(saturday.weekday).toBe('saturday');
+    expect(saturday.services).toEqual(['SAT']);
+    expect(saturday.from_calendar).toBe(1);
+    expect(saturday.routes_running).toBe(1);
+
+    const cancelledSunday = payload(await callTool('pro_gtfs_service_dates', { feed: 'stage2', date: '2026-03-08' }));
+    expect(cancelledSunday.services).toEqual([]);
+    expect(cancelledSunday.removed_by_date).toBe(1);
+    expect(cancelledSunday.note).toMatch(/yurmaydi/);
+
+    const holidayTuesday = payload(await callTool('pro_gtfs_service_dates', { feed: 'stage2', date: '2026-03-10' }));
+    expect(holidayTuesday.services).toEqual(['HOL', 'WK']);
+    expect(holidayTuesday.added_by_date).toBe(1);
+
+    const byRoute = payload(
+      await callTool('pro_gtfs_service_dates', { feed: 'stage2', route: 'L1', from: '2026-03-02', to: '2026-03-13' }),
+    );
+    expect(byRoute.mode).toBe('route');
+    expect(byRoute.services.length).toBe(2);
+    const holOnRoute = byRoute.services.find((row: { service_id: string }) => row.service_id === 'HOL');
+    expect(holOnRoute.runs_in_window).toBe(1);
+
+    const overview = payload(await callTool('pro_gtfs_service_dates', { feed: 'stage2' }));
+    expect(overview.mode).toBe('overview');
+    expect(overview.patterns).toBe(4);
+    expect(overview.exceptions).toBe(3);
+  });
+
+  it('lists departures a stop will really see, filtering by the calendar', async () => {
+    const thursday = payload(
+      await callTool('pro_gtfs_arrivals', {
+        feed: 'stage2',
+        stop: 'P1',
+        date: '2026-03-05',
+        at: '07:00',
+        window_min: 120,
+      }),
+    );
+    expect(thursday.ok).toBe(true);
+    expect(thursday.services_today).toBe(1);
+    // 07:30 and 08:30 run on a Thursday. 09:00 exists in stop_times but belongs to HOL, which only runs
+    // on the 10th — a timetable tool that ignored the calendar would show it here.
+    expect(thursday.matched).toBe(2);
+    expect(thursday.departures.map((row: { trip_id: string }) => row.trip_id)).toEqual(['D1', 'D2']);
+    expect(thursday.departures[0].minutes_until).toBe(30);
+    expect(thursday.departures[0].departure).toBe('07:30');
+    expect(thursday.departures[0].service_day).toBe('2026-03-05');
+  });
+
+  it('finds the sleeper that left before midnight, and refuses to show it twice', async () => {
+    // Sunday 01:00. The night line ran on Saturday; its 25:20 departure is Sunday's 01:20.
+    const night = payload(
+      await callTool('pro_gtfs_arrivals', {
+        feed: 'stage2',
+        stop: 'P2',
+        date: '2026-03-08',
+        at: '01:00',
+        window_min: 60,
+      }),
+    );
+    expect(night.matched).toBe(1);
+    expect(night.departures[0].trip_id).toBe('D3');
+    expect(night.departures[0].departure).toBe('+1d 01:20');
+    expect(night.departures[0].service_day).toBe('2026-03-07');
+    expect(night.departures[0].day_offset).toBe(-1);
+    expect(night.departures[0].minutes_until).toBe(20);
+    expect(night.note).toMatch(/kechagi/);
+
+    // Saturday 01:00 is the same clock time one day earlier, and the correct answer is nothing: the
+    // sleeper has not started yet, and its after-midnight minutes belong to the morning that follows.
+    const beforeItStarts = payload(
+      await callTool('pro_gtfs_arrivals', {
+        feed: 'stage2',
+        stop: 'P2',
+        date: '2026-03-07',
+        at: '01:00',
+        window_min: 60,
+      }),
+    );
+    expect(beforeItStarts.matched).toBe(0);
+    expect(beforeItStarts.services_today).toBe(1);
+  });
+
+  it('lists the trips of a line, earliest departure first', async () => {
+    const listed = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', route: 'L1' }));
+    expect(listed.mode).toBe('trips');
+    expect(listed.trips.length).toBe(3);
+    expect(listed.trips[0].trip_id).toBe('D1');
+    expect(listed.trips[0].first_departure).toBe('07:30');
+    expect(listed.trips[0].last_arrival).toBe('07:45');
+    expect(listed.trips[2].trip_id).toBe('D4');
+    expect(listed.trips[2].service_id).toBe('HOL');
+
+    const night = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', route: 'L2' }));
+    expect(night.trips[0].last_arrival).toBe('+1d 01:15');
+
+    const unknownRoute = payload(await callTool('pro_gtfs_trip', { feed: 'stage2', route: 'LX' }));
+    expect(unknownRoute.ok).toBe(false);
+    expect(unknownRoute.error).toMatch(/route_id topilmadi/);
+
+    const neither = payload(await callTool('pro_gtfs_trip', { feed: 'stage2' }));
+    expect(neither.ok).toBe(false);
+    expect(neither.error).toMatch(/trip yoki route/);
+  });
+
+  it('says what it does not know instead of inventing a vehicle', async () => {
+    const empty = payload(
+      await callTool('pro_gtfs_arrivals', {
+        feed: 'stage2',
+        stop: 'P3',
+        date: '2026-03-05',
+        at: '07:00',
+        window_min: 600,
+      }),
+    );
+    expect(empty.ok).toBe(true);
+    expect(empty.matched).toBe(0);
+    // No frequencies.txt in this fixture, so nothing is being silently left out of the list.
+    expect(empty.note).toBeUndefined();
+
+    const unknown = payload(await callTool('pro_gtfs_arrivals', { feed: 'stage2', stop: 'PX' }));
+    expect(unknown.ok).toBe(false);
+    expect(unknown.error).toMatch(/beka topilmadi/);
+  });
+});
+
 afterAll(() => {
   closeGtfsDb();
   try {

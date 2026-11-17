@@ -1019,3 +1019,185 @@ export function minutesToClock(minutes: number | null | undefined): string | nul
   const mm = String(rest % 60).padStart(2, '0');
   return day > 0 ? '+' + day + 'd ' + hh + ':' + mm : hh + ':' + mm;
 }
+
+/**
+ * Which day of the week an ISO date is, as the `calendar.days` bit. Monday is bit 0.
+ * Returns null for anything that is not a real date, because a guessed weekday would invent a timetable.
+ */
+export function dayBitOf(isoDate: string): number | null {
+  const stamp = Date.parse(isoDate + 'T00:00:00Z');
+  if (!Number.isFinite(stamp)) return null;
+  const weekday = new Date(stamp).getUTCDay();
+  return weekday === 0 ? 64 : 1 << (weekday - 1);
+}
+
+/** `2026-01-31` shifted by whole days. Rejects an input that is not a date. */
+export function shiftIsoDate(isoDate: string, days: number): string | null {
+  const stamp = Date.parse(isoDate + 'T00:00:00Z');
+  if (!Number.isFinite(stamp)) return null;
+  return new Date(stamp + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** The machine's local date, for "now" questions that did not name a day. */
+export function todayIso(): string {
+  const now = new Date();
+  return (
+    now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0')
+  );
+}
+
+/** Minutes since local midnight, ignoring seconds: a departure list is minute-granular. */
+export function nowMinutes(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+export interface RunningServices {
+  date: string;
+  weekday: string;
+  services: string[];
+  from_calendar: number;
+  added_by_date: number;
+  removed_by_date: number;
+  date_rows: number;
+}
+
+const WEEKDAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/**
+ * Which service_ids run on one date.
+ *
+ * GTFS answers this in two places, and both have to be read: `calendar.txt` says a pattern runs on some
+ * weekdays between two dates, `calendar_dates.txt` overrides single days — exception 1 runs a service the
+ * pattern refuses (a holiday), exception 2 cancels one it allows (a strike). The pattern is applied
+ * first and the exceptions after, because an exception for a specific date is the more precise
+ * statement. A feed that carries only `calendar_dates.txt` is legal, and then the pattern side is simply
+ * empty — reported as 0 rather than as an error.
+ */
+export function servicesOnDate(db: SqliteLike, feedId: string, date: string): RunningServices {
+  const bit = dayBitOf(date);
+  const pattern =
+    bit === null
+      ? []
+      : (
+          prepared(
+            db,
+            'select service_id from calendar where feed_id = ? and (days & ?) <> 0 and start_date <= ? and end_date >= ?',
+          ).all(feedId, bit, date, date) as Array<{ service_id: string }>
+        ).map((row) => row.service_id);
+  const exceptions = prepared(
+    db,
+    'select service_id, exception from calendar_dates where feed_id = ? and date = ?',
+  ).all(feedId, date) as Array<{ service_id: string; exception: number | null }>;
+
+  const set = new Set(pattern);
+  let added = 0;
+  let removed = 0;
+  for (const row of exceptions) {
+    if (row.exception === 1) {
+      if (!set.has(row.service_id)) added++;
+      set.add(row.service_id);
+    } else if (row.exception === 2) {
+      if (set.delete(row.service_id)) removed++;
+    }
+  }
+  const stamp = Date.parse(date + 'T00:00:00Z');
+  return {
+    date,
+    weekday: Number.isFinite(stamp) ? WEEKDAY_NAMES[new Date(stamp).getUTCDay()]! : '(noma’lum)',
+    services: [...set].sort(),
+    from_calendar: pattern.length,
+    added_by_date: added,
+    removed_by_date: removed,
+    date_rows: exceptions.length,
+  };
+}
+
+export interface ServicePattern {
+  service_id: string;
+  weekdays: string[];
+  start_date: string | null;
+  end_date: string | null;
+  /** Dates the pattern would run inside the window, capped at `limit`. */
+  pattern_dates: string[];
+  added: string[];
+  removed: string[];
+  /** The union a rider actually gets: pattern minus cancellations plus additions. */
+  runs_on: string[];
+  truncated: boolean;
+  /** How many days the service really runs inside the window. `runs_on` may be shorter than this. */
+  total_runs: number;
+}
+
+/** How many days one `service_dates` answer may walk before it stops and says so. */
+export const MAX_PATTERN_DAYS = 400;
+
+/**
+ * The dates one service_id runs, from both halves of the calendar.
+ *
+ * `from`/`to` bound the walk because a service that runs to 2099 is not worth listing. When the pattern
+ * row is missing entirely the service is defined only by its exceptions — a real shape for feeder
+ * contracts — and `start_date`/`end_date` come back null instead of being invented from the exceptions.
+ */
+export function servicePattern(
+  db: SqliteLike,
+  feedId: string,
+  serviceId: string,
+  from: string,
+  to: string,
+  limit: number,
+): ServicePattern {
+  const row = prepared(db, 'select days, start_date, end_date from calendar where feed_id = ? and service_id = ?').get(
+    feedId,
+    serviceId,
+  ) as { days: number; start_date: string; end_date: string } | undefined;
+  const exceptions = prepared(
+    db,
+    'select date, exception from calendar_dates where feed_id = ? and service_id = ? and date between ? and ? order by date',
+  ).all(feedId, serviceId, from, to) as Array<{ date: string; exception: number | null }>;
+
+  const added = new Set(exceptions.filter((e) => e.exception === 1).map((e) => e.date));
+  const removed = new Set(exceptions.filter((e) => e.exception === 2).map((e) => e.date));
+
+  const weekdays: string[] = [];
+  if (row) for (const [name, bit] of DAY_BITS) if ((row.days & bit) !== 0) weekdays.push(name);
+
+  const patternDates: string[] = [];
+  const runsOn: string[] = [];
+  let insidePatternRemoved = 0;
+  let addedOutsidePattern = 0;
+  let cursor = from;
+  let walked = 0;
+  let truncated = false;
+  while (cursor <= to && walked < MAX_PATTERN_DAYS) {
+    const bit = dayBitOf(cursor);
+    const inPattern =
+      !!row && bit !== null && (row.days & bit) !== 0 && cursor >= row.start_date && cursor <= row.end_date;
+    if (inPattern) {
+      patternDates.push(cursor);
+      if (removed.has(cursor)) insidePatternRemoved++;
+    }
+    if ((inPattern && !removed.has(cursor)) || added.has(cursor)) {
+      if (!inPattern) addedOutsidePattern++;
+      if (runsOn.length < limit) runsOn.push(cursor);
+      else truncated = true;
+    }
+    const next = shiftIsoDate(cursor, 1);
+    if (!next) break;
+    cursor = next;
+    walked++;
+  }
+  const totalRuns = patternDates.length - insidePatternRemoved + addedOutsidePattern;
+  return {
+    service_id: serviceId,
+    weekdays,
+    start_date: row?.start_date ?? null,
+    end_date: row?.end_date ?? null,
+    pattern_dates: patternDates,
+    added: [...added].sort(),
+    removed: [...removed].sort(),
+    runs_on: runsOn,
+    truncated,
+    total_runs: totalRuns,
+  };
+}

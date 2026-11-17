@@ -44,6 +44,7 @@ const LABELS: Record<string, string> = {
   geo_data: 'Geo / maps / timezone / country helpers',
   git: 'Local git: status, diff, log, blame, branch operations',
   github: 'GitHub API: repos, code, issues, PRs, releases, actions, advisories',
+  gtfs: 'Public transport feeds: load a GTFS zip, query stops, routes, trips, service days and departures',
   http: 'HTTP client verbs, headers, retries, multipart, SSE/websocket',
   i18n: 'Translate, transliterate, locale & RTL helpers',
   imageproc: 'Image processing: resize, crop, EXIF, QR, OCR pre/post',

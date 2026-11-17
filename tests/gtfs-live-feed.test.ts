@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import '../src/loader.js';
 import { callTool } from '../src/router.js';
-import { closeGtfsDb } from '../src/tools/gtfs/_gtfs.js';
+import { closeGtfsDb, parseGtfsTime } from '../src/tools/gtfs/_gtfs.js';
 import { hostReachable } from './helpers/liveGate.js';
 import { skipBlockWithout } from './helpers/env-guard.js';
 
@@ -120,6 +120,91 @@ describe('live national feed', () => {
       expect(first.examples.length).toBeLessThanOrEqual(3);
     }
   }, 120_000);
+
+  it('follows one real trip from the line list to its own departure board', async () => {
+    // The chain a rider actually walks: a line, its trips, one trip's stop order, the dates that trip's
+    // service runs, then the board at that trip's own first stop on one of those dates. Every step takes
+    // its input from the previous one, so nothing here depends on a guessed identifier.
+    const now = new Date();
+    const iso =
+      now.getFullYear() +
+      '-' +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      '-' +
+      String(now.getDate()).padStart(2, '0');
+
+    const routes = payload(await callTool('pro_gtfs_routes', { feed: 'nor-live', limit: 200 }));
+    expect(routes.ok).toBe(true);
+    expect(routes.matched).toBeGreaterThan(0);
+    const line = routes.routes.find((row: { trips: number }) => row.trips > 0);
+    expect(line, 'biror yo‘lda ham reys yo‘q').toBeDefined();
+
+    const listed = payload(await callTool('pro_gtfs_trip', { feed: 'nor-live', route: line.route_id, limit: 200 }));
+    expect(listed.mode).toBe('trips');
+    expect(listed.trips.length).toBeGreaterThan(0);
+    const sameDay = listed.trips.find(
+      (row: { first_departure: string | null }) => row.first_departure && !String(row.first_departure).includes('+1d'),
+    );
+    expect(sameDay, 'reyslarning hammasi yarim tundan keyinga yozilgan').toBeDefined();
+
+    const detail = payload(await callTool('pro_gtfs_trip', { feed: 'nor-live', trip: sameDay.trip_id, date: iso }));
+    expect(detail.ok).toBe(true);
+    expect(detail.stops.length).toBeGreaterThan(1);
+    const minutes = detail.stops.map((stop: { departure_raw: string; arrival_raw: string }) =>
+      parseGtfsTime(stop.departure_raw || stop.arrival_raw),
+    );
+    for (let i = 1; i < minutes.length; i++) {
+      // A real run does not go backwards. This is the assertion that catches a parser that folded
+      // 25:15 back into 01:15 and thereby made the last stop earlier than the first.
+      expect(minutes[i], 'vaqtlar orqaga ketdi: ' + JSON.stringify(minutes)).not.toBeNull();
+      expect(minutes[i]).toBeGreaterThanOrEqual(minutes[i - 1] as number);
+    }
+
+    const dates = payload(
+      await callTool('pro_gtfs_service_dates', {
+        feed: 'nor-live',
+        service: detail.service.service_id,
+        from: iso,
+        limit: 10,
+      }),
+    );
+    expect(dates.mode).toBe('service');
+    expect(Array.isArray(dates.weekdays)).toBe(true);
+    expect(dates.total_runs).toBeGreaterThanOrEqual(0);
+
+    if (!dates.runs_on.length) {
+      // Nothing runs this service inside the window. The board must then be empty for it, not show it.
+      const quiet = payload(
+        await callTool('pro_gtfs_arrivals', {
+          feed: 'nor-live',
+          stop: detail.stops[0].stop_id,
+          date: iso,
+          at: sameDay.first_departure,
+          window_min: 60,
+        }),
+      );
+      expect(quiet.ok).toBe(true);
+      expect(quiet.departures.some((row: { trip_id: string }) => row.trip_id === sameDay.trip_id)).toBe(false);
+      return;
+    }
+
+    const board = payload(
+      await callTool('pro_gtfs_arrivals', {
+        feed: 'nor-live',
+        stop: detail.stops[0].stop_id,
+        date: dates.runs_on[0],
+        at: sameDay.first_departure,
+        window_min: 720,
+        limit: 200,
+      }),
+    );
+    expect(board.ok, JSON.stringify(board)).toBe(true);
+    expect(board.matched).toBeGreaterThan(0);
+    expect(
+      board.departures.some((row: { trip_id: string }) => row.trip_id === sameDay.trip_id),
+      'xizmat kuni ' + dates.runs_on[0] + ' bo‘lgan reys doskada yo‘q',
+    ).toBe(true);
+  }, 300_000);
 });
 
 afterAll(() => {
