@@ -55,6 +55,7 @@ import './tools/zip/index.js';
 import './tools/qr/index.js';
 import './tools/sql/index.js';
 import './tools/opendata/index.js';
+import './tools/gtfs/index.js';
 import './tools/browser_use/index.js';
 import './tools/prohuman/index.js';
 import './tools/evidence/index.js';

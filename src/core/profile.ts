@@ -81,6 +81,10 @@ export const CATEGORY_LEVELS: Record<string, number> = {
   collaboration: 3,
   storage: 3,
   productivity: 3,
+  // Downloads and stores a third-party archive — the same class of work as `opendata` and `geo_data`, and
+  // not something to advertise to a small client by default. Declared rather than left to the `?? 3`
+  // fallback, so the placement is a decision someone can change on purpose.
+  gtfs: 3,
 };
 
 export function levelOf(category: string): number {

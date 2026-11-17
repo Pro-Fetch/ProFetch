@@ -5,7 +5,7 @@
 > `tools/list` da ko'rsatganningsizdan ham o'zgarmas. Qayta generatsiya:
 > `npx tsx scripts/dump-catalog.mts`
 
-**Jami:** 761 ta tool · 46 ta kategoriya · smart=12, minimal=76, standard=201, full=761
+**Jami:** 765 ta tool · 47 ta kategoriya · smart=12, minimal=76, standard=201, full=765
 
 Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profilda ko'rinadi · `·` = faqat `full` profil.
 
@@ -57,6 +57,7 @@ Belgilar: `S` = smart meta-toʻplamiga kiradi · `▸` = minimal/standard profil
 | `binary` | 4 | Parquet / Arrow / Avro / Protobuf readers (schema + rows) |
 | `chess` | 4 | FEN parse/validate, legal moves, perft, square & position analysis |
 | `geo_data` | 4 | Geo / maps / timezone / country helpers |
+| `gtfs` | 4 | — |
 | `color` | 3 | Color conversion & contrast helpers |
 | `phonetics` | 3 | Phonetic transcription helpers |
 
@@ -1036,6 +1037,13 @@ _Geo / maps / timezone / country helpers_
 - `pro_geo_geocode_search` `  ·` — Manzil yoki joy nomini koordinataga aylantirish (Nominatim / OpenStreetMap). Natija: joy nomi, lat/lon, chegaraviy to‘g‘ri kvadrat va turlar. Structured qidiruv uchun "structured" argumenti qo‘llanadi (masalan "Toshkent, O‘zbekiston").
 - `pro_geo_overpass_query` `  ·` — OpenStreetMap Overpass QL so‘rovi: bino, yo‘l, bog‘, suv, landi va boshqa obyektlar. So‘rov "query" yoki "q" argumentida. So‘rov yoki barcha ko‘zguchalar ishlamasa, sabab va sinangan ko‘zguchalar ro‘yxati qaytariladi.
 - `pro_geo_weather_current` `  ·` — Koordinataga ko‘ra haqiqiy vaqt ob-havosi (Open-Meteo, kalitsiz): harorat, hissiy harorat, namlik, yomg‘ir, qor, shamol, bosim, bulut va quyosh holati. Bir nechta koordinat ham berilishi mumkin — ular parallel so‘raladi.
+
+## gtfs (4)
+
+- `pro_gtfs_feeds` `  ·` — Yuklangan GTFS feedlar ro'yxati: identifikator, manba, qachon yuklangan, necha kunlik, har jadvalda qancha qator. feed parametrlari shu ro'yxatdan tanlanadi.
+- `pro_gtfs_load` `  ·` — GTFS feedini (zip arxiv) yuklab, joyli SQLite bazasiga joylaydi: stops, routes, trips, stop_times, calendar. Javobda ma’lumot emas, o‘qilgan fayllar, qator sonlari va topilgan xatolar qaytadi — keyingi savollar pro_gtfs_stops / pro_gtfs_validate orqali beriladi. url http(s) yoki lokal fayl yo‘li.
+- `pro_gtfs_stops` `  ·` — GTFS bekalari: nom bo‘yicha qidirish, bir yo‘lning bekalari, yoki kenglik/uzunlik atrofida radius ichidagilar. Javobda stop_id, nom, koordinata va (near berilsa) metrdagi masofa qaytadi.
+- `pro_gtfs_validate` `  ·` — Yuklangan GTFS feedini tekshiradi: majburiy fayllar, jadval orasidagi havolalar, vaqt tartibi, yurish kunlari, yo'lsiz reyslar. Har qoida uchun NECHTA ekanligi va kamida namuna qaytadi — butun ro'yxat emas.
 
 ## color (3)
 
