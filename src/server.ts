@@ -6,6 +6,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import './loader.js';
 import { currentProfile } from './loader.js';
 import { listTools, callTool } from './router.js';
+import { closeRuntime } from './core/shutdown.js';
 import { VERSION } from './core/version.js';
 
 const server = new Server({ name: 'pro-fetch', version: VERSION }, { capabilities: { tools: {} } });
@@ -33,14 +34,16 @@ async function main(): Promise<void> {
 }
 
 /**
- * Let go of browser processes when the client stops us.
+ * Let go of browsers and sockets when the client stops us.
  *
  * A pool keeps a Chromium alive between reads on purpose — that is the whole saving — and a stdio server is
  * usually killed rather than asked politely. Without this hook the child outlives the parent: an orphan
- * `chrome.exe` holds its profile directory and a few hundred megabytes with no caller left to serve.
+ * `chrome.exe` holds its profile directory and a few hundred megabytes with no caller left to serve. The
+ * same hook releases the HTTP pool, because a server that is going away has no use for a keep-alive
+ * connection either.
  *
- * `browser-tools.js` is loaded only here. Playwright is an optional dependency, and importing it at the top
- * would put it on the startup path of a server that may never render a page.
+ * The order and the error handling live in `core/shutdown.ts`, which the measurement scripts call too —
+ * one implementation of "finished" rather than two that can drift.
  */
 function installShutdownHook(): void {
   let closing = false;
@@ -48,14 +51,12 @@ function installShutdownHook(): void {
     if (closing) return;
     closing = true;
     void (async () => {
-      try {
-        const { closeBrowsers } = await import('./core/browser-tools.js');
-        const closed = await closeBrowsers();
-        console.error(`[pro-fetch] ${signal} — yopildi: session=${closed.sessions}, pool=${closed.pool}`);
-      } catch (error) {
-        // A browser that will not close is not a reason to keep a killed server running.
-        console.error('[pro-fetch] ' + signal + ': browser jarayonlari to‘liq yopilmadi:', describe(error));
-      }
+      const report = await closeRuntime();
+      console.error(
+        `[pro-fetch] ${signal} — yopildi: session=${report.browsers.sessions}, pool=${report.browsers.pool}, ` +
+          `http=${report.dispatchers ? 'ok' : 'yopilmadi'}`,
+      );
+      for (const note of report.notes) console.error('[pro-fetch] ' + signal + ': ' + note);
       process.exit(0);
     })();
   };

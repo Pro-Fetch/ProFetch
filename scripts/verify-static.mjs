@@ -399,6 +399,21 @@ try {
   // can, and this was the third time in two waves that the typed one did.
   if (!/tool-counts\.json/.test(allToolsTest))
     failures.push('tool registry test must read the expected count from scripts/tool-counts.json');
+  // A script that reaches the network inherits undici's keep-alive sockets, and a keep-alive socket is a
+  // handle on the event loop: the process waits for the agent's own timeout before it may end. Measured at
+  // three hosts the difference is small — 4 s with the call, 3 s without — so this guard is not selling a
+  // cured hang. It exists because the same call releases the browser pool, where nothing times out at all,
+  // and because a convention that is not checked is a convention that disappears the first time somebody
+  // copies a script and edits the last line off.
+  for (const entry of await readdir(path.join(root, 'scripts'), { withFileTypes: true })) {
+    if (!entry.isFile() || !/\.(mts|mjs)$/.test(entry.name)) continue;
+    const text = await read('scripts/' + entry.name);
+    const usesHttp = /core\/http-client\.js|core\/fetcher\.js|callTool\(/.test(text);
+    const exitsByItself = /process\.exit\(/.test(text);
+    if (usesHttp && !exitsByItself && !/core\/shutdown\.js/.test(text)) {
+      failures.push('scripts/' + entry.name + ' so‘rov qiladi, lekin closeRuntime() chaqirmaydi');
+    }
+  }
   const profile = exampleJson?.mcpServers?.['pro-fetch']?.env?.PRO_FETCH_PROFILE;
   if (profile !== 'smart') failures.push('mcp.example.json should use the smart profile');
   const exampleEnv = exampleJson?.mcpServers?.['pro-fetch']?.env ?? {};

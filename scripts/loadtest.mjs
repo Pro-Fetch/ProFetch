@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fetchUrl } from '../dist/core/fetcher.js';
 import { browserPoolStats } from '../dist/core/browser-pool.js';
 import { breakerReport, classifyFetchError } from '../dist/core/circuit-breaker.js';
+import { closeRuntime } from '../dist/core/shutdown.js';
 
 function arg(name, fallback) {
   const at = process.argv.indexOf('--' + name);
@@ -184,3 +185,7 @@ const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 await writeFile(path.join(outDir, `load-${stamp}.jsonl`), rows.map((row) => JSON.stringify(row)).join('\n') + '\n');
 await writeFile(path.join(outDir, `load-${stamp}.summary.json`), JSON.stringify(summary, null, 2));
 console.log(JSON.stringify(summary, null, 2));
+// The pool's own accounting has been printed, and the handles that produced it are released here: a
+// browser, which has no timeout at all, and keep-alive sockets, which have the agent's. Finishing on
+// purpose is the point; the measured effect at small scale is a second, not a cured hang.
+await closeRuntime();

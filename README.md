@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-2057%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-2061%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Pro-Fetch/ProFetch/actions/workflows/ci.yml/badge.svg?branch=main"></a>
 </p>
 
@@ -356,7 +356,7 @@ npm run check
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
 | `verify:registry` | boots the real registry: **771 tools / 47 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **2057 tests** across 125 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `test`            | **2061 tests** across 126 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (687 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 

@@ -27,6 +27,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fetchUrl } from '../dist/core/fetcher.js';
+import { closeRuntime } from '../dist/core/shutdown.js';
 
 function arg(name, fallback) {
   const at = process.argv.indexOf('--' + name);
@@ -173,3 +174,7 @@ await writeFile(
 );
 await writeFile(path.join(outDir, `blockprobe-${stamp}.summary.json`), JSON.stringify(summary, null, 2));
 console.log(JSON.stringify(summary, null, 2));
+// The report is on disk and on stdout. The connections that produced it are released here rather than
+// left for the agent's own keep-alive timeout to expire — measured at three hosts the whole run is a few
+// seconds either way, so this line is about finishing deliberately, not about curing a hang.
+await closeRuntime();

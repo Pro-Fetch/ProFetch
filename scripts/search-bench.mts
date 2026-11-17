@@ -2,9 +2,11 @@
  * The search benchmark: the same corpus, run engine against engine.
  *
  * Run: `npm run bench:search`  (options: `-- --engine brave`, `-- --k 5`)
- * The comparison against our own index is `npm run bench:own`, in a separate process on purpose: loading
- * the SQLite addon in the same isolate as this many TLS handshakes aborts Node 24 inside
- * `RemoveEnvironmentCleanupHook` — measured here twice, and the isolation is the fix, not a workaround.
+ * The comparison against our own index is `npm run bench:own`, in a separate process. That isolation was
+ * measured under better-sqlite3 11.10.0, whose statement teardown aborts Node 24 inside
+ * `RemoveEnvironmentCleanupHook` (upstream WiseLibs/better-sqlite3#1515). The driver is 13.2.0 now and the
+ * teardown path is gone from it, but the two benchmarks have not been merged and re-measured since, so the
+ * split stays and this sentence records what justified it and when.
  *
  * ## What this measures, and what it does not
  *
@@ -33,6 +35,7 @@ await import(base + 'loader.js');
 const { callTool } = await import(base + 'router.js');
 const { SEARCH_ENGINES } = await import(base + 'core/search-engines.js');
 const { SEARCH_CORPUS } = await import(new URL('../tests/fixtures/searchCorpus.js', import.meta.url).href);
+const { closeRuntime } = await import(base + 'core/shutdown.js');
 
 const args = process.argv.slice(2);
 function flag(name: string, fallback: string): string {
@@ -202,3 +205,7 @@ console.log(
   '\nCheklovlar: bu inson bahosi emas — 19 ta kanonik hujjat bo‘yicha retrieval o‘lchovi. Ikkita hit farq ' +
     'shovqin. kind ustuniga qarang: vertikal indeksni umumiy indeks bilan solishtirish noto‘g‘ri.',
 );
+
+// The scores are printed; the sockets are not needed any more. Releasing them here means the script ends
+// on purpose instead of waiting for each connection's own keep-alive timeout to expire.
+await closeRuntime();

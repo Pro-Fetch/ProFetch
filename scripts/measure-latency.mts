@@ -19,6 +19,7 @@ await import(base + 'env.js');
 await import(base + 'loader.js');
 const { callTool } = await import(base + 'router.js');
 const { indexDocument, searchIndex, closeIndex } = await import(base + 'core/local-index.js');
+const { closeRuntime } = await import(base + 'core/shutdown.js');
 
 const dir = await mkdtemp(join(tmpdir(), 'pf-latency-'));
 process.env.PRO_FETCH_INDEX_PATH = join(dir, 'index.sqlite');
@@ -95,4 +96,7 @@ console.log(
 );
 
 closeIndex();
+// Percentiles of calls that already returned: releasing the keep-alive sockets is what lets the process
+// exit instead of holding connections it will never use again.
+await closeRuntime();
 await rm(dir, { recursive: true, force: true });
