@@ -62,8 +62,16 @@ const SYNC_MODE = argv.includes('--sync');
 const extraArgs = argv.filter((a) => a !== '--sync');
 const vitestArgs = ['vitest', 'run', ...extraArgs];
 
-// The abort is an environment fault, not a property of the code under test, and it is
-// intermittent. Retrying is only safe when nothing actually failed: if an assertion failed, that
+// What the abort actually is, measured 2026-11-17: better-sqlite3 v11 finalises a prepared
+// statement when V8 garbage-collects it, and that teardown calls RemoveEnvironmentCleanupHook with
+// no current Environment (upstream WiseLibs/better-sqlite3#1515). Feeding a real 13 MB GTFS feed
+// through the loader aborted 6 runs out of 6, each at a different row; the same code on driver
+// 13.2.0 with `tools/gtfs/_gtfs.ts` caching its prepared statements so nothing is collected
+// mid-run finished 6 out of 6.
+//
+// The retry stays because any other native module can still do this, and because intermittency is
+// exactly what makes a retry the right shape for it — it is a safety net, not the fix.
+// Retrying is only safe when nothing actually failed: if an assertion failed, that
 // verdict is real and must be reported, so no retry happens. This keeps the retry from becoming a
 // way to turn a red suite green by trying until it feels like passing.
 const MAX_ATTEMPTS = 3;
