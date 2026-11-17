@@ -205,6 +205,74 @@ describe('live national feed', () => {
       'xizmat kuni ' + dates.runs_on[0] + ' bo‘lgan reys doskada yo‘q',
     ).toBe(true);
   }, 300_000);
+
+  it('plans a real journey between two stops of one trip and draws that line', async () => {
+    // Nothing here is hard-coded about Norway. One trip gives its own first and last stop, its service
+    // gives a date it really runs, the planner must then find that very trip, and the trip's shape must
+    // come back as a measurable line. If any link of that chain were wrong, an assertion would fail.
+    const routes = payload(await callTool('pro_gtfs_routes', { feed: 'nor-live', limit: 40 }));
+    const line = routes.routes.find((row: { trips: number; stops: number }) => row.trips > 0 && row.stops > 3);
+    expect(line, JSON.stringify(routes.routes.slice(0, 3))).toBeDefined();
+
+    const listed = payload(await callTool('pro_gtfs_trip', { feed: 'nor-live', route: line.route_id, limit: 20 }));
+    expect(listed.trips.length).toBeGreaterThan(0);
+    const detail = payload(
+      await callTool('pro_gtfs_trip', { feed: 'nor-live', trip: String(listed.trips[0].trip_id) }),
+    );
+    expect(detail.ok).toBe(true);
+    expect(detail.stops.length).toBeGreaterThan(2);
+    const origin = detail.stops[0].stop_id;
+    const target = detail.stops[detail.stops.length - 1].stop_id;
+
+    const dates = payload(
+      await callTool('pro_gtfs_service_dates', { feed: 'nor-live', service: detail.service.service_id, limit: 5 }),
+    );
+    expect(Array.isArray(dates.weekdays)).toBe(true);
+    const runDate = dates.runs_on.length ? dates.runs_on[0] : new Date().toISOString().slice(0, 10);
+
+    const plan = payload(
+      await callTool('pro_gtfs_journey', {
+        feed: 'nor-live',
+        from: origin,
+        to: target,
+        date: runDate,
+        at: '00:00',
+        window_min: 720,
+        max_results: 10,
+      }),
+    );
+    expect(plan.ok, JSON.stringify(plan)).toBe(true);
+    expect(plan.journeys.length, 'xizmat kuni ' + runDate + ': ' + JSON.stringify(plan.scanned)).toBeGreaterThan(0);
+    const onThisTrip = plan.journeys.find((row: { legs: Array<{ trip_id: string }> }) =>
+      row.legs.some((leg: { trip_id: string }) => leg.trip_id === detail.trip_id),
+    );
+    expect(
+      onThisTrip,
+      'reys o‘z bekalari orasida topilmadi: ' + JSON.stringify(plan.journeys.slice(0, 3)),
+    ).toBeDefined();
+    expect(onThisTrip.legs[0].from_stop).toBe(origin);
+    expect(onThisTrip.legs[onThisTrip.legs.length - 1].to_stop).toBe(target);
+    expect(onThisTrip.total_min).toBeGreaterThan(0);
+
+    // Shapes: a national feed draws some lines and not others, so the assertion follows whatever the data
+    // says instead of assuming either case, and reports which one happened.
+    if (detail.shape_id) {
+      const geometry = payload(
+        await callTool('pro_gtfs_shapes', { feed: 'nor-live', shape: String(detail.shape_id), simplify_m: 200 }),
+      );
+      expect(geometry.ok).toBe(true);
+      const one = geometry.shapes[0];
+      expect(one.points_total).toBeGreaterThan(1);
+      expect(one.length_m).toBeGreaterThan(0);
+      expect(one.points_after_simplify).toBeLessThanOrEqual(one.points_total);
+      expect(one.bounds.max_lat).toBeGreaterThan(one.bounds.min_lat);
+      expect(one.geometry).toBeUndefined();
+    } else {
+      const none = payload(await callTool('pro_gtfs_shapes', { feed: 'nor-live', trip: detail.trip_id }));
+      expect(none.ok).toBe(false);
+      expect(none.error).toMatch(/shape topilmadi/);
+    }
+  }, 300_000);
 });
 
 afterAll(() => {

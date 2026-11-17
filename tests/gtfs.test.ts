@@ -494,7 +494,10 @@ describe('gtfs calendar, trip and arrivals', () => {
     );
     expect(night.matched).toBe(1);
     expect(night.departures[0].trip_id).toBe('D3');
-    expect(night.departures[0].departure).toBe('+1d 01:20');
+    // Asked about Sunday, the departure IS Sunday 01:20, so the clock reads 01:20 and the service day says
+    // where it came from. The `+1d` form appears when the time is past midnight of the day being asked
+    // about — which is what pro_gtfs_trip shows for the same stop (25:15:00 → '+1d 01:15').
+    expect(night.departures[0].departure).toBe('01:20');
     expect(night.departures[0].service_day).toBe('2026-03-07');
     expect(night.departures[0].day_offset).toBe(-1);
     expect(night.departures[0].minutes_until).toBe(20);

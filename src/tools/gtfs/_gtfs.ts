@@ -137,6 +137,7 @@ create table if not exists stop_times (
 );
 create index if not exists stop_times_trip on stop_times (feed_id, trip_id, stop_sequence);
 create index if not exists stop_times_stop on stop_times (feed_id, stop_id, arrival_min);
+create index if not exists stop_times_stop_dep on stop_times (feed_id, stop_id, departure_min);
 create table if not exists calendar (
   feed_id text not null, service_id text not null, days integer, start_date text, end_date text,
   primary key (feed_id, service_id)
@@ -159,8 +160,9 @@ create table if not exists transfers (
   feed_id text not null, from_stop text, to_stop text, minutes integer, kind text
 );
 create table if not exists frequencies (
-  feed_id text not null, trip_id text, start_min integer, end_min integer, headway integer
+  feed_id text not null, trip_id text, start_min integer, end_min integer, headway integer, exact_times text
 );
+create index if not exists frequencies_trip on frequencies (feed_id, trip_id);
 create table if not exists file_rows (
   feed_id text not null, file text not null, rows integer not null, missing integer not null
 );
@@ -229,9 +231,20 @@ export async function openGtfsDb(): Promise<SqliteLike> {
   statementCache.clear();
   db.exec('pragma journal_mode = WAL');
   db.exec(SCHEMA);
+  // Databases written by an older build are upgraded in place rather than refused: SQLite has no
+  // `add column if not exists`, and the loader must not crash on a feed store from last month.
+  ensureColumn(db, 'frequencies', 'exact_times', 'text');
   handle = { path, db };
   log(JSON.stringify({ event: 'gtfs.db_opened', path }));
   return db;
+}
+
+/** Add a column an older database does not have yet. Idempotent, and silent when nothing is missing. */
+function ensureColumn(db: SqliteLike, table: string, column: string, declaration: string): void {
+  const columns = prepared(db, `pragma table_info(${table})`).all() as Array<{ name: string }>;
+  if (columns.some((item) => item.name === column)) return;
+  db.exec(`alter table ${table} add column ${column} ${declaration}`);
+  log(JSON.stringify({ event: 'gtfs.column_added', table, column }));
 }
 
 /** Only for tests: forget the open handle so a temporary path takes effect. */
@@ -862,11 +875,14 @@ function insertShapes(db: SqliteLike, feedId: string, zip: FeedZip, warnings: st
 function insertTransfers(db: SqliteLike, feedId: string, zip: FeedZip, warnings: string[]): number {
   const stmt = prepared(db, 'insert into transfers (feed_id, from_stop, to_stop, minutes, kind) values (?,?,?,?,?)');
   return withFile(zip, 'transfers.txt', warnings, (cell) => {
+    // `min_transfer_time` is measured in seconds and the column is named `minutes`, so the conversion
+    // belongs at the door. Rounds up: a 30-second promise is not a zero-minute one.
+    const seconds = toNumber(cell('min_transfer_time'));
     stmt.run(
       feedId,
       cell('from_stop_id'),
       cell('to_stop_id'),
-      toNumber(cell('min_transfer_time')),
+      seconds === null || seconds < 0 ? null : Math.ceil(seconds / 60),
       cell('transfer_type'),
     );
   });
@@ -875,7 +891,7 @@ function insertTransfers(db: SqliteLike, feedId: string, zip: FeedZip, warnings:
 function insertFrequencies(db: SqliteLike, feedId: string, zip: FeedZip, warnings: string[]): number {
   const stmt = prepared(
     db,
-    'insert into frequencies (feed_id, trip_id, start_min, end_min, headway) values (?,?,?,?,?)',
+    'insert into frequencies (feed_id, trip_id, start_min, end_min, headway, exact_times) values (?,?,?,?,?,?)',
   );
   return withFile(zip, 'frequencies.txt', warnings, (cell) => {
     stmt.run(
@@ -884,6 +900,7 @@ function insertFrequencies(db: SqliteLike, feedId: string, zip: FeedZip, warning
       parseGtfsTime(cell('start_time')),
       parseGtfsTime(cell('end_time')),
       toNumber(cell('headway_secs')),
+      cell('exact_times'),
     );
   });
 }

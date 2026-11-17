@@ -2,17 +2,17 @@
   <a href="https://github.com/Pro-Fetch/ProFetch">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.png">
-      <img alt="pro-fetch — 769 MCP tools, 47 categories, one gate" src="docs/assets/cover-light.png" width="860">
+      <img alt="pro-fetch — 771 MCP tools, 47 categories, one gate" src="docs/assets/cover-light.png" width="860">
     </picture>
   </a>
 </h1>
 
 <p align="center">
-  <b>769 MCP tools behind one server — one stdio process, no sidecar, no account.</b> Fetch,
+  <b>771 MCP tools behind one server — one stdio process, no sidecar, no account.</b> Fetch,
   crawl, extract, convert, OCR, web and academic
   search, deep research, GitHub/GitLab/Gitea/Forgejo/Bitbucket, SQLite/Postgres/MySQL/Redis, OSV
   and SBOM, Slack/Jira/Linear/Notion, S3/Drive/Dropbox. The `smart` profile advertises 12 meta-tools
-  that reach all 769, so a client with a small context window loses nothing except schema bytes; the
+  that reach all 771, so a client with a small context window loses nothing except schema bytes; the
   default profile is `standard`, which advertises 201 tools directly.
 </p>
 
@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@pro-fetch/mcp"><img alt="npm" src="https://img.shields.io/npm/v/@pro-fetch/mcp?label=npm&logo=npm"></a>
   <a href="https://nodejs.org"><img alt="node" src="https://img.shields.io/badge/node-%3E%3D22.13-5FA04E?logo=node.js"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-2040%20passing-success?logo=vitest"></a>
+  <a href="./README.md"><img alt="tests" src="https://img.shields.io/badge/tests-2057%20passing-success?logo=vitest"></a>
   <a href="https://github.com/Pro-Fetch/ProFetch/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Pro-Fetch/ProFetch/actions/workflows/ci.yml/badge.svg?branch=main"></a>
 </p>
 
@@ -64,7 +64,7 @@ Copy-ready file: [`mcp.example.json`](./mcp.example.json). Node 22.13 or newer, 
 Every call, direct or composed, crosses the same gate:
 
 ```text
-client ──> dispatch() ──> permission policy ──> SSRF / sandbox / annotation checks ──> 769 handlers
+client ──> dispatch() ──> permission policy ──> SSRF / sandbox / annotation checks ──> 771 handlers
                 ▲
      12 meta-tools in the default profile reach the same gate,
      with the same policy applied to every call inside a batch.
@@ -89,7 +89,7 @@ Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, gen
 | many results collapsed into one answer                 | `pro_synthesize`         |
 | the catalog searched in plain language                 | `pro_capability_map`     |
 | a multi-step task planned, gated, evidenced            | `pro_fetch_workflow`     |
-| any of the 769 by exact name                           | `pro_fetch_tool_execute` |
+| any of the 771 by exact name                           | `pro_fetch_tool_execute` |
 
 ## Profiles
 
@@ -100,7 +100,7 @@ Per-host instruction blocks — Claude Code, Codex, Gemini CLI, Copilot CLI, gen
 | `minimal`              |    76 | http, convert, admin                      |
 | `standard` _(default)_ |   201 | + github, search, extract, evidence, auth |
 | `smart`                |    12 | the twelve above                          |
-| `full`                 |   769 | everything                                |
+| `full`                 |   771 | everything                                |
 
 `pro_fetch_profile_switch` changes it at runtime and takes effect on the next request.
 `PRO_FETCH_PROFILE_CEILING` pins a maximum the switch may not pass; unset by default, because the
@@ -355,19 +355,19 @@ npm run check
 | Step              | What it proves                                                                                                                                                                                                                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify:static`   | structural invariants: published counts, required smart tools, synonym vocabulary, no template dispatcher, image bytes validated before OCR, and that the README category table still matches the manifest                                                                                       |
-| `verify:registry` | boots the real registry: **769 tools / 47 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
-| `test`            | **2040 tests** across 124 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
+| `verify:registry` | boots the real registry: **771 tools / 47 categories / all four profile counts**, every tool has a schema and a handler                                                                                                                                                                          |
+| `test`            | **2057 tests** across 125 files — SSRF, redirects, permission policy, output sandbox, timeouts, every tool's input contract, every internal tool reference, live provider-failure behaviour                                                                                                      |
 | `verify:package`  | the published tarball (687 files) has its shebang and `files` allowlist, and zero credentials or source files                                                                                                                                                                                    |
 | `audit:schema`    | schemas against the code behind them — **a step of `npm run check`**: fails on a declared property the code never reads, or a required argument it never reads. Categories whose schema is rewritten by `applyCategorySchema` are measured but excluded from the gate, and the run says how many |
 
-All 769 input schemas reject properties they do not declare. The MCP protocol itself was exercised
-live against `dist/server.js` over stdio: `initialize`, `tools/list` (769 unique under `full`, 12
+All 771 input schemas reject properties they do not declare. The MCP protocol itself was exercised
+live against `dist/server.js` over stdio: `initialize`, `tools/list` (771 unique under `full`, 12
 under `smart`, every schema `type: "object"`), `tools/call` for each advertised smart tool, hidden
 tools refused, clean JSON-RPC on stdout.
 
 ## Categories
 
-47 categories, 769 tools. The per-tool reference is generated from the running registry with
+47 categories, 771 tools. The per-tool reference is generated from the running registry with
 `npm run dump:catalog` into [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md); the system map — entry
 point, `dispatch()` gate, composites, profiles, MAX mode — is
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -389,7 +389,7 @@ point, `dispatch()` gate, composites, profiles, MAX mode — is
 | `zip` 5            | `opendata` 5   | `units` 5         |
 | `binary` 4         | `geo_data` 4   | `chess` 4         |
 | `color` 3          | `phonetics` 3  | `browser_use` 44  |
-| `prohuman` 20      | `gtfs` 8       |                   |
+| `prohuman` 20      | `gtfs` 10      |                   |
 
 ---
 
