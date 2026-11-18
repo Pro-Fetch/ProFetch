@@ -159,7 +159,15 @@ describe.skipIf(!reachable)('live: an empty engine is not an empty web', () => {
     // apart from "this server has no keys" — the assertion this replaced compared the ran-count with itself
     // plus the skipped count, which could only fail, and it was the test that caught the mistake.
     expect(merged.perEngine.length + merged.enginesSkipped.length).toBe(enginesFor('academic').length);
-    expect(merged.enginesUsed.length).toBeGreaterThan(1);
+    // What is a property of this code: several indexes were asked in parallel, and at least one of them
+    // answered. `enginesUsed` counts the engines that handed back a result, so demanding two of them was a
+    // claim about the web, not about the merge — on a runner with no search keys exactly one academic
+    // index had this topic, and CI went red over nothing. Measured that way in a copy of the committed tree
+    // with no `.env`: `expected 1 to be greater than 1`.
+    expect(merged.perEngine.length).toBeGreaterThan(1);
+    expect(merged.enginesUsed.length).toBeGreaterThan(0);
+    // Nothing may claim it contributed without having been asked.
+    expect(merged.enginesUsed.every((id) => merged.perEngine.some((outcome) => outcome.engine === id))).toBe(true);
     // Deduplication is the point of merging: the same page found by two engines must not fill the list.
     const urls = merged.results.map((item) => item.url);
     expect(new Set(urls).size).toBe(urls.length);
