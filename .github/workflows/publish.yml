@@ -24,7 +24,9 @@ concurrency:
 # Two jobs, not one, because the two halves want different machines for different reasons.
 #
 #   build   — verification and packaging. Always GitHub-hosted Ubuntu: the same image every contributor
-#             gets, the native modules built for Linux, 1980 tests in a known environment.
+#             gets, the native modules built for Linux, and the whole suite (2,061 tests as measured on
+#             2026-11-18 — the number the job prints is the authority, this one is orientation) in a known
+#             environment.
 #   publish — the network call that carries the credential. Runs wherever `PUBLISH_RUNNER` says.
 #
 # The split exists because of one measured fact: npm refuses our granular token from GitHub-hosted
