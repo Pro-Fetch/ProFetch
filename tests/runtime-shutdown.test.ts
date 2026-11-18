@@ -56,7 +56,9 @@ describe('runtime shutdown', () => {
       skipBlockWithout('tests/runtime-shutdown.test.ts', 'network', 'example.com javob bermadi', false);
       return;
     }
-    await fetchUrl('https://example.com/', { maxChars: 200 });
+    // The document is irrelevant; the connection it opened is the subject. The narrow limit is here so the
+    // test costs a handshake and not a page parse.
+    await fetchUrl('https://example.com/', { maxTokens: 8 });
     const started = Date.now();
     const report = await closeRuntime();
     expect(report.dispatchers).toBe(true);

@@ -233,16 +233,20 @@ describe('JSON minification is text-level', () => {
 describe('JWT HS* verify follows the algorithm digest and refuses PEM secrets', () => {
   const b64url = (input: Buffer | string): string => Buffer.from(input).toString('base64url').replace(/=+$/, '');
 
-  const signedToken = (alg: 'HS384' | 'HS512', secret: string): string => {
+  /**
+   * Signs a token whose header and signature really agree.
+   *
+   * This helper used to accept only HS384 and HS512 while a third test handed it 'HS256': the ternary then
+   * fell through to sha512, producing a token that claims HS256 and is signed with SHA-512. That test still
+   * passed, because the PEM refusal happens before the signature is checked — so the fixture was lying
+   * without being caught. A regression test whose token does not match its own header can stop testing the
+   * thing its name claims, which is why all three algorithms are mapped explicitly here.
+   */
+  const signedToken = (alg: 'HS256' | 'HS384' | 'HS512', secret: string): string => {
+    const digest = { HS256: 'sha256', HS384: 'sha384', HS512: 'sha512' }[alg];
     const header = b64url(JSON.stringify({ alg, typ: 'JWT' }));
     const payload = b64url(JSON.stringify({ sub: 'regression' }));
-    const digest = crypto.createHash(alg === 'HS384' ? 'sha384' : 'sha512');
-    const signature = b64url(
-      crypto
-        .createHmac(digest.algorithm === 'sha384' ? 'sha384' : 'sha512', secret)
-        .update(`${header}.${payload}`)
-        .digest(),
-    );
+    const signature = b64url(crypto.createHmac(digest, secret).update(`${header}.${payload}`).digest());
     return `${header}.${payload}.${signature}`;
   };
 

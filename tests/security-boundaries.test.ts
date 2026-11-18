@@ -33,7 +33,6 @@ import {
   isMutationTool,
   isMutationToolByName,
   mutationSinksOf,
-  MUTATING_ACTIONS,
 } from '../src/core/tool-classification.js';
 import { SINK_REACHING_TOOLS } from '../src/core/mutation-sinks.generated.js';
 import { scanSinkReachingTools } from '../src/core/mutation-scan.js';

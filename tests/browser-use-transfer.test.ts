@@ -3,7 +3,7 @@ import '../src/loader.js';
 import { callTool } from '../src/router.js';
 import { allTools } from '../src/core/tool.js';
 import { isToolVisibleInProfile } from '../src/core/profile.js';
-import { requireSession, SessionError } from '../src/core/browser-use-session.js';
+import { requireSession, SessionError, type FilePayload } from '../src/core/browser-use-session.js';
 import { parseUploadPayload } from '../src/tools/browser_use/browser_use_upload.js';
 import type { ToolResult } from '../src/core/types.js';
 
@@ -114,7 +114,9 @@ describe('an upload payload is checked before anything is handed over', () => {
   it('accepts the shape it documents and keeps the mime type the caller gave', () => {
     const parsed = parseUploadPayload([{ name: 'notes.txt', mime: 'text/plain', base64: b64(64) }]);
     expect('error' in parsed).toBe(false);
-    const files = (parsed as { files: never[] }).files;
+    // The real hand-off shape, not `never[]`: with `never` the three property checks below type as
+    // whatever the compiler likes and assert nothing at all.
+    const files = (parsed as { files: FilePayload[] }).files;
     expect(files).toHaveLength(1);
     expect(files[0]!.name).toBe('notes.txt');
     expect(files[0]!.mimeType).toBe('text/plain');

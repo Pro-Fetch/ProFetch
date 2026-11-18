@@ -123,15 +123,12 @@ describe('ZIP ochiq hajm chegarasi haqiqiy o‘lchov bilan', () => {
     expect(actualTotal).toBe(entryCount * 20);
 
     const destination = path.join(outputRoot, 'f05-refused');
-    const result = await tool.handler(
-      {
-        base64: archive.toString('base64'),
-        out_dir: destination,
-        extract: true,
-        max_inflated_bytes: 1024, // the floor, and below the real total
-      },
-      {} as never,
-    );
+    const result = await tool.handler({
+      base64: archive.toString('base64'),
+      out_dir: destination,
+      extract: true,
+      max_inflated_bytes: 1024, // the floor, and below the real total
+    });
     const text = textOf(result);
 
     // The refusal must name the measured size, not the declared one. It fires as soon as the running
@@ -151,10 +148,12 @@ describe('ZIP ochiq hajm chegarasi haqiqiy o‘lchov bilan', () => {
       { name: 'b.txt', data: 'B'.repeat(20), declaredSize: 1 },
     ]);
     const destination = path.join(outputRoot, 'f05-allowed');
-    const result = await tool.handler(
-      { base64: archive.toString('base64'), out_dir: destination, extract: true, max_inflated_bytes: 1000 },
-      {} as never,
-    );
+    const result = await tool.handler({
+      base64: archive.toString('base64'),
+      out_dir: destination,
+      extract: true,
+      max_inflated_bytes: 1000,
+    });
     const text = textOf(result);
 
     expect(text).not.toMatch(/chegaradan/);
@@ -167,10 +166,7 @@ describe('ZIP ochiq hajm chegarasi haqiqiy o‘lchov bilan', () => {
     const archive = archiveWithWrongCrc(['first.txt', 'second.txt', 'third.txt']);
 
     const destination = path.join(outputRoot, 'f22-atomic');
-    const result = await tool.handler(
-      { base64: archive.toString('base64'), out_dir: destination, extract: true },
-      {} as never,
-    );
+    const result = await tool.handler({ base64: archive.toString('base64'), out_dir: destination, extract: true });
     const text = textOf(result);
 
     expect(text).toMatch(/CRC mos kelmadi/);
@@ -184,10 +180,7 @@ describe('ZIP ochiq hajm chegarasi haqiqiy o‘lchov bilan', () => {
     const archive = archiveWithWrongCrc(['ok.txt', 'bad.txt']);
 
     const destination = path.join(outputRoot, 'f22-crc-still-checked');
-    const result = await tool.handler(
-      { base64: archive.toString('base64'), out_dir: destination, extract: true },
-      {} as never,
-    );
+    const result = await tool.handler({ base64: archive.toString('base64'), out_dir: destination, extract: true });
     expect(textOf(result)).toMatch(/CRC mos kelmadi/);
     expect(readdirSync(destination, { recursive: true })).toEqual([]);
   });
