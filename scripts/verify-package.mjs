@@ -141,7 +141,13 @@ try {
     failures.push('sqliteQuery is missing; the SQLite tools would fall back to an external binary');
   } else {
     const body = source.slice(start, start + 2000);
-    if (!/await import\(/.test(body)) failures.push('sqliteQuery must load the bundled driver, not shell out');
+    // The promise is "loads the driver in-process", not "uses one syntax for it". The driver moved to the
+    // shared CommonJS loader in `core/sqlite-driver.ts` because a variable `import()` failed to resolve on
+    // the Linux and macOS runners; accepting both spellings keeps this guard checking the thing it was
+    // written for — that the SQLite path does not shell out — instead of freezing an implementation detail
+    // that had to change.
+    if (!/await import\(|requireSqliteDriver\(/.test(body))
+      failures.push('sqliteQuery must load the bundled driver, not shell out');
   }
 } catch {
   failures.push('cannot read src/core/max-platform-tools.ts to check the SQLite path');

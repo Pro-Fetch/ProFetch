@@ -33,6 +33,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { assertWritable } from './read-only-guard.js';
+import { requireSqliteDriver } from './sqlite-driver.js';
 
 type SqliteRow = Record<string, unknown>;
 
@@ -107,13 +108,13 @@ export async function openQueue(): Promise<SqliteLike> {
   if (handle && handle.path === path) return handle.db;
   let open: new (file: string) => SqliteLike;
   try {
-    const specifier = 'better-sqlite3';
-    const mod = (await import(specifier)) as unknown as { default: new (file: string) => SqliteLike };
-    open = mod.default;
+    // `core/sqlite-driver.ts` rather than a dynamic `import()`: see that file for the measured runner
+    // failure this avoids.
+    open = (await requireSqliteDriver()) as new (file: string) => SqliteLike;
   } catch (error) {
     throw new Error(
       'crawl navbati ishlashi uchun better-sqlite3 kerak — u majburiy boʻlmagan bogʻliqlik. ' +
-        'Qayta qurish: `npm rebuild better-sqlite3`. Asl xato: ' +
+        'Tekshirish: `npm ls better-sqlite3`. Asl xato: ' +
         (error instanceof Error ? error.message : String(error)),
     );
   }

@@ -35,6 +35,7 @@ import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { assertWritable } from './read-only-guard.js';
+import { requireSqliteDriver } from './sqlite-driver.js';
 import { log } from './log.js';
 
 export interface IndexedDocument {
@@ -153,13 +154,13 @@ export async function openIndex(): Promise<SqliteLike> {
 
   let open: new (file: string) => SqliteLike;
   try {
-    const specifier = 'better-sqlite3';
-    const mod = (await import(specifier)) as unknown as { default: new (file: string) => SqliteLike };
-    open = mod.default;
+    // `sqlite-driver.ts` rather than a dynamic `import()`: see that file for the measured runner failure
+    // this avoids.
+    open = (await requireSqliteDriver()) as new (file: string) => SqliteLike;
   } catch (error) {
     throw new Error(
       `lokal indeks ishlashi uchun better-sqlite3 kerak — u majburiy bo'lmagan bog'liqlik. ` +
-        `Qayta qurish: \`npm rebuild better-sqlite3\`. Asl xato: ${(error as Error).message}`,
+        `Tekshirish: \`npm ls better-sqlite3\`. Asl xato: ${(error as Error).message}`,
     );
   }
 

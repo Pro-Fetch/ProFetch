@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { childEnvOnly } from './child-env.js';
+import { requireSqliteDriver } from './sqlite-driver.js';
 import { promisify } from 'node:util';
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync, realpathSync } from 'node:fs';
@@ -260,11 +261,13 @@ async function sqliteQuery(path: string, sql: string): Promise<{ stdout: string;
   if (!existsSync(path)) throw new Error(`SQLITE_FILE_NOT_FOUND: ${path}`);
 
   try {
-    // Imported through a variable so TypeScript does not need type declarations for an optional
-    // dependency, and so a missing package surfaces as a catchable error instead of a load-time crash.
-    const specifier = 'better-sqlite3';
-    const mod = (await import(specifier)) as unknown as { default: new (p: string, o?: object) => SqliteDb };
-    const db = new mod.default(path, { readonly: true, fileMustExist: true });
+    // Taken through `sqlite-driver.ts`, which uses Node's CommonJS resolver: an optional dependency must
+    // stay invisible to TypeScript's type checking and must not crash at load time, and a dynamic
+    // `import()` of a variable specifier additionally failed to resolve on the Linux and macOS runners
+    // (measured in CI — see the comment at the top of that file). A missing package still lands in the
+    // catch below and falls back to the CLI.
+    const Ctor = (await requireSqliteDriver()) as new (p: string, o?: object) => SqliteDb;
+    const db = new Ctor(path, { readonly: true, fileMustExist: true });
     try {
       const rows = db.prepare(sql).all();
       return { stdout: JSON.stringify(rows, null, 2), stderr: '' };

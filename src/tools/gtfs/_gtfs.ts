@@ -40,6 +40,7 @@ import { homedir } from 'node:os';
 import { log } from '../../core/log.js';
 import { downloadToBuffer } from '../../core/http-client.js';
 import { canSkipSideEffect } from '../../core/read-only-guard.js';
+import { requireSqliteDriver } from '../../core/sqlite-driver.js';
 import { DEFAULT_MAX_INFLATED_BYTES, readEntry, readZip } from '../zip/_zip.js';
 
 /** How many examples a load warning reports before switching to "and N more". */
@@ -214,13 +215,13 @@ export async function openGtfsDb(): Promise<SqliteLike> {
 
   let open: new (file: string) => SqliteLike;
   try {
-    const specifier = 'better-sqlite3';
-    const mod = (await import(specifier)) as unknown as { default: new (file: string) => SqliteLike };
-    open = mod.default;
+    // Through `core/sqlite-driver.ts`, not a dynamic `import()` here: the bundler-side resolution of a
+    // variable specifier is what failed on the Linux and macOS runners.
+    open = (await requireSqliteDriver()) as new (file: string) => SqliteLike;
   } catch (error) {
     throw new Error(
       'gtfs ishlari uchun better-sqlite3 kerak — u majburiy bo‘lmagan bog‘liqlik. ' +
-        'Qayta qurish: `npm rebuild better-sqlite3`. Asl xato: ' +
+        'Tekshirish: `npm ls better-sqlite3`. Asl xato: ' +
         (error as Error).message,
     );
   }
