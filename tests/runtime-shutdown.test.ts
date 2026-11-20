@@ -61,11 +61,15 @@ describe('runtime shutdown', () => {
     await fetchUrl('https://example.com/', { maxTokens: 8 });
     const started = Date.now();
     const report = await closeRuntime();
-    expect(report.dispatchers).toBe(true);
-    // A shutdown that has to wait for a socket to time out is the bug, not the cost: closing is asked for,
-    // not begged for. Four seconds is generous for a local handshake that already completed.
-    expect(Date.now() - started, 'closeRuntime ' + (Date.now() - started) + ' ms davom etdi').toBeLessThan(4_000);
-  }, 30_000);
+    // The bound is a hang detector, not a performance promise: it fails if shutting down has to wait for a
+    // socket's own timeout instead of being closed. Measured range for this call: 0.3 s when nothing is
+    // open, 1.5–5.5 s on this machine after a real handshake, 4.2 s on a Windows CI runner. The first
+    // version of this line demanded 4 s and went red on CI — a threshold picked smaller than the fastest
+    // machine that does not run the test is not a threshold, it is a coin toss.
+    const took = Date.now() - started;
+    expect(report.dispatchers, 'dispatcher yopilmadi: ' + took + ' ms').toBe(true);
+    expect(took, 'closeRuntime ' + took + ' ms davom etdi').toBeLessThan(20_000);
+  }, 40_000);
 
   it('is what the server hook uses, so the killed server releases both kinds of handle', () => {
     const server = readFileSync('src/server.ts', 'utf8');
